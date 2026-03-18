@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@theme {
+  --color-accent: #8b5cf6;
+  --color-accent-hover: #7c3aed;
+  --color-accent-bg: rgba(139, 92, 246, 0.08);
+  --color-error: #ef4444;
+  --color-error-bg: rgba(239, 68, 68, 0.08);
+}
+
+@layer base {
+  body {
+    @apply antialiased;
+  }
+
+  a {
+    @apply text-accent font-medium no-underline transition-colors hover:text-accent-hover;
+  }
+}
