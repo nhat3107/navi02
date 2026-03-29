@@ -18,6 +18,13 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface OnboardRequest {
+  avatar: File | null;
+  username: string;
+  dob: string;
+  gender: string;
+}
+
 export interface AuthState {
   user: User | null;
   accessToken: string | null;

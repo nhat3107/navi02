@@ -20,7 +20,7 @@ export function useOAuthCallback() {
     const token = searchParams.get('token');
     if (token) {
       setAuth({ id: '', email: '' }, token);
-      navigate(ROUTES.HOME, { replace: true });
+      navigate(ROUTES.ONBOARD, { replace: true });
     } else {
       navigate(ROUTES.LOGIN, { replace: true });
     }

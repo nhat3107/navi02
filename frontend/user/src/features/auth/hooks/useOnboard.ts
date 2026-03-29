@@ -1,31 +1,33 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { registerApi } from '../api/auth.api';
+import { onboardApi } from '../api/auth.api';
+import { useAuthStore } from '../store/auth.store';
 import { ROUTES } from '../../../shared/constants/routes';
-import type { RegisterRequest } from '../types/auth.types';
+import type { OnboardRequest } from '../types/auth.types';
 import type { AxiosError } from 'axios';
 
-export function useRegister() {
+export function useOnboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const setAuth = useAuthStore((s) => s.setAuth);
   const navigate = useNavigate();
 
-  const register = async (data: RegisterRequest) => {
+  const onboard = async (data: OnboardRequest) => {
     setLoading(true);
     setError(null);
     try {
-      await registerApi(data);
-      navigate(ROUTES.ONBOARD);
+      const res = await onboardApi(data);
+      setAuth(res.user, res.accessToken);
+      navigate(ROUTES.HOME);
     } catch (err) {
       const axiosErr = err as AxiosError<{ message?: string }>;
       setError(
-        axiosErr.response?.data?.message ??
-          'Registration failed. Please try again.',
+        axiosErr.response?.data?.message ?? 'Something went wrong. Please try again.',
       );
     } finally {
       setLoading(false);
     }
   };
 
-  return { register, loading, error };
+  return { onboard, loading, error };
 }
