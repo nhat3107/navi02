@@ -1,0 +1,51 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+  moduleFormat    = "cjs" //Dòng này được thêm vào dựa theo hướng dẫn của document tại: https://docs.nestjs.com/recipes/prisma#configure-the-module-format
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id              String         @id @default(uuid())
+  email           String         @unique
+  hash_password   String
+  role            String         @default("user")
+  isEmailVerified Boolean        @default(false)
+  auth_provider   String         @default("email")
+  githubId        String?
+  googleId        String?
+  account_status  String         @default("active")
+  block_until     DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  refreshTokens   RefreshToken[]
+}
+
+model RefreshToken {
+  id          String   @id @default(uuid())
+  token_hash  String   @unique
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Otp {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  otp_hash  String
+  expiry    DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

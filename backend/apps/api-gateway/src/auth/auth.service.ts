@@ -1,33 +1,53 @@
-import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
-import { CreateAuthDto } from './dto/create-auth.dto';
-import { UpdateAuthDto } from './dto/update-auth.dto';
-import { ClientKafka } from '@nestjs/microservices';
+import { Injectable, Inject } from '@nestjs/common';
+import { SignUpDto } from './dto/sign-up-dto';
+import { ClientKafka, ClientProxy } from '@nestjs/microservices';
+import { VerifyOtpDto } from './dto/verify-otp-dto';
+import { ResendOtpDto } from './dto/resend-otp-dto';
+import { SignInDto } from './dto/sign-in-dto';
+import { ForgetPasswdDto } from './dto/forget-passwd-dto';
+import { ResetPasswdDto } from './dto/reset-passwd-dto';
 
 @Injectable()
 export class AuthService {
-  constructor(@Inject('KAFKA_SERVICE') private readonly kafkaclient: ClientKafka) {}
+  constructor(
+    @Inject('KAFKA_SERVICE') private readonly kafkaclient: ClientKafka,
+    @Inject('TCP_SERVICE') private readonly tcpclient: ClientProxy
+  ) {}
 
   onModuleInit() {
     this.kafkaclient.subscribeToResponseOf('auth.get_auths_service');
   }
 
-  create(createAuthDto: CreateAuthDto) {
-    return 'This action adds a new auth';
+  signup(signupDto: SignUpDto) {
+    return this.tcpclient.send('auth.signup', signupDto);
   }
 
-  findAll() {
-    return this.kafkaclient.send('auth.get_auths_service', {});
+  verify_otp(verify_otpDto: VerifyOtpDto) {
+    return this.tcpclient.send('auth.verify_otp', verify_otpDto);
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} auth`;
+  resend_otp(resend_otpDto: ResendOtpDto) {
+    return this.tcpclient.send('auth.resend_otp', resend_otpDto);
   }
 
-  update(id: number, updateAuthDto: UpdateAuthDto) {
-    return `This action updates a #${id} auth`;
+  signin(signinDto: SignInDto) {
+    return this.tcpclient.send('auth.signin', signinDto);
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} auth`;
+  refresh(refreshToken: string) {
+    return this.tcpclient.send('auth.refresh', { refreshToken });
   }
+
+  forget_passwd(forgetPasswdDto: ForgetPasswdDto) {
+    return this.tcpclient.send('auth.forget_passwd', forgetPasswdDto);
+  }
+
+  reset_passwd(resetPasswdDto: ResetPasswdDto) {
+    return this.tcpclient.send('auth.reset_passwd', resetPasswdDto);
+  }
+
+  signout(refreshToken: string) {
+    return this.tcpclient.send('auth.signout', { refreshToken });
+  }
+
 }
