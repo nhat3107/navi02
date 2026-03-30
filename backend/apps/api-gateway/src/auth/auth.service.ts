@@ -50,4 +50,8 @@ export class AuthService {
     return this.tcpclient.send('auth.signout', { refreshToken });
   }
 
+  oauthLogin(oauthData: { provider: string; providerId: string; email: string }) {
+    return this.tcpclient.send('auth.oauth_login', oauthData);
+  }
+
 }

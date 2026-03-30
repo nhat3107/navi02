@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { RpcToHttpExceptionFilter } from './nestjs/filters/rpc-exception.filter';
+import { RpcToHttpExceptionFilter } from './common/filters/rpc-exception.filter';
 import cookieParser from 'cookie-parser';
 
 async function bootstrap() {

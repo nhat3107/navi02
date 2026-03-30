@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Res, Req } from '@nestjs/common';
+import { Controller, Post, Get, Body, HttpCode, HttpStatus, Res, Req, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { SignUpDto } from './dto/sign-up-dto';
 import { VerifyOtpDto } from './dto/verify-otp-dto';
@@ -8,7 +8,9 @@ import { ForgetPasswdDto } from './dto/forget-passwd-dto';
 import { ResetPasswdDto } from './dto/reset-passwd-dto';
 import type { Request, Response } from 'express';
 import { firstValueFrom } from 'rxjs';
-import { Public } from '../nestjs/decorators/public.decorator';
+import { Public } from '../common/decorators/public.decorator';
+import { GoogleAuthGuard } from '../common/guards/google-auth.guard';
+import { GithubAuthGuard } from '../common/guards/github-auth.guard';
 
 @Public()
 @Controller('auth')
@@ -92,6 +94,56 @@ export class AuthController {
     });
 
     return result;
+  }
+
+  // --- OAuth2 ---
+
+  @Get('google')
+  @UseGuards(GoogleAuthGuard)
+  googleLogin() {}
+
+  @Get('google/callback')
+  @UseGuards(GoogleAuthGuard)
+  async googleCallback(@Req() req: Request, @Res() res: Response) {
+    const oauthUser = req.user as { provider: string; providerId: string; email: string };
+    const { accessToken, refreshToken } = await firstValueFrom(
+      this.authService.oauthLogin(oauthUser),
+    );
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 15 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+
+    const frontendUrl = process.env.OAUTH_FRONTEND_REDIRECT_URL;
+    return res.redirect(`${frontendUrl}?accessToken=${accessToken}`);
+  }
+
+  @Get('github')
+  @UseGuards(GithubAuthGuard)
+  githubLogin() {}
+
+  @Get('github/callback')
+  @UseGuards(GithubAuthGuard)
+  async githubCallback(@Req() req: Request, @Res() res: Response) {
+    const oauthUser = req.user as { provider: string; providerId: string; email: string };
+    const { accessToken, refreshToken } = await firstValueFrom(
+      this.authService.oauthLogin(oauthUser),
+    );
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 15 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+
+    const frontendUrl = process.env.OAUTH_FRONTEND_REDIRECT_URL;
+    return res.redirect(`${frontendUrl}?accessToken=${accessToken}`);
   }
 
 }

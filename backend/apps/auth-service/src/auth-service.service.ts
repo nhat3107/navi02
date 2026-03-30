@@ -305,6 +305,83 @@ export class AuthServiceService {
     }
   }
 
+  async oauthLogin(data: { provider: string; providerId: string; email: string }): Promise<any> {
+    try {
+      const { provider, providerId, email } = data;
+      const providerIdField = provider === 'google' ? 'googleId' : 'githubId';
+
+      let user = await this.prismaService.user.findFirst({
+        where: { [providerIdField]: providerId },
+      });
+
+      if (!user) {
+        user = await this.prismaService.user.findUnique({
+          where: { email },
+        });
+
+        if (user) {
+          user = await this.prismaService.user.update({
+            where: { id: user.id },
+            data: { [providerIdField]: providerId },
+          });
+        }
+      }
+
+      if (!user) {
+        user = await this.prismaService.user.create({
+          data: {
+            email,
+            hash_password: '',
+            role: 'user',
+            isEmailVerified: true,
+            auth_provider: provider,
+            [providerIdField]: providerId,
+          },
+        });
+
+        this.kafkaclient.emit('auth.user_created_oauth', {
+          userId: user.id,
+          email: user.email,
+          provider,
+        }); // ????? 
+      }
+
+      if (user.account_status === 'blocked') {
+        if (user.block_until && new Date() < user.block_until) {
+          throw new RpcException({ status: 403, message: 'Account is temporarily blocked' });
+        }
+        await this.prismaService.user.update({
+          where: { id: user.id },
+          data: { account_status: 'active', block_until: null },
+        });
+      }
+
+      await this.prismaService.refreshToken.deleteMany({
+        where: { userId: user.id },
+      });
+
+      const accessToken = await this.jwtService.signAsync(
+        { sub: user.id, email: user.email, role: user.role },
+      );
+
+      const refreshToken = randomBytes(64).toString('hex');
+
+      await this.prismaService.refreshToken.create({
+        data: {
+          token_hash: refreshToken,
+          userId: user.id,
+          expiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+        },
+      });
+
+      return { accessToken, refreshToken };
+    } catch (error) {
+      if (error instanceof RpcException) throw error;
+      console.error('Error in OAuth login', error);
+      throw new RpcException({ status: 500, message: 'Failed to complete OAuth login' });
+    }
+  }
+
   async signout(data: any): Promise<any> {
     try {
       const { refreshToken } = data;
