@@ -3,18 +3,18 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
-import { JwtAuthGuard } from './nestjs/guards/jwt-auth.guard';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
-    JwtModule.register({ global: true }),
-    AuthModule,
-    UserModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: 'apps/api-gateway/.env',
     }),
+    JwtModule.register({ global: true }),
+    AuthModule,
+    UserModule,
   ],
   providers: [
     {

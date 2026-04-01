@@ -45,4 +45,9 @@ export class AuthServiceController {
   signout(data: any): Promise<any> {
     return this.authServiceService.signout(data);
   }
+
+  @MessagePattern('auth.oauth_login', Transport.TCP)
+  oauthLogin(data: any): Promise<any> {
+    return this.authServiceService.oauthLogin(data);
+  }
 }

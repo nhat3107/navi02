@@ -1,7 +1,7 @@
 import { Controller, HttpCode, HttpStatus, Post, Get, Body } from '@nestjs/common';
 import { UserService } from './user.service';
 import { OnboardingDto } from './dto/onboarding-dto';
-import { CurrentUser } from '../nestjs/decorators/current-user.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @Controller('user')
 export class UserController {
