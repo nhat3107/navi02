@@ -5,6 +5,12 @@ import { AuthController } from './auth.controller';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { GithubStrategy } from './strategies/github.strategy';
+import { isGithubOAuthConfigured, isGoogleOAuthConfigured } from './oauth-env';
+
+const oauthStrategies = [
+  ...(isGoogleOAuthConfigured() ? [GoogleStrategy] : []),
+  ...(isGithubOAuthConfigured() ? [GithubStrategy] : []),
+];
 
 @Module({
   imports: [
@@ -12,25 +18,20 @@ import { GithubStrategy } from './strategies/github.strategy';
     ClientsModule.register([
       {
         name: 'KAFKA_SERVICE',
-        transport: Transport.KAFKA, 
+        transport: Transport.KAFKA,
         options: {
-          client: { 
-            brokers: ['localhost:9092'] 
-          }, 
-        }
-      }
-    ]),
-
-    ClientsModule.register([
-      {
-        name: 'TCP_SERVICE', transport: Transport.TCP, 
-        options: {
-          port: 4001,
-        }
-      }
+          client: {
+            clientId: 'api-gateway-auth',
+            brokers: ['localhost:9092'],
+          },
+          consumer: {
+            groupId: 'api-gateway-auth-reply',
+          },
+        },
+      },
     ]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, GoogleStrategy, GithubStrategy],
+  providers: [AuthService, ...oauthStrategies],
 })
 export class AuthModule {}

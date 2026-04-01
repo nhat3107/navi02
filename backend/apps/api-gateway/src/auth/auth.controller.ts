@@ -1,4 +1,16 @@
-import { Controller, Post, Get, Body, HttpCode, HttpStatus, Res, Req, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  HttpCode,
+  HttpStatus,
+  Res,
+  Req,
+  UseGuards,
+  UnauthorizedException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { SignUpDto } from './dto/sign-up-dto';
 import { VerifyOtpDto } from './dto/verify-otp-dto';
@@ -11,61 +23,66 @@ import { firstValueFrom } from 'rxjs';
 import { Public } from '../common/decorators/public.decorator';
 import { GoogleAuthGuard } from '../common/guards/google-auth.guard';
 import { GithubAuthGuard } from '../common/guards/github-auth.guard';
+import {
+  attachRefreshTokenCookie,
+  readRefreshTokenCookie,
+  clearRefreshTokenCookies,
+} from './auth-session.cookies';
+
+/** JSON body: short-lived JWT only. Refresh stays in HttpOnly `refresh_token` cookie. */
+export type AccessTokenDto = { access_token: string };
 
 @Public()
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @HttpCode(HttpStatus.OK) //Đánh dấu status code là 200 thay vì 201 mặc định của NestJS
+  @HttpCode(HttpStatus.OK)
   @Post('signup')
   signup(@Body() signupDto: SignUpDto) {
     return this.authService.signup(signupDto);
   }
 
-  @HttpCode(HttpStatus.OK)  
+  @HttpCode(HttpStatus.OK)
   @Post('verify-otp')
   verify_otp(@Body() verify_otpDto: VerifyOtpDto) {
     return this.authService.verify_otp(verify_otpDto);
   }
 
-  @HttpCode(HttpStatus.OK)  
+  @HttpCode(HttpStatus.OK)
   @Post('resend-otp')
-  resend_otp(@Body() resend_otpDto: ResendOtpDto) { 
+  resend_otp(@Body() resend_otpDto: ResendOtpDto) {
     return this.authService.resend_otp(resend_otpDto);
   }
 
-  @HttpCode(HttpStatus.OK)  
+  @HttpCode(HttpStatus.OK)
   @Post('signin')
-  async signin(@Body() signinDto: SignInDto, @Res({ passthrough: true }) res: Response) {
-    const { accessToken, refreshToken } = await firstValueFrom(this.authService.signin(signinDto));
-
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 15 * 24 * 60 * 60 * 1000,
-      path: '/',
-    });
-
-    return { accessToken };
+  async signin(
+    @Body() signinDto: SignInDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AccessTokenDto> {
+    const { accessToken, refreshToken } = await firstValueFrom(
+      this.authService.signin(signinDto),
+    );
+    attachRefreshTokenCookie(res, refreshToken, 'strict');
+    return { access_token: accessToken };
   }
 
   @HttpCode(HttpStatus.OK)
   @Post('refresh')
-  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const refreshToken = req.cookies?.refreshToken;
-    const { accessToken, refreshToken: newRefreshToken } = await firstValueFrom(this.authService.refresh(refreshToken));
-
-    res.cookie('refreshToken', newRefreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 15 * 24 * 60 * 60 * 1000,
-      path: '/',
-    });
-
-    return { accessToken };
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AccessTokenDto> {
+    const refreshToken = readRefreshTokenCookie(req);
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token is required');
+    }
+    const { accessToken, refreshToken: rotated } = await firstValueFrom(
+      this.authService.refresh(refreshToken),
+    );
+    attachRefreshTokenCookie(res, rotated, 'strict');
+    return { access_token: accessToken };
   }
 
   @HttpCode(HttpStatus.OK)
@@ -82,21 +99,17 @@ export class AuthController {
 
   @HttpCode(HttpStatus.OK)
   @Post('signout')
-  async signout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const refreshToken = req.cookies?.refreshToken;
-    const result = await firstValueFrom(this.authService.signout(refreshToken));
-
-    res.clearCookie('refreshToken', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/',
-    });
-
+  async signout(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refreshToken = readRefreshTokenCookie(req) ?? '';
+    const result = await firstValueFrom(
+      this.authService.signout(refreshToken),
+    );
+    clearRefreshTokenCookies(res);
     return result;
   }
-
-  // --- OAuth2 ---
 
   @Get('google')
   @UseGuards(GoogleAuthGuard)
@@ -105,21 +118,23 @@ export class AuthController {
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
   async googleCallback(@Req() req: Request, @Res() res: Response) {
-    const oauthUser = req.user as { provider: string; providerId: string; email: string };
+    const oauthUser = req.user as {
+      provider: string;
+      providerId: string;
+      email: string;
+    };
     const { accessToken, refreshToken } = await firstValueFrom(
       this.authService.oauthLogin(oauthUser),
     );
-
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 15 * 24 * 60 * 60 * 1000,
-      path: '/',
-    });
-
+    attachRefreshTokenCookie(res, refreshToken, 'lax');
     const frontendUrl = process.env.OAUTH_FRONTEND_REDIRECT_URL;
-    return res.redirect(`${frontendUrl}?accessToken=${accessToken}`);
+    if (!frontendUrl?.trim()) {
+      throw new InternalServerErrorException(
+        'OAUTH_FRONTEND_REDIRECT_URL is not set',
+      );
+    }
+    const q = `access_token=${encodeURIComponent(accessToken)}`;
+    return res.redirect(`${frontendUrl}?${q}`);
   }
 
   @Get('github')
@@ -129,21 +144,22 @@ export class AuthController {
   @Get('github/callback')
   @UseGuards(GithubAuthGuard)
   async githubCallback(@Req() req: Request, @Res() res: Response) {
-    const oauthUser = req.user as { provider: string; providerId: string; email: string };
+    const oauthUser = req.user as {
+      provider: string;
+      providerId: string;
+      email: string;
+    };
     const { accessToken, refreshToken } = await firstValueFrom(
       this.authService.oauthLogin(oauthUser),
     );
-
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 15 * 24 * 60 * 60 * 1000,
-      path: '/',
-    });
-
+    attachRefreshTokenCookie(res, refreshToken, 'lax');
     const frontendUrl = process.env.OAUTH_FRONTEND_REDIRECT_URL;
-    return res.redirect(`${frontendUrl}?accessToken=${accessToken}`);
+    if (!frontendUrl?.trim()) {
+      throw new InternalServerErrorException(
+        'OAUTH_FRONTEND_REDIRECT_URL is not set',
+      );
+    }
+    const q = `access_token=${encodeURIComponent(accessToken)}`;
+    return res.redirect(`${frontendUrl}?${q}`);
   }
-
 }
