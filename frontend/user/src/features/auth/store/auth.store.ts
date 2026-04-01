@@ -1,13 +1,18 @@
 import { create } from 'zustand';
 import type { AuthState, User } from '../types/auth.types';
 import { decodeJwtPayload } from '../../../shared/utils/jwt';
+import {
+  getStoredAccessToken,
+  persistAccessToken,
+  clearAccessTokenStorage,
+} from '../../../shared/constants/tokens';
 
 function readStoredSession(): { user: User | null; accessToken: string | null } {
-  const token = localStorage.getItem('accessToken');
+  const token = getStoredAccessToken();
   if (!token) return { user: null, accessToken: null };
   const payload = decodeJwtPayload<{ sub: string; email: string }>(token);
   if (!payload?.sub || !payload?.email) {
-    localStorage.removeItem('accessToken');
+    clearAccessTokenStorage();
     return { user: null, accessToken: null };
   }
   return {
@@ -24,12 +29,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: !!initial.accessToken && !!initial.user,
 
   setAuth: (user: User, accessToken: string) => {
-    localStorage.setItem('accessToken', accessToken);
+    persistAccessToken(accessToken);
     set({ user, accessToken, isAuthenticated: true });
   },
 
   logout: () => {
-    localStorage.removeItem('accessToken');
+    clearAccessTokenStorage();
     set({ user: null, accessToken: null, isAuthenticated: false });
   },
 }));

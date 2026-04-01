@@ -1,5 +1,6 @@
 import { api } from '../../../shared/utils/axios';
 import { API_ROUTES } from '../../../shared/constants/routes';
+import { readAccessTokenFromBody } from '../../../shared/constants/tokens';
 import type {
   LoginRequest,
   OnboardPayload,
@@ -10,9 +11,14 @@ import type {
   UserProfileResponse,
 } from '../types/auth.types';
 
-export async function signInApi(data: LoginRequest): Promise<SignInResponse> {
+/** Sign-in sets `refresh_token` cookie; body chỉ có `access_token`. */
+export async function signInApi(data: LoginRequest): Promise<{ accessToken: string }> {
   const res = await api.post<SignInResponse>(API_ROUTES.SIGNIN, data);
-  return res.data;
+  const accessToken = readAccessTokenFromBody(res.data);
+  if (!accessToken) {
+    throw new Error('Sign-in response missing access_token');
+  }
+  return { accessToken };
 }
 
 export async function signUpApi(data: RegisterRequest): Promise<SignUpResponse> {
@@ -47,11 +53,13 @@ export async function onboardingApi(
   return res.data;
 }
 
+/** Browser redirect — OAuth routes are excluded from global `/api` prefix on gateway. */
 export function getOAuthUrl(provider: 'google' | 'github'): string {
-  const base = api.defaults.baseURL?.replace(/\/$/, '') ?? '';
+  const apiBase = api.defaults.baseURL?.replace(/\/$/, '') ?? '';
+  const origin = apiBase.replace(/\/api\/?$/, '');
   const path =
     provider === 'google'
       ? API_ROUTES.OAUTH_GOOGLE
       : API_ROUTES.OAUTH_GITHUB;
-  return `${base}/${path}`;
+  return `${origin}/${path}`;
 }

@@ -13,9 +13,9 @@ export interface RegisterRequest {
   password: string;
 }
 
-/** Gateway returns only `accessToken`; user comes from JWT payload. */
+/** POST /auth/signin | /auth/refresh — body `access_token`; refresh ở cookie HttpOnly `refresh_token`. */
 export interface SignInResponse {
-  accessToken: string;
+  access_token: string;
 }
 
 export interface SignUpResponse {

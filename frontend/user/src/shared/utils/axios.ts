@@ -1,5 +1,12 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { API_ROUTES } from '../constants/routes';
+import {
+  readAccessTokenFromBody,
+  getStoredAccessToken,
+  persistAccessToken,
+  clearAccessTokenStorage,
+  type AuthTokenBody,
+} from '../constants/tokens';
 
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
@@ -10,7 +17,8 @@ export const api = axios.create({
   withCredentials: true,
 });
 
-const rawApi = axios.create({
+/** Không gắn interceptor — dùng cho POST /auth/refresh (chỉ cookie, tránh vòng lặp). */
+const refreshClient = axios.create({
   baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true,
@@ -20,12 +28,12 @@ let refreshPromise: Promise<string | null> | null = null;
 
 async function refreshAccessToken(): Promise<string | null> {
   if (!refreshPromise) {
-    refreshPromise = rawApi
-      .post<{ accessToken: string }>(API_ROUTES.REFRESH)
+    refreshPromise = refreshClient
+      .post(API_ROUTES.REFRESH)
       .then((r) => {
-        const token = r.data.accessToken;
-        if (token) localStorage.setItem('accessToken', token);
-        return token ?? null;
+        const token = readAccessTokenFromBody(r.data as AuthTokenBody);
+        if (token) persistAccessToken(token);
+        return token;
       })
       .catch(() => null)
       .finally(() => {
@@ -49,7 +57,7 @@ function isAuthPublicPath(url: string): boolean {
 }
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken');
+  const token = getStoredAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -76,7 +84,7 @@ api.interceptors.response.use(
     original._retry = true;
     const newToken = await refreshAccessToken();
     if (!newToken) {
-      localStorage.removeItem('accessToken');
+      clearAccessTokenStorage();
       window.location.href = '/login';
       return Promise.reject(error);
     }

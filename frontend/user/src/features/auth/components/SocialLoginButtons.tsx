@@ -1,11 +1,12 @@
 import { useOAuthRedirect } from '../hooks/useOAuth';
 
-const oauthEnabled = import.meta.env.VITE_ENABLE_OAUTH === 'true';
+/** Set `VITE_ENABLE_OAUTH=false` to hide buttons. Default: enabled (matches OAUTH_FLOW.md). */
+const oauthDisabled = import.meta.env.VITE_ENABLE_OAUTH === 'false';
 
 export function SocialLoginButtons() {
   const { redirectTo } = useOAuthRedirect();
 
-  if (!oauthEnabled) {
+  if (oauthDisabled) {
     return null;
   }
 

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ROUTES } from '../shared/constants/routes';
+import { OAuthReturnHandler } from './OAuthReturnHandler';
 import { LoginPage } from '../pages/auth/login/LoginPage';
 import { RegisterPage } from '../pages/auth/register/RegisterPage';
 import { VerifyOtpPage } from '../pages/auth/verify-otp/VerifyOtpPage';
@@ -10,6 +11,7 @@ import { HomePage } from '../pages/home/HomePage';
 export function AppRouter() {
   return (
     <BrowserRouter>
+      <OAuthReturnHandler />
       <Routes>
         <Route path={ROUTES.HOME} element={<HomePage />} />
         <Route path={ROUTES.LOGIN} element={<LoginPage />} />
