@@ -13,9 +13,28 @@ export interface RegisterRequest {
   password: string;
 }
 
-export interface AuthResponse {
+/** Gateway returns only `accessToken`; user comes from JWT payload. */
+export interface SignInResponse {
   accessToken: string;
-  user: User;
+}
+
+export interface SignUpResponse {
+  message: string;
+  data: {
+    userId: string;
+    email: string;
+    role: string;
+    isEmailVerified: boolean;
+  };
+}
+
+export interface OnboardPayload {
+  full_name: string;
+  username: string;
+  gender: string;
+  date_of_birth: string;
+  avatar_url: string;
+  bio: string;
 }
 
 export interface OnboardRequest {
@@ -23,6 +42,28 @@ export interface OnboardRequest {
   username: string;
   dob: string;
   gender: string;
+}
+
+export interface UserProfileResponse {
+  message: string;
+  data: {
+    id: string;
+    username: string;
+    full_name: string;
+    gender: string;
+    date_of_birth: string;
+    avatar_url: string;
+    bio: string;
+  };
+}
+
+export interface OnboardApiResponse {
+  message: string;
+  data: {
+    id: string;
+    username: string;
+    full_name: string;
+  };
 }
 
 export interface AuthState {

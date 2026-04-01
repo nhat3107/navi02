@@ -7,9 +7,7 @@ async function bootstrap() {
 
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.TCP,
-    options: {
-      port: 4002,
-    },
+    options: { host: '0.0.0.0', port: 4002 },
   });
 
   app.connectMicroservice<MicroserviceOptions>({
@@ -26,5 +24,7 @@ async function bootstrap() {
   });
 
   await app.startAllMicroservices();
+  const httpPort = Number(process.env.USER_HTTP_PORT ?? 4020);
+  await app.listen(httpPort);
 }
 bootstrap();

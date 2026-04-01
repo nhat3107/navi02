@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { registerApi } from '../api/auth.api';
+import { signUpApi } from '../api/auth.api';
 import { ROUTES } from '../../../shared/constants/routes';
 import type { RegisterRequest } from '../types/auth.types';
 import type { AxiosError } from 'axios';
@@ -14,8 +14,8 @@ export function useRegister() {
     setLoading(true);
     setError(null);
     try {
-      await registerApi(data);
-      navigate(ROUTES.ONBOARD);
+      await signUpApi(data);
+      navigate(ROUTES.VERIFY_OTP, { state: { email: data.email } });
     } catch (err) {
       const axiosErr = err as AxiosError<{ message?: string }>;
       setError(

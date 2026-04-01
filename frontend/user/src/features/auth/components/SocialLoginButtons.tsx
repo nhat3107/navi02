@@ -1,7 +1,13 @@
 import { useOAuthRedirect } from '../hooks/useOAuth';
 
+const oauthEnabled = import.meta.env.VITE_ENABLE_OAUTH === 'true';
+
 export function SocialLoginButtons() {
   const { redirectTo } = useOAuthRedirect();
+
+  if (!oauthEnabled) {
+    return null;
+  }
 
   return (
     <div className="mt-6">

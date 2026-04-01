@@ -1,4 +1,5 @@
 import { useAuthStore } from '../../features/auth/store/auth.store';
+import { signOutApi } from '../../features/auth/api/auth.api';
 import { Button } from '../../shared/components/Button';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../shared/constants/routes';
@@ -7,7 +8,12 @@ export function HomePage() {
   const { user, isAuthenticated, logout } = useAuthStore();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await signOutApi();
+    } catch {
+      /* still clear local session */
+    }
     logout();
     navigate(ROUTES.LOGIN);
   };

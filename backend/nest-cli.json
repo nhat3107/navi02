@@ -43,6 +43,7 @@
       "entryFile": "main",
       "sourceRoot": "apps/auth-service/src",
       "compilerOptions": {
+        "webpack": false,
         "tsConfigPath": "apps/auth-service/tsconfig.app.json"
       }
     },
@@ -79,6 +80,7 @@
       "entryFile": "main",
       "sourceRoot": "apps/user-service/src",
       "compilerOptions": {
+        "webpack": false,
         "tsConfigPath": "apps/user-service/tsconfig.app.json"
       }
     }

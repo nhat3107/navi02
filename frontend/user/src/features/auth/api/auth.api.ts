@@ -1,32 +1,57 @@
 import { api } from '../../../shared/utils/axios';
 import { API_ROUTES } from '../../../shared/constants/routes';
-import type { AuthResponse, LoginRequest, OnboardRequest, RegisterRequest } from '../types/auth.types';
+import type {
+  LoginRequest,
+  OnboardPayload,
+  OnboardApiResponse,
+  RegisterRequest,
+  SignInResponse,
+  SignUpResponse,
+  UserProfileResponse,
+} from '../types/auth.types';
 
-export async function loginApi(data: LoginRequest): Promise<AuthResponse> {
-  const res = await api.post<AuthResponse>(API_ROUTES.LOGIN, data);
+export async function signInApi(data: LoginRequest): Promise<SignInResponse> {
+  const res = await api.post<SignInResponse>(API_ROUTES.SIGNIN, data);
   return res.data;
 }
 
-export async function registerApi(data: RegisterRequest): Promise<void> {
-  await api.post(API_ROUTES.REGISTER, data);
+export async function signUpApi(data: RegisterRequest): Promise<SignUpResponse> {
+  const res = await api.post<SignUpResponse>(API_ROUTES.SIGNUP, data);
+  return res.data;
 }
 
-export async function onboardApi(data: OnboardRequest): Promise<AuthResponse> {
-  const formData = new FormData();
-  if (data.avatar) formData.append('avatar', data.avatar);
-  formData.append('username', data.username);
-  formData.append('dob', data.dob);
-  formData.append('gender', data.gender);
+export async function verifyOtpApi(email: string, otp: string): Promise<void> {
+  await api.post(API_ROUTES.VERIFY_OTP, { email, otp });
+}
 
-  const res = await api.post<AuthResponse>(API_ROUTES.ONBOARD, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+export async function resendOtpApi(email: string): Promise<void> {
+  await api.post(API_ROUTES.RESEND_OTP, { email });
+}
+
+export async function signOutApi(): Promise<void> {
+  await api.post(API_ROUTES.SIGNOUT);
+}
+
+export async function getProfileApi(): Promise<UserProfileResponse> {
+  const res = await api.get<UserProfileResponse>(API_ROUTES.USER_PROFILE);
+  return res.data;
+}
+
+export async function onboardingApi(
+  payload: OnboardPayload,
+): Promise<OnboardApiResponse> {
+  const res = await api.post<OnboardApiResponse>(
+    API_ROUTES.USER_ONBOARDING,
+    payload,
+  );
   return res.data;
 }
 
 export function getOAuthUrl(provider: 'google' | 'github'): string {
-  const base = api.defaults.baseURL ?? '';
-  return provider === 'google'
-    ? `${base}${API_ROUTES.OAUTH_GOOGLE}`
-    : `${base}${API_ROUTES.OAUTH_GITHUB}`;
+  const base = api.defaults.baseURL?.replace(/\/$/, '') ?? '';
+  const path =
+    provider === 'google'
+      ? API_ROUTES.OAUTH_GOOGLE
+      : API_ROUTES.OAUTH_GITHUB;
+  return `${base}/${path}`;
 }

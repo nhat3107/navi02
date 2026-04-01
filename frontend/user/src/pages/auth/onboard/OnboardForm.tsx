@@ -51,11 +51,10 @@ export function OnboardForm() {
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (validate()) {
-      const [year, month, day] = dob.split('-');
       onboard({
         avatar,
         username: username.trim(),
-        dob: `${day}/${month}/${year}`,
+        dob,
         gender: gender.toLowerCase(),
       });
     }
