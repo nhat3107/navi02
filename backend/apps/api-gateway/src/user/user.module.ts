@@ -7,10 +7,16 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
   imports: [
     ClientsModule.register([
       {
-        name: 'USER_TCP_SERVICE',
-        transport: Transport.TCP,
+        name: 'KAFKA_SERVICE',
+        transport: Transport.KAFKA,
         options: {
-          port: 4002,
+          client: {
+            clientId: 'api-gateway-user',
+            brokers: ['localhost:9092'],
+          },
+          consumer: {
+            groupId: 'api-gateway-user-reply',
+          },
         },
       },
     ]),

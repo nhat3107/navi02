@@ -1,18 +1,29 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { ClientProxy } from '@nestjs/microservices';
+import { ClientKafka } from '@nestjs/microservices';
 import { OnboardingDto } from './dto/onboarding-dto';
+
+const USER_KAFKA_RPC = [
+    'user.get_profile',
+    'user.create_profile',
+] as const;
 
 @Injectable()
 export class UserService {
     constructor(
-        @Inject('USER_TCP_SERVICE') private readonly tcpclient: ClientProxy,
+        @Inject('KAFKA_SERVICE') private readonly kafkaclient: ClientKafka,
     ) {}
 
+    onModuleInit() {
+        for (const pattern of USER_KAFKA_RPC) {
+            this.kafkaclient.subscribeToResponseOf(pattern);
+        }
+    }
+
     get_profile(userId: string) {
-        return this.tcpclient.send('user.get_profile', { userId });
+        return this.kafkaclient.send('user.get_profile', { userId });
     }
 
     create_user_profile(userId: string, onboardingDto: OnboardingDto) {
-        return this.tcpclient.send('user.create_profile', { userId, ...onboardingDto });
+        return this.kafkaclient.send('user.create_profile', { userId, ...onboardingDto });
     }
 }
