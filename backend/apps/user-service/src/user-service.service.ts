@@ -80,6 +80,195 @@ export class UserServiceService {
     }
   }
 
+  async update_profile(data: any): Promise<any> {
+    try {
+      const { userId, ...updates } = data;
+      const hasFollowersCount = Object.prototype.hasOwnProperty.call(updates, 'followers_count');
+      const hasFollowingCount = Object.prototype.hasOwnProperty.call(updates, 'following_count');
+
+      if (hasFollowersCount || hasFollowingCount) {
+        throw new RpcException({
+          status: 400,
+          message: 'followers_count and following_count cannot be updated directly',
+        });
+      }
+
+      const profile = await this.prismaService.userProfile.findUnique({
+        where: { id: userId },
+      });
+      if (!profile) {
+        throw new RpcException({ status: 404, message: 'Profile not found' });
+      }
+
+      if (updates.username && updates.username !== profile.username) {
+        const existingUsername = await this.prismaService.userProfile.findUnique({
+          where: { username: updates.username },
+        });
+        if (existingUsername) {
+          throw new RpcException({ status: 409, message: 'Username is already taken' });
+        }
+      }
+
+      if (updates.date_of_birth) {
+        updates.date_of_birth = new Date(updates.date_of_birth);
+      }
+
+      const updated = await this.prismaService.userProfile.update({
+        where: { id: userId },
+        data: updates,
+      });
+
+      return { message: 'Profile updated successfully', data: updated };
+    } catch (error) {
+      if (error instanceof RpcException) throw error;
+      console.error('Error updating user profile', error);
+      throw new RpcException({ status: 500, message: 'Failed to update profile' });
+    }
+  }
+
+  async follow(data: any): Promise<any> {
+    try {
+      const { userId, targetUserId } = data;
+
+      if (userId === targetUserId) {
+        throw new RpcException({ status: 400, message: 'You cannot follow yourself' });
+      }
+
+      const targetProfile = await this.prismaService.userProfile.findUnique({
+        where: { id: targetUserId },
+      });
+      if (!targetProfile) {
+        throw new RpcException({ status: 404, message: 'User not found' });
+      }
+
+      const existingFollow = await this.prismaService.userFollow.findUnique({
+        where: { follower_id_following_id: { follower_id: userId, following_id: targetUserId } },
+      });
+      if (existingFollow) {
+        throw new RpcException({ status: 409, message: 'Already following this user' });
+      }
+
+      await this.prismaService.$transaction([
+        this.prismaService.userFollow.create({
+          data: { follower_id: userId, following_id: targetUserId },
+        }),
+        this.prismaService.userProfile.update({
+          where: { id: userId },
+          data: { following_count: { increment: 1 } },
+        }),
+        this.prismaService.userProfile.update({
+          where: { id: targetUserId },
+          data: { followers_count: { increment: 1 } },
+        }),
+      ]);
+
+      return { message: 'Followed successfully' };
+    } catch (error) {
+      if (error instanceof RpcException) throw error;
+      console.error('Error following user', error);
+      throw new RpcException({ status: 500, message: 'Failed to follow user' });
+    }
+  }
+
+  async unfollow(data: any): Promise<any> {
+    try {
+      const { userId, targetUserId } = data;
+
+      if (userId === targetUserId) {
+        throw new RpcException({ status: 400, message: 'You cannot unfollow yourself' });
+      }
+
+      const existingFollow = await this.prismaService.userFollow.findUnique({
+        where: { follower_id_following_id: { follower_id: userId, following_id: targetUserId } },
+      });
+      if (!existingFollow) {
+        throw new RpcException({ status: 404, message: 'You are not following this user' });
+      }
+
+      await this.prismaService.$transaction([
+        this.prismaService.userFollow.delete({
+          where: { follower_id_following_id: { follower_id: userId, following_id: targetUserId } },
+        }),
+        this.prismaService.userProfile.update({
+          where: { id: userId },
+          data: { following_count: { decrement: 1 } },
+        }),
+        this.prismaService.userProfile.update({
+          where: { id: targetUserId },
+          data: { followers_count: { decrement: 1 } },
+        }),
+      ]);
+
+      return { message: 'Unfollowed successfully' };
+    } catch (error) {
+      if (error instanceof RpcException) throw error;
+      console.error('Error unfollowing user', error);
+      throw new RpcException({ status: 500, message: 'Failed to unfollow user' });
+    }
+  }
+
+  async get_followers(data: any): Promise<any> {
+    try {
+      const { userId } = data;
+
+      const followers = await this.prismaService.userFollow.findMany({
+        where: { following_id: userId },
+        select: {
+          createdAt: true,
+          follower: {
+            select: {
+              id: true,
+              username: true,
+              full_name: true,
+              avatar_url: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      return {
+        message: 'Followers retrieved successfully',
+        data: followers.map((f) => ({ ...f.follower, followed_at: f.createdAt })),
+      };
+    } catch (error) {
+      if (error instanceof RpcException) throw error;
+      console.error('Error getting followers', error);
+      throw new RpcException({ status: 500, message: 'Failed to get followers' });
+    }
+  }
+
+  async get_following(data: any): Promise<any> {
+    try {
+      const { userId } = data;
+
+      const following = await this.prismaService.userFollow.findMany({
+        where: { follower_id: userId },
+        select: {
+          createdAt: true,
+          following: {
+            select: {
+              id: true,
+              username: true,
+              full_name: true,
+              avatar_url: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      return {
+        message: 'Following retrieved successfully',
+        data: following.map((f) => ({ ...f.following, followed_at: f.createdAt })),
+      };
+    } catch (error) {
+      if (error instanceof RpcException) throw error;
+      console.error('Error getting following', error);
+      throw new RpcException({ status: 500, message: 'Failed to get following' });
+    }
+  }
+
   async send_otp2email(data: any): Promise<void> {
     try {
       const { email, otp } = data;
