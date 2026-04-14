@@ -8,9 +8,15 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.OK) // Use to get the current user's profile
   @Get('profile')
   get_profile(@CurrentUser('sub') userId: string) {
+    return this.userService.get_profile(userId);
+  }
+
+  @HttpCode(HttpStatus.OK)  // Use to get the profile of a user other than the current user
+  @Get('profile/:userId')
+  get_user_profile(@Param('userId') userId: string) {
     return this.userService.get_profile(userId);
   }
 
@@ -47,6 +53,18 @@ export class UserController {
   @HttpCode(HttpStatus.OK)
   @Get('following')
   get_following(@CurrentUser('sub') userId: string) {
+    return this.userService.get_following(userId);
+  }
+
+  @HttpCode(HttpStatus.OK) // Use to get the list of followers of a user other than the current user
+  @Get(':userId/followers')
+  get_user_followers(@Param('userId') userId: string) {
+    return this.userService.get_followers(userId);
+  }
+
+  @HttpCode(HttpStatus.OK) // Use to get the list of following of a user other than the current user
+  @Get(':userId/following')
+  get_user_following(@Param('userId') userId: string) {
     return this.userService.get_following(userId);
   }
 }
