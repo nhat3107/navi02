@@ -3,9 +3,7 @@ import { UserServiceModule } from './user-service.module';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 
 async function bootstrap() {
-  const app = await NestFactory.create(UserServiceModule);
-
-  app.connectMicroservice<MicroserviceOptions>({
+  const app = await NestFactory.createMicroservice<MicroserviceOptions>(UserServiceModule, {
     transport: Transport.KAFKA,
     options: {
       client: {
@@ -17,9 +15,6 @@ async function bootstrap() {
       },
     },
   });
-
-  await app.startAllMicroservices();
-  const httpPort = Number(process.env.USER_HTTP_PORT ?? 4020);
-  await app.listen(httpPort);
+  await app.listen();
 }
 bootstrap();
