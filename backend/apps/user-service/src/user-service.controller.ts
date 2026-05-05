@@ -16,6 +16,29 @@ export class UserServiceController {
     return this.userServiceService.create_user_profile(data);
   }
 
+  @MessagePattern('user.update_profile', Transport.KAFKA)
+  update_profile(data: any): Promise<any> {
+    return this.userServiceService.update_profile(data);
+  }
+
+  @MessagePattern('user.follow', Transport.KAFKA)
+  follow(data: any): Promise<any> {
+    return this.userServiceService.follow(data);
+  }
+
+  @MessagePattern('user.unfollow', Transport.KAFKA)
+  unfollow(data: any): Promise<any> {
+    return this.userServiceService.unfollow(data);
+  }
+
+  @MessagePattern('user.get_followers', Transport.KAFKA)
+  get_followers(data: any): Promise<any> {
+    return this.userServiceService.get_followers(data);
+  }
+
+  @MessagePattern('user.get_following', Transport.KAFKA)
+  get_following(data: any): Promise<any> {
+    return this.userServiceService.get_following(data);
   @MessagePattern('user.search_profiles', Transport.KAFKA)
   search_profiles(data: any): Promise<any> {
     return this.userServiceService.search_profiles(data);

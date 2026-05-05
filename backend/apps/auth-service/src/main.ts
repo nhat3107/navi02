@@ -10,9 +10,7 @@ function kafkaBrokers(): string[] {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AuthServiceModule);
-
-  app.connectMicroservice<MicroserviceOptions>({
+  const app = await NestFactory.createMicroservice<MicroserviceOptions>(AuthServiceModule, {
     transport: Transport.KAFKA,
     options: {
       client: {
@@ -22,11 +20,8 @@ async function bootstrap() {
       consumer: {
         groupId: 'auth-consumer',
       },
-    },
+    }
   });
-
-  await app.startAllMicroservices();
-  const httpPort = Number(process.env.AUTH_HTTP_PORT ?? 4010);
-  await app.listen(httpPort);
+  await app.listen();
 }
 bootstrap();

@@ -25,4 +25,19 @@ model UserProfile {
   following_count Int @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  followers  UserFollow[] @relation("following")
+  following  UserFollow[] @relation("follower")
+}
+
+model UserFollow {
+  id           String      @id @default(uuid())
+  follower_id  String
+  following_id String
+  createdAt    DateTime    @default(now())
+
+  follower  UserProfile @relation("follower", fields: [follower_id], references: [id])
+  following UserProfile @relation("following", fields: [following_id], references: [id])
+
+  @@unique([follower_id, following_id])
 }
