@@ -52,7 +52,14 @@ export function HomePage() {
             Signed in as <strong className="text-accent">{user.email}</strong>
           </p>
         )}
-        <div className="mt-6">
+        <div className="mt-6 flex gap-3 justify-center flex-wrap">
+          <Button
+            variant="primary"
+            onClick={() => navigate(ROUTES.CHAT)}
+            className="w-auto"
+          >
+            Open chat
+          </Button>
           <Button variant="secondary" onClick={handleLogout} className="w-auto">
             Sign out
           </Button>

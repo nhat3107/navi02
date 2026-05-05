@@ -2,20 +2,22 @@ import { NestFactory } from '@nestjs/core';
 import { UserServiceModule } from './user-service.module';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 
+function kafkaBrokers(): string[] {
+  return (process.env.KAFKA_BROKERS ?? 'localhost:9092')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 async function bootstrap() {
   const app = await NestFactory.create(UserServiceModule);
-
-  app.connectMicroservice<MicroserviceOptions>({
-    transport: Transport.TCP,
-    options: { host: '0.0.0.0', port: 4002 },
-  });
 
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.KAFKA,
     options: {
       client: {
-        clientId: 'user',
-        brokers: ['localhost:9092'],
+        clientId: 'user-service',
+        brokers: kafkaBrokers(),
       },
       consumer: {
         groupId: 'user-consumer',

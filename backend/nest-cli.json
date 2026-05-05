@@ -53,6 +53,7 @@
       "entryFile": "main",
       "sourceRoot": "apps/chat-service/src",
       "compilerOptions": {
+        "webpack": false,
         "tsConfigPath": "apps/chat-service/tsconfig.app.json"
       }
     },

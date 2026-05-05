@@ -87,14 +87,22 @@ export class AuthController {
 
   @HttpCode(HttpStatus.OK)
   @Post('forget-passwd')
-  forget_passwd(@Body() forgetPasswdDto: ForgetPasswdDto) {
-    return this.authService.forget_passwd(forgetPasswdDto);
+  forget_passwd(@Body() body: ForgetPasswdDto & { email?: string }) {
+    const email =
+      typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+    return this.authService.forget_passwd({ email });
   }
 
   @HttpCode(HttpStatus.OK)
   @Post('reset-passwd')
-  reset_passwd(@Body() resetPasswdDto: ResetPasswdDto) {
-    return this.authService.reset_passwd(resetPasswdDto);
+  reset_passwd(
+    @Body()
+    body: ResetPasswdDto & { new_password?: string; reset_token?: string },
+  ) {
+    return this.authService.reset_passwd({
+      token: body.token ?? body.reset_token ?? '',
+      newPassword: body.newPassword ?? body.new_password ?? '',
+    });
   }
 
   @HttpCode(HttpStatus.OK)
