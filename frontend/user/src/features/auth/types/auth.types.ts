@@ -38,23 +38,45 @@ export interface OnboardPayload {
 }
 
 export interface OnboardRequest {
-  avatar: File | null;
+  full_name: string;
   username: string;
   dob: string;
   gender: string;
+  bio: string;
+  /** HTTPS URL from Cloudinary after step 1, or '' if skipped */
+  avatar_url: string;
+}
+
+export interface CloudinarySignatureData {
+  cloudName: string;
+  apiKey: string;
+  timestamp: number;
+  signature: string;
+  folder: string;
+  public_id: string;
+  uploadUrl: string;
+  /** Present when gateway/user-service returns it (chat video vs image). */
+  resourceType?: 'image' | 'video';
+}
+
+/** Mirrors `UserProfile` in user-service Prisma schema (API returns JSON). */
+export interface UserProfile {
+  id: string;
+  full_name: string;
+  username: string;
+  gender: string;
+  date_of_birth: string;
+  avatar_url: string;
+  bio: string;
+  followers_count: number;
+  following_count: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface UserProfileResponse {
   message: string;
-  data: {
-    id: string;
-    username: string;
-    full_name: string;
-    gender: string;
-    date_of_birth: string;
-    avatar_url: string;
-    bio: string;
-  };
+  data: UserProfile;
 }
 
 export interface OnboardApiResponse {

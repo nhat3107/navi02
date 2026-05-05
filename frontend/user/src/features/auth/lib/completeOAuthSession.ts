@@ -27,10 +27,15 @@ export async function completeOAuthSession(
     navigate(ROUTES.HOME, { replace: true });
   } catch (err) {
     const e = err as AxiosError<{ statusCode?: number }>;
-    if (e.response?.status === 404) {
-      navigate(ROUTES.ONBOARD, { replace: true });
-    } else {
-      navigate(ROUTES.HOME, { replace: true });
+    const status = e.response?.status;
+    if (status === 401) {
+      navigate(ROUTES.LOGIN, { replace: true });
+      return;
     }
+    if (status === 404) {
+      navigate(ROUTES.ONBOARD, { replace: true });
+      return;
+    }
+    navigate(ROUTES.ONBOARD, { replace: true });
   }
 }

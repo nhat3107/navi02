@@ -6,6 +6,13 @@ import { ConfigModule } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { JwtModule } from '@nestjs/jwt';
 
+function kafkaBrokers(): string[] {
+  return (process.env.KAFKA_BROKERS ?? 'localhost:9092')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 @Module({
   imports: [
       ConfigModule.forRoot({
@@ -21,9 +28,10 @@ import { JwtModule } from '@nestjs/jwt';
 
     ClientsModule.register([
       {
-        name: 'KAFKA_SERVICE', transport: Transport.KAFKA, 
+        name: 'KAFKA_SERVICE',
+        transport: Transport.KAFKA,
         options: {
-          client: { brokers: ['localhost:9092'] },
+          client: { brokers: kafkaBrokers() },
         },
       },
     ]),

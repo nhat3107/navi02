@@ -2,13 +2,14 @@ import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../features/auth/store/auth.store';
 import { completeOAuthSession } from '../features/auth/lib/completeOAuthSession';
+import { ROUTES } from '../shared/constants/routes';
 import { decodeJwtPayload } from '../shared/utils/jwt';
 
+/** OAuth callback uses `access_token` (see api-gateway). Do not use `token` — password reset links use `?token=`. */
 const ACCESS_TOKEN_KEYS = [
   'access_token',
   'AccessToken',
   'accessToken',
-  'token',
 ] as const;
 
 let lastProcessedOAuthToken: string | null = null;
@@ -32,6 +33,10 @@ export function OAuthReturnHandler() {
   const setAuth = useAuthStore((s) => s.setAuth);
 
   useEffect(() => {
+    if (location.pathname === ROUTES.RESET_PASSWORD) {
+      return;
+    }
+
     const params = new URLSearchParams(location.search);
     const raw =
       ACCESS_TOKEN_KEYS.map((k) => params.get(k)?.trim()).find(Boolean) ?? null;

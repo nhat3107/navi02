@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthModule } from './auth/auth.module';
+import { CallModule } from './call/call.module';
+import { ChatModule } from './chat/chat.module';
 import { UserModule } from './user/user.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { ConfigModule } from '@nestjs/config';
@@ -15,6 +17,8 @@ import { ConfigModule } from '@nestjs/config';
     JwtModule.register({ global: true }),
     AuthModule,
     UserModule,
+    CallModule,
+    ChatModule,
   ],
   providers: [
     {

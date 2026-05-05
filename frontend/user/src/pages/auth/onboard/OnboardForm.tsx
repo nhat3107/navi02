@@ -1,42 +1,44 @@
-import { type FormEvent, useRef, useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import { Button } from '../../../shared/components/Button';
 import { useOnboard } from '../../../features/auth/hooks/useOnboard';
 
-const GENDERS = ['Male', 'Female', 'Other'] as const;
+const GENDER_OPTIONS = [
+  { label: 'Male', value: 'male' },
+  { label: 'Female', value: 'female' },
+  { label: 'Other', value: 'other' },
+] as const;
 
-export function OnboardForm() {
-  const [avatar, setAvatar] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+type OnboardFormProps = {
+  avatarUrl: string;
+  onBackToPhoto: () => void;
+};
+
+export function OnboardForm({ avatarUrl, onBackToPhoto }: OnboardFormProps) {
+  const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
+  const [bio, setBio] = useState('');
   const [dob, setDob] = useState('');
-  const [gender, setGender] = useState('');
+  const [gender, setGender] = useState<
+    (typeof GENDER_OPTIONS)[number]['value'] | ''
+  >('');
   const [errors, setErrors] = useState<{
+    full_name?: string;
     username?: string;
     dob?: string;
     gender?: string;
   }>({});
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { onboard, loading, error } = useOnboard();
-
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setAvatar(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setAvatarPreview(reader.result as string);
-    reader.readAsDataURL(file);
-  };
-
-  const removeAvatar = () => {
-    setAvatar(null);
-    setAvatarPreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
 
   const validate = (): boolean => {
     const newErrors: typeof errors = {};
+    if (!fullName.trim()) {
+      newErrors.full_name = 'Full name is required';
+    }
     if (!username.trim()) {
       newErrors.username = 'Username is required';
+    } else if (!/^[a-zA-Z0-9._-]{2,30}$/.test(username.trim())) {
+      newErrors.username =
+        'Use 2–30 characters: letters, numbers, . _ -';
     }
     if (!dob) {
       newErrors.dob = 'Date of birth is required';
@@ -52,10 +54,12 @@ export function OnboardForm() {
     e.preventDefault();
     if (validate()) {
       onboard({
-        avatar,
+        full_name: fullName.trim(),
         username: username.trim(),
         dob,
-        gender: gender.toLowerCase(),
+        gender,
+        bio: bio.trim(),
+        avatar_url: avatarUrl.trim(),
       });
     }
   };
@@ -68,71 +72,67 @@ export function OnboardForm() {
         </div>
       )}
 
-      {/* Avatar picker */}
-      <div className="flex flex-col items-center gap-3">
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="relative w-24 h-24 rounded-full border-2 border-dashed border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 cursor-pointer overflow-hidden transition-all duration-150 hover:border-accent hover:bg-accent-bg group"
-          >
-            {avatarPreview ? (
-              <img
-                src={avatarPreview}
-                alt="Avatar preview"
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-500 group-hover:text-accent transition-colors">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-              </div>
-            )}
-            <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition-opacity rounded-full">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                <circle cx="12" cy="13" r="4" />
-              </svg>
+      <div className="flex items-center gap-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50 p-3">
+        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt=""
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-xs text-slate-500 dark:text-slate-400">
+              —
             </div>
-          </button>
-          {avatarPreview && (
-            <button
-              type="button"
-              onClick={removeAvatar}
-              className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-error text-white flex items-center justify-center text-xs cursor-pointer shadow-sm transition-transform hover:scale-110"
-              aria-label="Remove avatar"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
           )}
         </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleAvatarChange}
-        />
-        <span className="text-xs text-slate-400 dark:text-slate-500">
-          {avatar ? avatar.name : 'Upload photo (optional)'}
-        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+            Profile photo
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {avatarUrl ? 'Uploaded' : 'None — you can add one now or later'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onBackToPhoto}
+          className="shrink-0 text-sm font-medium text-accent hover:underline"
+        >
+          {avatarUrl ? 'Change' : 'Add'}
+        </button>
       </div>
 
-      {/* Username */}
+      <div className="flex flex-col gap-1">
+        <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
+          Full name
+        </label>
+        <input
+          type="text"
+          placeholder="Your display name"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          className={`w-full px-3.5 py-2.5 text-[0.935rem] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 border-[1.5px] rounded-lg outline-none transition-all duration-150 placeholder:text-slate-400 dark:placeholder:text-slate-500 ${
+            errors.full_name
+              ? 'border-error focus:ring-2 focus:ring-error-bg'
+              : 'border-slate-300 dark:border-slate-600 focus:border-accent focus:ring-2 focus:ring-accent-bg'
+          }`}
+          autoComplete="name"
+        />
+        {errors.full_name && (
+          <span className="text-xs text-error">{errors.full_name}</span>
+        )}
+      </div>
+
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
           Username
         </label>
         <input
           type="text"
-          placeholder="e.g. nhat317"
+          placeholder="e.g. nhat317 (stored lowercase)"
           value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          onChange={(e) => setUsername(e.target.value.toLowerCase())}
           className={`w-full px-3.5 py-2.5 text-[0.935rem] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 border-[1.5px] rounded-lg outline-none transition-all duration-150 placeholder:text-slate-400 dark:placeholder:text-slate-500 ${
             errors.username
               ? 'border-error focus:ring-2 focus:ring-error-bg'
@@ -145,7 +145,21 @@ export function OnboardForm() {
         )}
       </div>
 
-      {/* Date of birth */}
+      <div className="flex flex-col gap-1">
+        <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
+          Bio <span className="text-slate-400 font-normal">(optional)</span>
+        </label>
+        <textarea
+          placeholder="Short intro about you"
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
+          rows={3}
+          maxLength={500}
+          className="w-full px-3.5 py-2.5 text-[0.935rem] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 border-[1.5px] border-slate-300 dark:border-slate-600 rounded-lg outline-none transition-all duration-150 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-accent focus:ring-2 focus:ring-accent-bg resize-y min-h-[4.5rem]"
+        />
+        <span className="text-xs text-slate-400">{bio.length}/500</span>
+      </div>
+
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
           Date of birth
@@ -165,24 +179,23 @@ export function OnboardForm() {
         )}
       </div>
 
-      {/* Gender */}
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
           Gender
         </label>
         <div className="flex gap-2">
-          {GENDERS.map((g) => (
+          {GENDER_OPTIONS.map(({ label, value }) => (
             <button
-              key={g}
+              key={value}
               type="button"
-              onClick={() => setGender(g)}
+              onClick={() => setGender(value)}
               className={`flex-1 py-2.5 px-3 text-sm font-medium rounded-lg border-[1.5px] cursor-pointer transition-all duration-150 ${
-                gender === g
+                gender === value
                   ? 'border-accent bg-accent-bg text-accent'
                   : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500'
               }`}
             >
-              {g}
+              {label}
             </button>
           ))}
         </div>

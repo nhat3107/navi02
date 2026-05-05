@@ -3,16 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { onboardingApi } from '../api/auth.api';
 import { ROUTES } from '../../../shared/constants/routes';
 import type { OnboardRequest } from '../types/auth.types';
-import type { AxiosError } from 'axios';
-
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result ?? ''));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
+import { extractApiMessage } from '../../../shared/utils/api-error';
 
 export function useOnboard() {
   const [loading, setLoading] = useState(false);
@@ -23,23 +14,18 @@ export function useOnboard() {
     setLoading(true);
     setError(null);
     try {
-      const avatar_url = data.avatar
-        ? await fileToDataUrl(data.avatar)
-        : '';
       await onboardingApi({
-        full_name: data.username.trim(),
-        username: data.username.trim(),
+        full_name: data.full_name.trim(),
+        username: data.username.trim().toLowerCase(),
         gender: data.gender,
         date_of_birth: data.dob,
-        avatar_url,
-        bio: '',
+        avatar_url: data.avatar_url.trim(),
+        bio: data.bio.trim(),
       });
       navigate(ROUTES.HOME);
     } catch (err) {
-      const axiosErr = err as AxiosError<{ message?: string }>;
       setError(
-        axiosErr.response?.data?.message ??
-          'Something went wrong. Please try again.',
+        extractApiMessage(err, 'Something went wrong. Please try again.'),
       );
     } finally {
       setLoading(false);

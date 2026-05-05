@@ -242,18 +242,42 @@ export class AuthServiceService {
   }
 
   async forget_passwd(data: any): Promise<any> {
+    const resetSecret = process.env.JWT_RESET_SECRET?.trim();
+    if (!resetSecret) {
+      console.error('JWT_RESET_SECRET is not set');
+      throw new RpcException({
+        status: 500,
+        message: 'Password reset is not configured on the server',
+      });
+    }
+
+    const emailRaw =
+      typeof data.email === 'string' ? data.email.trim().toLowerCase() : '';
+    if (!emailRaw || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)) {
+      throw new RpcException({ status: 400, message: 'A valid email is required' });
+    }
+
+    const genericOk = {
+      message:
+        'If an account exists for this email, you will receive reset instructions shortly.',
+    };
+
     try {
       const user = await this.prismaService.user.findUnique({
-        where: { email: data.email },
+        where: { email: emailRaw },
       });
 
       if (!user) {
-        return { message: 'Reset link has been sent to your email.' };
+        return genericOk;
+      }
+
+      if (!user.isEmailVerified) {
+        return genericOk;
       }
 
       const resetToken = await this.jwtService.signAsync(
         { sub: user.id, email: user.email, purpose: 'password_reset' },
-        { secret: process.env.JWT_RESET_SECRET, expiresIn: '24h' },
+        { secret: resetSecret, expiresIn: '24h' },
       );
 
       this.kafkaclient.emit('auth.forgot_password', {
@@ -261,7 +285,7 @@ export class AuthServiceService {
         resetToken,
       });
 
-      return { message: 'Reset link has been sent to your email.' };
+      return genericOk;
     } catch (error) {
       if (error instanceof RpcException) throw error;
       console.error('Error in forget password', error);
@@ -270,14 +294,37 @@ export class AuthServiceService {
   }
 
   async reset_passwd(data: any): Promise<any> {
-    try {
-      const { token, newPassword } = data;
+    const resetSecret = process.env.JWT_RESET_SECRET?.trim();
+    if (!resetSecret) {
+      throw new RpcException({
+        status: 500,
+        message: 'Password reset is not configured on the server',
+      });
+    }
 
-      let payload: any;
+    const token = typeof data.token === 'string' ? data.token.trim() : '';
+    const newPassword = data.newPassword ?? data.new_password;
+
+    if (!token) {
+      throw new RpcException({ status: 400, message: 'Reset token is required' });
+    }
+    if (typeof newPassword !== 'string' || newPassword.length < 8) {
+      throw new RpcException({
+        status: 400,
+        message: 'Password must be at least 8 characters',
+      });
+    }
+    if (newPassword.length > 128) {
+      throw new RpcException({ status: 400, message: 'Password is too long' });
+    }
+
+    try {
+      let payload: { sub: string; purpose?: string };
       try {
-        payload = await this.jwtService.verifyAsync(token, {
-          secret: process.env.JWT_RESET_SECRET,
-        });
+        payload = await this.jwtService.verifyAsync<{ sub: string; purpose?: string }>(
+          token,
+          { secret: resetSecret },
+        );
       } catch {
         throw new RpcException({ status: 400, message: 'Invalid or expired reset token' });
       }

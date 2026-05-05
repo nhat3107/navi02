@@ -1,5 +1,8 @@
 import { type FormEvent, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { AuthInput } from '../../../features/auth/components/AuthInput';
+import { ROUTES } from '../../../shared/constants/routes';
+import { AUTH_EMAIL_REGEX } from '../../../shared/constants/validation';
 import { Button } from '../../../shared/components/Button';
 import { useLogin } from '../../../features/auth/hooks/useLogin';
 
@@ -15,7 +18,7 @@ export function LoginForm() {
     const newErrors: typeof errors = {};
     if (!email) {
       newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    } else if (!AUTH_EMAIL_REGEX.test(email)) {
       newErrors.email = 'Enter a valid email';
     }
     if (!password) {
@@ -50,15 +53,25 @@ export function LoginForm() {
         autoComplete="email"
       />
 
-      <AuthInput
-        label="Password"
-        type="password"
-        placeholder="Enter your password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        error={errors.password}
-        autoComplete="current-password"
-      />
+      <div className="space-y-1.5">
+        <AuthInput
+          label="Password"
+          type="password"
+          placeholder="Enter your password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          error={errors.password}
+          autoComplete="current-password"
+        />
+        <div className="flex justify-end">
+          <Link
+            to={ROUTES.FORGOT_PASSWORD}
+            className="text-xs font-medium text-accent hover:text-accent-hover"
+          >
+            Forgot password?
+          </Link>
+        </div>
+      </div>
 
       <Button type="submit" variant="primary" loading={loading} className="mt-1">
         Sign in
