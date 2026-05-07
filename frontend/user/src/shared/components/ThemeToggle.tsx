@@ -1,7 +1,16 @@
+import { useLocation } from 'react-router-dom';
 import { useTheme } from '../hooks/useTheme';
+import { ROUTES } from '../constants/routes';
 
 export function ThemeToggle() {
   const { isDark, toggle } = useTheme();
+  const location = useLocation();
+
+  // The call page has its own dark, immersive theme — surfacing a global
+  // theme toggle there both clutters the header (it overlaps with the meeting
+  // info / duration) and is meaningless because the call UI ignores the
+  // light/dark setting.
+  if (location.pathname === ROUTES.CALL) return null;
 
   return (
     <button

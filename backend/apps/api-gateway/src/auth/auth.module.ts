@@ -12,6 +12,13 @@ const oauthStrategies = [
   ...(isGithubOAuthConfigured() ? [GithubStrategy] : []),
 ];
 
+function kafkaBrokers(): string[] {
+  return (process.env.KAFKA_BROKERS ?? 'localhost:9092')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 @Module({
   imports: [
     PassportModule,
@@ -22,7 +29,7 @@ const oauthStrategies = [
         options: {
           client: {
             clientId: 'api-gateway-auth',
-            brokers: ['localhost:9092'],
+            brokers: kafkaBrokers(),
           },
           consumer: {
             groupId: 'api-gateway-auth-reply',

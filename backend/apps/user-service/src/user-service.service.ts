@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
+import { v2 as cloudinary } from 'cloudinary';
 import * as nodemailer from 'nodemailer';
 import { PrismaService } from './prisma.service';
 
@@ -37,7 +38,17 @@ export class UserServiceService {
 
   async create_user_profile(data: any): Promise<any> {
     try {
-      const { userId, full_name, username, gender, date_of_birth, avatar_url, bio } = data;
+      const { userId, full_name, gender, date_of_birth, avatar_url, bio } = data;
+      const username = String(data.username ?? '')
+        .trim()
+        .toLowerCase();
+
+      if (!username || !String(full_name ?? '').trim()) {
+        throw new RpcException({
+          status: 400,
+          message: 'full_name and username are required',
+        });
+      }
 
       const existingProfile = await this.prismaService.userProfile.findUnique({
         where: { id: userId },
@@ -53,10 +64,15 @@ export class UserServiceService {
         throw new RpcException({ status: 409, message: 'Username is already taken' });
       }
 
+      this.assertVerifiedCloudinaryAvatarUrl(
+        typeof avatar_url === 'string' ? avatar_url : '',
+        userId,
+      );
+
       const profile = await this.prismaService.userProfile.create({
         data: {
           id: userId,
-          full_name,
+          full_name: String(full_name).trim(),
           username,
           gender,
           date_of_birth: new Date(date_of_birth),
@@ -83,8 +99,14 @@ export class UserServiceService {
   async update_profile(data: any): Promise<any> {
     try {
       const { userId, ...updates } = data;
-      const hasFollowersCount = Object.prototype.hasOwnProperty.call(updates, 'followers_count');
-      const hasFollowingCount = Object.prototype.hasOwnProperty.call(updates, 'following_count');
+      const hasFollowersCount = Object.prototype.hasOwnProperty.call(
+        updates,
+        'followers_count',
+      );
+      const hasFollowingCount = Object.prototype.hasOwnProperty.call(
+        updates,
+        'following_count',
+      );
 
       if (hasFollowersCount || hasFollowingCount) {
         throw new RpcException({
@@ -105,7 +127,10 @@ export class UserServiceService {
           where: { username: updates.username },
         });
         if (existingUsername) {
-          throw new RpcException({ status: 409, message: 'Username is already taken' });
+          throw new RpcException({
+            status: 409,
+            message: 'Username is already taken',
+          });
         }
       }
 
@@ -131,7 +156,10 @@ export class UserServiceService {
       const { userId, targetUserId } = data;
 
       if (userId === targetUserId) {
-        throw new RpcException({ status: 400, message: 'You cannot follow yourself' });
+        throw new RpcException({
+          status: 400,
+          message: 'You cannot follow yourself',
+        });
       }
 
       const targetProfile = await this.prismaService.userProfile.findUnique({
@@ -142,10 +170,18 @@ export class UserServiceService {
       }
 
       const existingFollow = await this.prismaService.userFollow.findUnique({
-        where: { follower_id_following_id: { follower_id: userId, following_id: targetUserId } },
+        where: {
+          follower_id_following_id: {
+            follower_id: userId,
+            following_id: targetUserId,
+          },
+        },
       });
       if (existingFollow) {
-        throw new RpcException({ status: 409, message: 'Already following this user' });
+        throw new RpcException({
+          status: 409,
+          message: 'Already following this user',
+        });
       }
 
       await this.prismaService.$transaction([
@@ -175,19 +211,35 @@ export class UserServiceService {
       const { userId, targetUserId } = data;
 
       if (userId === targetUserId) {
-        throw new RpcException({ status: 400, message: 'You cannot unfollow yourself' });
+        throw new RpcException({
+          status: 400,
+          message: 'You cannot unfollow yourself',
+        });
       }
 
       const existingFollow = await this.prismaService.userFollow.findUnique({
-        where: { follower_id_following_id: { follower_id: userId, following_id: targetUserId } },
+        where: {
+          follower_id_following_id: {
+            follower_id: userId,
+            following_id: targetUserId,
+          },
+        },
       });
       if (!existingFollow) {
-        throw new RpcException({ status: 404, message: 'You are not following this user' });
+        throw new RpcException({
+          status: 404,
+          message: 'You are not following this user',
+        });
       }
 
       await this.prismaService.$transaction([
         this.prismaService.userFollow.delete({
-          where: { follower_id_following_id: { follower_id: userId, following_id: targetUserId } },
+          where: {
+            follower_id_following_id: {
+              follower_id: userId,
+              following_id: targetUserId,
+            },
+          },
         }),
         this.prismaService.userProfile.update({
           where: { id: userId },
@@ -269,6 +321,213 @@ export class UserServiceService {
     }
   }
 
+  async search_profiles(data: {
+    userId: string;
+    query: string;
+    limit?: number;
+  }): Promise<any> {
+    try {
+      const raw = data.query?.trim() ?? '';
+      if (raw.length < 2) {
+        throw new RpcException({
+          status: 400,
+          message: 'Search query must be at least 2 characters',
+        });
+      }
+      const limit = Math.min(Math.max(data.limit ?? 15, 1), 30);
+      const profiles = await this.prismaService.userProfile.findMany({
+        where: {
+          id: { not: data.userId },
+          OR: [
+            { username: { contains: raw, mode: 'insensitive' } },
+            { full_name: { contains: raw, mode: 'insensitive' } },
+          ],
+        },
+        take: limit,
+        select: {
+          id: true,
+          username: true,
+          full_name: true,
+          avatar_url: true,
+        },
+      });
+      return { message: 'ok', data: profiles };
+    } catch (error) {
+      if (error instanceof RpcException) throw error;
+      console.error('Error searching profiles', error);
+      throw new RpcException({ status: 500, message: 'Search failed' });
+    }
+  }
+
+  async lookup_profiles(data: { ids: string[] }): Promise<any> {
+    try {
+      const raw = [...new Set((data.ids ?? []).map((x) => `${x}`.trim()))].filter(
+        Boolean,
+      );
+      const ids = raw.slice(0, 200);
+      if (ids.length === 0) {
+        return { message: 'ok', data: [] };
+      }
+      const profiles = await this.prismaService.userProfile.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, username: true, full_name: true, avatar_url: true },
+      });
+      return { message: 'ok', data: profiles };
+    } catch (error) {
+      console.error('Error lookup_profiles', error);
+      throw new RpcException({ status: 500, message: 'Lookup failed' });
+    }
+  }
+
+  /**
+   * Kafka: one-shot signed upload params. Browser POSTs file + signature to Cloudinary.
+   * context=chat → CLOUDINARY_CHAT_FOLDER (default navi/chat); else onboarding folder.
+   * resourceType=video → /video/upload (do not put resource_type in signature; Cloudinary
+   * derives it from the URL).
+   */
+  async cloudinary_upload_signature(data: {
+    userId: string;
+    context?: string;
+    resourceType?: string;
+  }): Promise<{
+    message: string;
+    data: {
+      cloudName: string;
+      apiKey: string;
+      timestamp: number;
+      signature: string;
+      folder: string;
+      public_id: string;
+      uploadUrl: string;
+      resourceType: 'image' | 'video';
+    };
+  }> {
+    const userId = typeof data.userId === 'string' ? data.userId.trim() : '';
+    if (!userId) {
+      throw new RpcException({ status: 400, message: 'User id is required' });
+    }
+
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim();
+    const apiKey = process.env.CLOUDINARY_API_KEY?.trim();
+    const apiSecret = process.env.CLOUDINARY_API_SECRET?.trim();
+    if (!cloudName || !apiKey || !apiSecret) {
+      throw new RpcException({
+        status: 503,
+        message: 'Media upload is not configured',
+      });
+    }
+
+    const ctx =
+      typeof data.context === 'string' &&
+      data.context.trim().toLowerCase() === 'chat'
+        ? 'chat'
+        : 'onboarding';
+    const rt =
+      typeof data.resourceType === 'string' &&
+      data.resourceType.trim().toLowerCase() === 'video'
+        ? 'video'
+        : 'image';
+
+    const folderBase =
+      ctx === 'chat'
+        ? process.env.CLOUDINARY_CHAT_FOLDER?.trim() || 'navi/chat'
+        : process.env.CLOUDINARY_UPLOAD_FOLDER?.trim() || 'navi/onboarding';
+
+    const timestamp = Math.round(Date.now() / 1000);
+    const folder = `${folderBase.replace(/^\/+|\/+$/g, '')}/${userId}`;
+    const idPrefix = ctx === 'chat' ? 'chat' : 'onboard';
+    const public_id = `${idPrefix}_${timestamp}_${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
+
+    const paramsToSign: Record<string, string | number> = {
+      timestamp,
+      folder,
+      public_id,
+    };
+    const signature = cloudinary.utils.api_sign_request(paramsToSign, apiSecret);
+
+    const uploadPath = rt === 'video' ? 'video' : 'image';
+    const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/${uploadPath}/upload`;
+
+    return {
+      message: 'ok',
+      data: {
+        cloudName,
+        apiKey,
+        timestamp,
+        signature,
+        folder,
+        public_id,
+        uploadUrl,
+        resourceType: rt,
+      },
+    };
+  }
+
+  /**
+   * Onboarding: accept only our Cloudinary delivery URLs under the signed folder + user id.
+   */
+  private assertVerifiedCloudinaryAvatarUrl(
+    avatarUrl: string,
+    userId: string,
+  ): void {
+    const raw = avatarUrl.trim();
+    if (!raw) return;
+
+    const cloud = process.env.CLOUDINARY_CLOUD_NAME?.trim();
+    const folderBase = (
+      process.env.CLOUDINARY_UPLOAD_FOLDER?.trim() || 'navi/onboarding'
+    ).replace(/^\/+|\/+$/g, '');
+    if (!cloud) {
+      throw new RpcException({
+        status: 503,
+        message: 'Avatar verification is not configured (CLOUDINARY_CLOUD_NAME)',
+      });
+    }
+
+    let url: URL;
+    try {
+      url = new URL(raw);
+    } catch {
+      throw new RpcException({ status: 400, message: 'Invalid avatar URL' });
+    }
+    if (url.protocol !== 'https:' || url.hostname !== 'res.cloudinary.com') {
+      throw new RpcException({ status: 400, message: 'Invalid avatar URL' });
+    }
+
+    const segments = url.pathname.split('/').filter(Boolean);
+    if (
+      segments.length < 4 ||
+      segments[0] !== cloud ||
+      segments[1] !== 'image' ||
+      segments[2] !== 'upload'
+    ) {
+      throw new RpcException({
+        status: 400,
+        message: 'Avatar must be a Cloudinary delivery URL for this app',
+      });
+    }
+
+    const pathAfterUpload = decodeURIComponent(segments.slice(3).join('/'));
+    const folderNorm = folderBase.split('/').join('/');
+    if (!pathAfterUpload.includes(`${folderNorm}/`)) {
+      throw new RpcException({
+        status: 400,
+        message: 'Avatar is not under the allowed upload folder',
+      });
+    }
+    if (
+      !pathAfterUpload.includes(`/${userId}/`) &&
+      !pathAfterUpload.startsWith(`${userId}/`)
+    ) {
+      throw new RpcException({
+        status: 400,
+        message: 'Avatar must be uploaded for this user account',
+      });
+    }
+  }
+
   async send_otp2email(data: any): Promise<void> {
     try {
       const { email, otp } = data;
@@ -299,7 +558,8 @@ export class UserServiceService {
   async send_reset_email(data: any): Promise<void> {
     try {
       const { email, resetToken } = data;
-      const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+      const base = (process.env.FRONTEND_URL ?? '').replace(/\/+$/, '');
+      const resetLink = `${base}/reset-password?token=${encodeURIComponent(resetToken)}`;
 
       await this.transporter.sendMail({
         from: `"Navi" <${process.env.EMAIL_USER}>`,
@@ -310,7 +570,7 @@ export class UserServiceService {
           <tr>
             <td align="center">
               <table width="500" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;padding:40px;font-family:Arial,sans-serif;">
-                
+
                 <!-- Logo -->
                 <tr>
                   <td align="center" style="padding-bottom:20px;">
@@ -336,7 +596,7 @@ export class UserServiceService {
                 <!-- Button -->
                 <tr>
                   <td align="center" style="padding:30px 0;">
-                    <a href="${resetLink}" 
+                    <a href="${resetLink}"
                       style="background:#3182ce;color:#ffffff;padding:12px 24px;
                               text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block;">
                       Reset Password
@@ -347,7 +607,7 @@ export class UserServiceService {
                 <!-- Fallback -->
                 <tr>
                   <td style="font-size:13px;color:#777;text-align:center;">
-                    If you didn’t request this, you can safely ignore this email.
+                    If you didn't request this, you can safely ignore this email.
                   </td>
                 </tr>
 
@@ -370,6 +630,4 @@ export class UserServiceService {
       console.error('Error sending reset email', error);
     }
   }
-
-
 }

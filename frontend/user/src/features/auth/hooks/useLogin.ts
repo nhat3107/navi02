@@ -38,11 +38,11 @@ export function useLogin() {
 
       try {
         await getProfileApi();
-        navigate(ROUTES.HOME);
+        navigate(ROUTES.HOME, { replace: true });
       } catch (profileErr) {
         const p = profileErr as AxiosError<{ statusCode?: number }>;
         if (p.response?.status === 404) {
-          navigate(ROUTES.ONBOARD);
+          navigate(ROUTES.ONBOARD, { replace: true });
         } else if (p.response?.status === 401) {
           setError(
             'Your session could not be validated. If this keeps happening, the API gateway and auth service must use the same JWT_ACCESS_SECRET.',
