@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
-import { UserService } from './user.service';
-import { UserController } from './user.controller';
+import { NetworkService } from './network.service';
+import { NetworkController } from './network.controller';
 import { ClientsModule, Transport } from '@nestjs/microservices';
+import { UserModule } from '../user/user.module';
 
 @Module({
   imports: [
@@ -11,18 +12,18 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
         transport: Transport.KAFKA,
         options: {
           client: {
-            clientId: 'api-gateway-user',
+            clientId: 'api-gateway-network',
             brokers: ['localhost:9092'],
           },
           consumer: {
-            groupId: 'api-gateway-user-reply',
+            groupId: 'api-gateway-network-reply',
           },
         },
       },
     ]),
+    UserModule,
   ],
-  controllers: [UserController],
-  providers: [UserService],
-  exports: [UserService],
+  controllers: [NetworkController],
+  providers: [NetworkService],
 })
-export class UserModule {}
+export class NetworkModule {}
