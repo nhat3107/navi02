@@ -18,6 +18,10 @@ import { OAuthCallback } from '../pages/auth/oauth/OAuthCallback';
 import { HomePage } from '../pages/home/HomePage';
 import { ChatPage } from '../pages/chat/ChatPage';
 import { CallRoomPage } from '../pages/call/CallRoomPage';
+import { ProfilePage } from '../pages/profile/ProfilePage';
+import { FollowEdgesPage } from '../pages/profile/FollowEdgesPage';
+import { EditProfilePage } from '../pages/settings/EditProfilePage';
+import { DiscoverPage } from '../pages/discover/DiscoverPage';
 import { RequireUserProfile } from './RequireUserProfile';
 
 export function AppRouter() {
@@ -58,6 +62,70 @@ export function AppRouter() {
               element={
                 <RequireUserProfile>
                   <CallRoomPage />
+                </RequireUserProfile>
+              }
+            />
+            <Route
+              path={ROUTES.DISCOVER}
+              element={
+                <RequireUserProfile>
+                  <DiscoverPage />
+                </RequireUserProfile>
+              }
+            />
+            <Route
+              path={ROUTES.PROFILE_ME}
+              element={
+                <RequireUserProfile>
+                  <ProfilePage mode="me" />
+                </RequireUserProfile>
+              }
+            />
+            <Route
+              path={ROUTES.PROFILE_ME_FOLLOWERS}
+              element={
+                <RequireUserProfile>
+                  <FollowEdgesPage mode="me-followers" />
+                </RequireUserProfile>
+              }
+            />
+            <Route
+              path={ROUTES.PROFILE_ME_FOLLOWING}
+              element={
+                <RequireUserProfile>
+                  <FollowEdgesPage mode="me-following" />
+                </RequireUserProfile>
+              }
+            />
+            <Route
+              path={ROUTES.SETTINGS_PROFILE}
+              element={
+                <RequireUserProfile>
+                  <EditProfilePage />
+                </RequireUserProfile>
+              }
+            />
+            <Route
+              path={ROUTES.PROFILE}
+              element={
+                <RequireUserProfile>
+                  <ProfilePage mode="other" />
+                </RequireUserProfile>
+              }
+            />
+            <Route
+              path={ROUTES.PROFILE_FOLLOWERS}
+              element={
+                <RequireUserProfile>
+                  <FollowEdgesPage mode="user-followers" />
+                </RequireUserProfile>
+              }
+            />
+            <Route
+              path={ROUTES.PROFILE_FOLLOWING}
+              element={
+                <RequireUserProfile>
+                  <FollowEdgesPage mode="user-following" />
                 </RequireUserProfile>
               }
             />

@@ -99,8 +99,14 @@ export class UserServiceService {
   async update_profile(data: any): Promise<any> {
     try {
       const { userId, ...updates } = data;
-      const hasFollowersCount = Object.prototype.hasOwnProperty.call(updates, 'followers_count');
-      const hasFollowingCount = Object.prototype.hasOwnProperty.call(updates, 'following_count');
+      const hasFollowersCount = Object.prototype.hasOwnProperty.call(
+        updates,
+        'followers_count',
+      );
+      const hasFollowingCount = Object.prototype.hasOwnProperty.call(
+        updates,
+        'following_count',
+      );
 
       if (hasFollowersCount || hasFollowingCount) {
         throw new RpcException({
@@ -121,7 +127,10 @@ export class UserServiceService {
           where: { username: updates.username },
         });
         if (existingUsername) {
-          throw new RpcException({ status: 409, message: 'Username is already taken' });
+          throw new RpcException({
+            status: 409,
+            message: 'Username is already taken',
+          });
         }
       }
 
@@ -147,7 +156,10 @@ export class UserServiceService {
       const { userId, targetUserId } = data;
 
       if (userId === targetUserId) {
-        throw new RpcException({ status: 400, message: 'You cannot follow yourself' });
+        throw new RpcException({
+          status: 400,
+          message: 'You cannot follow yourself',
+        });
       }
 
       const targetProfile = await this.prismaService.userProfile.findUnique({
@@ -158,10 +170,18 @@ export class UserServiceService {
       }
 
       const existingFollow = await this.prismaService.userFollow.findUnique({
-        where: { follower_id_following_id: { follower_id: userId, following_id: targetUserId } },
+        where: {
+          follower_id_following_id: {
+            follower_id: userId,
+            following_id: targetUserId,
+          },
+        },
       });
       if (existingFollow) {
-        throw new RpcException({ status: 409, message: 'Already following this user' });
+        throw new RpcException({
+          status: 409,
+          message: 'Already following this user',
+        });
       }
 
       await this.prismaService.$transaction([
@@ -191,19 +211,35 @@ export class UserServiceService {
       const { userId, targetUserId } = data;
 
       if (userId === targetUserId) {
-        throw new RpcException({ status: 400, message: 'You cannot unfollow yourself' });
+        throw new RpcException({
+          status: 400,
+          message: 'You cannot unfollow yourself',
+        });
       }
 
       const existingFollow = await this.prismaService.userFollow.findUnique({
-        where: { follower_id_following_id: { follower_id: userId, following_id: targetUserId } },
+        where: {
+          follower_id_following_id: {
+            follower_id: userId,
+            following_id: targetUserId,
+          },
+        },
       });
       if (!existingFollow) {
-        throw new RpcException({ status: 404, message: 'You are not following this user' });
+        throw new RpcException({
+          status: 404,
+          message: 'You are not following this user',
+        });
       }
 
       await this.prismaService.$transaction([
         this.prismaService.userFollow.delete({
-          where: { follower_id_following_id: { follower_id: userId, following_id: targetUserId } },
+          where: {
+            follower_id_following_id: {
+              follower_id: userId,
+              following_id: targetUserId,
+            },
+          },
         }),
         this.prismaService.userProfile.update({
           where: { id: userId },
@@ -282,6 +318,9 @@ export class UserServiceService {
       if (error instanceof RpcException) throw error;
       console.error('Error getting following', error);
       throw new RpcException({ status: 500, message: 'Failed to get following' });
+    }
+  }
+
   async search_profiles(data: {
     userId: string;
     query: string;
@@ -320,10 +359,31 @@ export class UserServiceService {
     }
   }
 
+  async lookup_profiles(data: { ids: string[] }): Promise<any> {
+    try {
+      const raw = [...new Set((data.ids ?? []).map((x) => `${x}`.trim()))].filter(
+        Boolean,
+      );
+      const ids = raw.slice(0, 200);
+      if (ids.length === 0) {
+        return { message: 'ok', data: [] };
+      }
+      const profiles = await this.prismaService.userProfile.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, username: true, full_name: true, avatar_url: true },
+      });
+      return { message: 'ok', data: profiles };
+    } catch (error) {
+      console.error('Error lookup_profiles', error);
+      throw new RpcException({ status: 500, message: 'Lookup failed' });
+    }
+  }
+
   /**
    * Kafka: one-shot signed upload params. Browser POSTs file + signature to Cloudinary.
    * context=chat → CLOUDINARY_CHAT_FOLDER (default navi/chat); else onboarding folder.
-   * resourceType=video → /video/upload (do not put resource_type in signature; Cloudinary derives it from the URL).
+   * resourceType=video → /video/upload (do not put resource_type in signature; Cloudinary
+   * derives it from the URL).
    */
   async cloudinary_upload_signature(data: {
     userId: string;
@@ -358,7 +418,8 @@ export class UserServiceService {
     }
 
     const ctx =
-      typeof data.context === 'string' && data.context.trim().toLowerCase() === 'chat'
+      typeof data.context === 'string' &&
+      data.context.trim().toLowerCase() === 'chat'
         ? 'chat'
         : 'onboarding';
     const rt =
@@ -375,7 +436,9 @@ export class UserServiceService {
     const timestamp = Math.round(Date.now() / 1000);
     const folder = `${folderBase.replace(/^\/+|\/+$/g, '')}/${userId}`;
     const idPrefix = ctx === 'chat' ? 'chat' : 'onboard';
-    const public_id = `${idPrefix}_${timestamp}_${Math.random().toString(36).slice(2, 10)}`;
+    const public_id = `${idPrefix}_${timestamp}_${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
 
     const paramsToSign: Record<string, string | number> = {
       timestamp,
@@ -403,7 +466,7 @@ export class UserServiceService {
   }
 
   /**
-   * On onboarding: accept only our Cloudinary delivery URLs under the signed folder + user id.
+   * Onboarding: accept only our Cloudinary delivery URLs under the signed folder + user id.
    */
   private assertVerifiedCloudinaryAvatarUrl(
     avatarUrl: string,
@@ -465,26 +528,6 @@ export class UserServiceService {
     }
   }
 
-  async lookup_profiles(data: { ids: string[] }): Promise<any> {
-    try {
-      const raw = [...new Set((data.ids ?? []).map((x) => `${x}`.trim()))].filter(
-        Boolean,
-      );
-      const ids = raw.slice(0, 200);
-      if (ids.length === 0) {
-        return { message: 'ok', data: [] };
-      }
-      const profiles = await this.prismaService.userProfile.findMany({
-        where: { id: { in: ids } },
-        select: { id: true, username: true, full_name: true, avatar_url: true },
-      });
-      return { message: 'ok', data: profiles };
-    } catch (error) {
-      console.error('Error lookup_profiles', error);
-      throw new RpcException({ status: 500, message: 'Lookup failed' });
-    }
-  }
-
   async send_otp2email(data: any): Promise<void> {
     try {
       const { email, otp } = data;
@@ -527,7 +570,7 @@ export class UserServiceService {
           <tr>
             <td align="center">
               <table width="500" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;padding:40px;font-family:Arial,sans-serif;">
-                
+
                 <!-- Logo -->
                 <tr>
                   <td align="center" style="padding-bottom:20px;">
@@ -553,7 +596,7 @@ export class UserServiceService {
                 <!-- Button -->
                 <tr>
                   <td align="center" style="padding:30px 0;">
-                    <a href="${resetLink}" 
+                    <a href="${resetLink}"
                       style="background:#3182ce;color:#ffffff;padding:12px 24px;
                               text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block;">
                       Reset Password
@@ -564,7 +607,7 @@ export class UserServiceService {
                 <!-- Fallback -->
                 <tr>
                   <td style="font-size:13px;color:#777;text-align:center;">
-                    If you didn’t request this, you can safely ignore this email.
+                    If you didn't request this, you can safely ignore this email.
                   </td>
                 </tr>
 

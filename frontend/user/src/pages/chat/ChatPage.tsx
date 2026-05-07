@@ -21,6 +21,7 @@ import {
   searchUsers,
   type UserSearchHit,
 } from '../../features/user/api/userDirectory.api';
+import { AppNavBar } from '../../features/user/components/AppNavBar';
 import { Button } from '../../shared/components/Button';
 import { ROUTES } from '../../shared/constants/routes';
 
@@ -93,7 +94,7 @@ function ChatAvatar({
   label: string;
   /** Profile photo URL (e.g. Cloudinary); falls back to initials */
   imageUrl?: string | null;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
 }) {
   const sz =
@@ -101,7 +102,9 @@ function ChatAvatar({
       ? 'h-9 w-9 text-xs'
       : size === 'lg'
         ? 'h-12 w-12 text-base'
-        : 'h-10 w-10 text-sm';
+        : size === 'xl'
+          ? 'h-20 w-20 text-2xl'
+          : 'h-10 w-10 text-sm';
   const src = imageUrl?.trim();
   if (src) {
     return (
@@ -300,6 +303,7 @@ export function ChatPage() {
 
   const [convFilter, setConvFilter] = useState('');
   const [showUserLookup, setShowUserLookup] = useState(true);
+  const [showInfo, setShowInfo] = useState(false);
   const convFilterNorm = convFilter.trim().toLowerCase();
 
   const filteredDirectConversations = useMemo(() => {
@@ -398,7 +402,7 @@ export function ChatPage() {
       const title = activeConversation.group_name || 'Group';
       return {
         title,
-        subtitle: `${activeConversation.participants.length} members · Group chat`,
+        subtitle: 'Group chat',
         avatarLabel: title,
         avatarImageUrl: null as string | null,
       };
@@ -469,6 +473,10 @@ export function ChatPage() {
       setMessages([]);
     }
   }, [activeConversationId, loadMessages]);
+
+  useEffect(() => {
+    setShowInfo(false);
+  }, [activeConversationId, peerId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -921,33 +929,37 @@ export function ChatPage() {
   }
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-slate-100 dark:bg-slate-950 overflow-hidden">
-      <header className="shrink-0 border-b border-slate-200/80 dark:border-slate-800 px-4 py-2.5 flex items-center justify-between bg-white/90 dark:bg-slate-900/90 backdrop-blur-md z-20">
-        <div className="flex items-center gap-3 min-w-0">
-          <Link
-            to={ROUTES.HOME}
-            className="text-sm text-slate-500 hover:text-accent shrink-0 rounded-2xl px-3 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-          >
-            Home
-          </Link>
-          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100 truncate">
-            Messages
-          </h1>
-          <span
-            className={`shrink-0 text-[0.65rem] uppercase tracking-wide px-2 py-0.5 rounded-full font-medium ${
-              connected
-                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300'
-                : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-            }`}
-          >
-            {connected ? 'Live' : 'Offline'}
-          </span>
-        </div>
-      </header>
+    <div className="flex h-[100dvh] flex-col bg-slate-50 dark:bg-slate-950 overflow-hidden">
+      <AppNavBar />
 
-      <div className="flex flex-1 min-h-0 w-full max-w-7xl mx-auto gap-3 px-3 pb-3 pt-2">
-        <aside className="flex h-full min-h-0 w-full max-w-[320px] shrink-0 flex-col overflow-hidden rounded-3xl border border-slate-200/90 dark:border-slate-700/90 bg-white dark:bg-slate-900 shadow-[4px_0_32px_-16px_rgba(0,0,0,0.12)] dark:shadow-none">
+      <div className="flex flex-1 min-h-0 w-full max-w-7xl mx-auto md:gap-3 md:px-3 md:pb-3 md:pt-2">
+        <aside
+          className={`h-full min-h-0 w-full shrink-0 flex-col overflow-hidden border-slate-200/90 bg-white dark:border-slate-700/90 dark:bg-slate-900 md:max-w-[320px] md:rounded-3xl md:border md:shadow-[4px_0_32px_-16px_rgba(0,0,0,0.12)] dark:md:shadow-none ${
+            activeConversationId || peerId.trim() ? 'hidden md:flex' : 'flex'
+          }`}
+        >
           <div className="shrink-0 space-y-2 border-b border-slate-100 p-3 dark:border-slate-800">
+            <div className="flex items-center justify-between gap-2 px-1">
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Conversations
+              </h2>
+              <span
+                title={connected ? 'Realtime connection active' : 'Reconnecting…'}
+                className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.6rem] font-medium uppercase tracking-wider ${
+                  connected
+                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300'
+                    : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                }`}
+              >
+                <span
+                  aria-hidden
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    connected ? 'bg-emerald-500' : 'bg-slate-400'
+                  }`}
+                />
+                {connected ? 'Live' : 'Offline'}
+              </span>
+            </div>
             <label className="sr-only" htmlFor="conv-filter">
               Filter conversations
             </label>
@@ -1037,14 +1049,9 @@ export function ChatPage() {
               className="flex min-h-0 flex-[1.15] flex-col border-b border-slate-100 dark:border-slate-800"
               aria-label="Direct messages"
             >
-              <div className="flex shrink-0 items-center justify-between px-3 py-2">
-                <p className="text-[0.65rem] font-bold uppercase tracking-wider text-slate-400">
-                  Direct
-                </p>
-                <span className="tabular-nums text-[0.65rem] text-slate-400">
-                  {loadingList ? '…' : filteredDirectConversations.length}
-                </span>
-              </div>
+              <p className="shrink-0 px-3 py-2 text-[0.65rem] font-bold uppercase tracking-wider text-slate-400">
+                Direct
+              </p>
               <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-gutter:stable]">
                 {loadingList ? (
                   <p className="p-3 text-sm text-slate-500">Loading…</p>
@@ -1096,14 +1103,9 @@ export function ChatPage() {
               className="flex min-h-0 flex-1 flex-col"
               aria-label="Group chats"
             >
-              <div className="flex shrink-0 items-center justify-between px-3 py-2">
-                <p className="text-[0.65rem] font-bold uppercase tracking-wider text-slate-400">
-                  Groups
-                </p>
-                <span className="tabular-nums text-[0.65rem] text-slate-400">
-                  {loadingList ? '…' : filteredGroupConversations.length}
-                </span>
-              </div>
+              <p className="shrink-0 px-3 py-2 text-[0.65rem] font-bold uppercase tracking-wider text-slate-400">
+                Groups
+              </p>
               <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-gutter:stable]">
                 {loadingList ? (
                   <p className="p-3 text-sm text-slate-500">Loading…</p>
@@ -1133,9 +1135,6 @@ export function ChatPage() {
                           <span className="min-w-0 flex-1">
                             <span className="block truncate font-semibold text-slate-900 dark:text-slate-100">
                               {c.group_name || 'Group'}
-                            </span>
-                            <span className="text-[0.65rem] text-slate-500">
-                              {c.participants.length} members
                             </span>
                             {c.last_message && (
                               <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
@@ -1262,9 +1261,33 @@ export function ChatPage() {
           </div>
         </aside>
 
-        <main className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden rounded-3xl border border-slate-200/90 dark:border-slate-700/90 bg-slate-50 dark:bg-slate-950 shadow-[0_8px_40px_-20px_rgba(0,0,0,0.1)] dark:shadow-none">
+        <main
+          className={`flex-1 flex-col min-w-0 min-h-0 overflow-hidden border-slate-200/90 bg-slate-50 dark:border-slate-700/90 dark:bg-slate-950 md:rounded-3xl md:border md:shadow-[0_8px_40px_-20px_rgba(0,0,0,0.1)] dark:md:shadow-none ${
+            activeConversationId || peerId.trim() ? 'flex' : 'hidden md:flex'
+          }`}
+        >
           {headerMeta && (
-            <div className="shrink-0 px-4 py-3 border-b border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-3 shadow-sm">
+            <div className="shrink-0 px-3 py-3 sm:px-4 border-b border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-2 sm:gap-3 shadow-sm">
+              <button
+                type="button"
+                onClick={clearNewChat}
+                aria-label="Back to conversations"
+                title="Back to conversations"
+                className="md:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-5 w-5"
+                  aria-hidden
+                >
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </button>
               <ChatAvatar
                 label={headerMeta.avatarLabel}
                 imageUrl={headerMeta.avatarImageUrl}
@@ -1278,28 +1301,55 @@ export function ChatPage() {
                   {headerMeta.subtitle}
                 </p>
               </div>
-              {canPlaceCall && (
-                <div className="flex shrink-0 items-center gap-1.5">
+              <div className="flex shrink-0 items-center gap-1.5">
+                {canPlaceCall && (
+                  <>
+                    <button
+                      type="button"
+                      disabled={callStarting}
+                      onClick={() => void startOutgoingCall('video')}
+                      title="Start video call"
+                      className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                    >
+                      Video
+                    </button>
+                    <button
+                      type="button"
+                      disabled={callStarting}
+                      onClick={() => void startOutgoingCall('audio')}
+                      title="Start voice call"
+                      className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                    >
+                      Audio
+                    </button>
+                  </>
+                )}
+                {activeConversation && (
                   <button
                     type="button"
-                    disabled={callStarting}
-                    onClick={() => void startOutgoingCall('video')}
-                    title="Start video call"
-                    className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                    onClick={() => setShowInfo(true)}
+                    title="Chat info"
+                    aria-label="Show chat info"
+                    aria-haspopup="dialog"
+                    aria-expanded={showInfo}
+                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                   >
-                    Video
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-4 w-4"
+                      aria-hidden
+                    >
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M12 8h.01M11 12h1v4h1" />
+                    </svg>
                   </button>
-                  <button
-                    type="button"
-                    disabled={callStarting}
-                    onClick={() => void startOutgoingCall('audio')}
-                    title="Start voice call"
-                    className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                  >
-                    Audio
-                  </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
 
@@ -1537,6 +1587,149 @@ export function ChatPage() {
           </div>
         </main>
       </div>
+
+      {showInfo && activeConversation && headerMeta && (
+        <div
+          className="fixed inset-0 z-40 flex"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="chat-info-title"
+        >
+          <button
+            type="button"
+            aria-label="Close chat info"
+            onClick={() => setShowInfo(false)}
+            className="flex-1 cursor-default bg-slate-900/40 backdrop-blur-sm"
+          />
+          <aside className="flex h-full w-full max-w-sm flex-col overflow-hidden border-l border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <header className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+              <p
+                id="chat-info-title"
+                className="text-sm font-semibold text-slate-900 dark:text-slate-100"
+              >
+                {activeConversation.isGroup ? 'Group info' : 'Contact info'}
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowInfo(false)}
+                aria-label="Close"
+                className="flex h-9 w-9 items-center justify-center rounded-2xl text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4"
+                  aria-hidden
+                >
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </header>
+
+            <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5">
+              <div className="flex flex-col items-center gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
+                <ChatAvatar
+                  label={headerMeta.avatarLabel}
+                  imageUrl={headerMeta.avatarImageUrl}
+                  size="xl"
+                />
+                <div className="min-w-0 max-w-full text-center">
+                  <p className="truncate text-lg font-semibold text-slate-900 dark:text-slate-100">
+                    {headerMeta.title}
+                  </p>
+                  <p className="mt-0.5 truncate text-sm text-slate-500 dark:text-slate-400">
+                    {headerMeta.subtitle}
+                  </p>
+                </div>
+              </div>
+
+              {activeConversation.isGroup ? (
+                <section>
+                  <p className="mb-2 px-1 text-[0.65rem] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Members · {activeConversation.participants.length}
+                  </p>
+                  <ul className="space-y-1">
+                    {activeConversation.participants.map((p) => {
+                      const displayName =
+                        p.full_name?.trim() ||
+                        (p.username ? `@${p.username}` : `${p.id.slice(0, 8)}…`);
+                      const isSelf = p.id === userId;
+                      return (
+                        <li
+                          key={p.id}
+                          className="flex items-center gap-3 rounded-2xl px-2 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                        >
+                          <ChatAvatar
+                            label={displayName}
+                            imageUrl={p.avatar_url}
+                            size="md"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                              {displayName}
+                              {isSelf && (
+                                <span className="ml-1.5 text-xs font-normal text-slate-500 dark:text-slate-400">
+                                  (you)
+                                </span>
+                              )}
+                            </p>
+                            {p.username && p.full_name && (
+                              <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                                @{p.username}
+                              </p>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              ) : (
+                (() => {
+                  const other = getOtherParticipant(activeConversation, userId);
+                  const rows: Array<{ k: string; v: string }> = [];
+                  if (other?.full_name?.trim()) {
+                    rows.push({ k: 'Full name', v: other.full_name.trim() });
+                  }
+                  if (other?.username?.trim()) {
+                    rows.push({ k: 'Username', v: `@${other.username.trim()}` });
+                  }
+                  if (other?.email?.trim()) {
+                    rows.push({ k: 'Email', v: other.email.trim() });
+                  }
+                  if (rows.length === 0) return null;
+                  return (
+                    <section>
+                      <p className="mb-2 px-1 text-[0.65rem] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        About
+                      </p>
+                      <dl className="space-y-2">
+                        {rows.map((r) => (
+                          <div
+                            key={r.k}
+                            className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/50"
+                          >
+                            <dt className="text-[0.65rem] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                              {r.k}
+                            </dt>
+                            <dd className="mt-0.5 break-words text-sm font-medium text-slate-900 dark:text-slate-100">
+                              {r.v}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </section>
+                  );
+                })()
+              )}
+            </div>
+          </aside>
+        </div>
+      )}
     </div>
   );
 }

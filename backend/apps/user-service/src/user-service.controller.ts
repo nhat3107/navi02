@@ -39,6 +39,8 @@ export class UserServiceController {
   @MessagePattern('user.get_following', Transport.KAFKA)
   get_following(data: any): Promise<any> {
     return this.userServiceService.get_following(data);
+  }
+
   @MessagePattern('user.search_profiles', Transport.KAFKA)
   search_profiles(data: any): Promise<any> {
     return this.userServiceService.search_profiles(data);

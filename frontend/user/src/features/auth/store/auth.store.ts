@@ -6,6 +6,7 @@ import {
   persistAccessToken,
   clearAccessTokenStorage,
 } from '../../../shared/constants/tokens';
+import { useProfileCache } from '../../user/store/profileCache.store';
 
 function readStoredSession(): { user: User | null; accessToken: string | null } {
   const token = getStoredAccessToken();
@@ -35,6 +36,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: () => {
     clearAccessTokenStorage();
+    // Drop any cached profile + follow-set so the next sign-in starts clean.
+    useProfileCache.getState().clear();
     set({ user: null, accessToken: null, isAuthenticated: false });
   },
 }));
