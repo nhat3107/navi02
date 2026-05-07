@@ -106,8 +106,8 @@ export const ParticipantMediaTile = memo(function ParticipantMediaTile({
         </div>
       )}
       <audio ref={audioRef} autoPlay playsInline muted={isLocal} className="hidden" />
-      <div className="pointer-events-none absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between gap-2 sm:bottom-2 sm:left-2 sm:right-2">
-        <span className="flex max-w-[70%] items-center gap-1.5 truncate rounded-lg bg-black/55 px-1.5 py-0.5 text-[0.65rem] font-medium text-white backdrop-blur-sm sm:px-2 sm:py-1 sm:text-xs">
+      <div className="pointer-events-none absolute bottom-1 left-1 right-1 flex items-center justify-between gap-1.5 sm:bottom-2 sm:left-2 sm:right-2">
+        <span className="flex max-w-[72%] items-center gap-1 truncate rounded-lg bg-black/55 px-1.5 py-0.5 text-[0.62rem] font-medium text-white backdrop-blur-sm sm:gap-1.5 sm:px-2 sm:py-1 sm:text-xs">
           {speakingNow && (
             <span
               aria-hidden="true"
@@ -117,7 +117,7 @@ export const ParticipantMediaTile = memo(function ParticipantMediaTile({
           <span className="truncate">{isLocal ? 'You' : name}</span>
         </span>
         {!isLocal && (
-          <span className="hidden shrink-0 rounded bg-black/45 px-1.5 py-0.5 text-[0.65rem] text-white/80 sm:inline">
+          <span className="hidden shrink-0 rounded bg-black/45 px-1.5 py-0.5 text-[0.62rem] text-white/80 sm:inline">
             {webcamOn ? 'Cam on' : 'Cam off'}
           </span>
         )}

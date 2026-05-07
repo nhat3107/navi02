@@ -219,6 +219,10 @@ function ProfileHero({
   isSelf: boolean;
   viewerUserId: string | null;
 }) {
+  const postOwnerLabel = isSelf
+    ? 'your posts'
+    : `${profile.full_name?.trim() || `@${profile.username}`}'s posts`;
+
   return (
     <article className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="h-32 bg-gradient-to-br from-violet-400 via-fuchsia-400 to-rose-300 sm:h-40" />
@@ -319,6 +323,39 @@ function ProfileHero({
             count={profile.following_count}
           />
         </nav>
+
+        <section className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/40">
+          <div className="flex items-start gap-3">
+            <span
+              aria-hidden
+              className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-bg text-accent"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Posts section
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                This profile will show {postOwnerLabel} here once posting is enabled.
+              </p>
+            </div>
+          </div>
+        </section>
       </div>
     </article>
   );

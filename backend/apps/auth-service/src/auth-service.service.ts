@@ -5,6 +5,8 @@ import { ClientKafka, RpcException } from '@nestjs/microservices';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes } from 'crypto';
 
+const REFRESH_TOKEN_ROUNDS = 10;
+
 @Injectable()
 export class AuthServiceService {
   constructor(
@@ -12,6 +14,36 @@ export class AuthServiceService {
     @Inject('KAFKA_SERVICE') private readonly kafkaclient: ClientKafka,
     private readonly jwtService: JwtService,
   ) {}
+
+  private async hashRefreshToken(rawToken: string): Promise<string> {
+    return bcryptjs.hash(rawToken, REFRESH_TOKEN_ROUNDS);
+  }
+
+  /**
+   * Refresh tokens are bcrypt-hashed at rest; look up candidates and compare.
+   * We only scan non-expired rows, newest first, capped for safety.
+   */
+  private async findStoredRefreshToken(rawToken: string) {
+    const candidates = await this.prismaService.refreshToken.findMany({
+      where: { expiresAt: { gt: new Date() } },
+      include: { user: true },
+      orderBy: { createdAt: 'desc' },
+      take: 2000,
+    });
+
+    for (const row of candidates) {
+      // Backward compatibility: accept legacy plaintext rows created before
+      // hashing was introduced, so active sessions can rotate seamlessly.
+      if (row.token_hash === rawToken) return row;
+      try {
+        const ok = await bcryptjs.compare(rawToken, row.token_hash);
+        if (ok) return row;
+      } catch {
+        // Not a bcrypt hash (or malformed) — ignore this row.
+      }
+    }
+    return null;
+  }
 
   async signup(data: any): Promise<any> {
     try {
@@ -175,10 +207,11 @@ export class AuthServiceService {
       );
 
       const refreshToken = randomBytes(64).toString('hex');
+      const refreshTokenHash = await this.hashRefreshToken(refreshToken);
 
       await this.prismaService.refreshToken.create({
         data: {
-          token_hash: refreshToken,
+          token_hash: refreshTokenHash,
           userId: user.id,
           expiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
         },
@@ -200,10 +233,7 @@ export class AuthServiceService {
         throw new RpcException({ status: 401, message: 'Refresh token is required' });
       }
 
-      const tokenRecord = await this.prismaService.refreshToken.findUnique({
-        where: { token_hash: refreshToken },
-        include: { user: true },
-      });
+      const tokenRecord = await this.findStoredRefreshToken(refreshToken);
 
       if (!tokenRecord) {
         throw new RpcException({ status: 401, message: 'Invalid refresh token' });
@@ -224,10 +254,12 @@ export class AuthServiceService {
       );
 
       const newRefreshToken = randomBytes(64).toString('hex');
+      const newRefreshTokenHash =
+        await this.hashRefreshToken(newRefreshToken);
 
       await this.prismaService.refreshToken.create({
         data: {
-          token_hash: newRefreshToken,
+          token_hash: newRefreshTokenHash,
           userId: user.id,
           expiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
         },
@@ -412,10 +444,11 @@ export class AuthServiceService {
       );
 
       const refreshToken = randomBytes(64).toString('hex');
+      const refreshTokenHash = await this.hashRefreshToken(refreshToken);
 
       await this.prismaService.refreshToken.create({
         data: {
-          token_hash: refreshToken,
+          token_hash: refreshTokenHash,
           userId: user.id,
           expiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
         },
@@ -437,13 +470,13 @@ export class AuthServiceService {
         throw new RpcException({ status: 400, message: 'Refresh token is required' });
       }
 
-      const deleted = await this.prismaService.refreshToken.deleteMany({
-        where: { token_hash: refreshToken },
-      });
-
-      if (deleted.count === 0) {
+      const tokenRecord = await this.findStoredRefreshToken(refreshToken);
+      if (!tokenRecord) {
         throw new RpcException({ status: 400, message: 'Invalid or already revoked token' });
       }
+      await this.prismaService.refreshToken.delete({
+        where: { id: tokenRecord.id },
+      });
 
       return { message: 'Signed out successfully' };
     } catch (error) {

@@ -16,7 +16,10 @@ import { NotificationModule } from './notification/notification.module';
       isGlobal: true,
       envFilePath: 'apps/api-gateway/.env',
     }),
-    JwtModule.register({ global: true }),
+    JwtModule.register({
+      global: true,
+      secret: process.env.JWT_ACCESS_SECRET,
+    }),
     AuthModule,
     UserModule,
     NetworkModule,

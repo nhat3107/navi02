@@ -324,14 +324,28 @@ export function MeetingRoomShell() {
     }
   }, [participants]);
 
+  const participantCount = participantIds.length;
+  const isLargeGroup = isGroupCall && participantCount >= 6;
+  const isVeryLargeGroup = isGroupCall && participantCount >= 10;
+
+  /**
+   * Responsive participant grid:
+   * - 1: single centered hero tile
+   * - 2: balanced two-up
+   * - 3-4: 2x2 style
+   * - 5+: progressively denser auto-fit with a hard min width to avoid
+   *   overlapping controls on narrow viewports.
+   */
   const gridClass =
-    participantIds.length <= 1
-      ? 'grid-cols-1 max-w-3xl mx-auto'
-      : participantIds.length === 2
+    participantCount <= 1
+      ? 'mx-auto max-w-4xl grid-cols-1'
+      : participantCount === 2
         ? 'grid-cols-1 sm:grid-cols-2'
-        : participantIds.length <= 4
+        : participantCount <= 4
           ? 'grid-cols-1 sm:grid-cols-2'
-          : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
+          : isVeryLargeGroup
+            ? 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4'
+            : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
 
   const handleToggleShare = useCallback(async () => {
     try {
@@ -430,7 +444,7 @@ export function MeetingRoomShell() {
         </div>
       </header>
 
-      <main className="relative min-h-0 flex-1 overflow-y-auto p-2 sm:p-3 md:p-4">
+      <main className="relative min-h-0 flex-1 overflow-hidden p-2 sm:p-3 md:p-4">
         <CallNotices toasts={toasts} reconnecting={reconnecting} />
 
         {!isMeetingJoined ? (
@@ -451,7 +465,11 @@ export function MeetingRoomShell() {
               {participantIds.map((id) => (
                 <div
                   key={id}
-                  className="h-20 w-28 shrink-0 sm:h-24 sm:w-36 md:h-28 md:w-44 lg:h-32 lg:w-48"
+                  className={`shrink-0 ${
+                    isLargeGroup
+                      ? 'h-20 w-28 sm:h-22 sm:w-32 md:h-24 md:w-36'
+                      : 'h-20 w-28 sm:h-24 sm:w-36 md:h-28 md:w-44 lg:h-32 lg:w-48'
+                  }`}
                 >
                   <ParticipantMediaTile
                     participantId={id}
@@ -462,7 +480,11 @@ export function MeetingRoomShell() {
             </div>
           </div>
         ) : (
-          <div className={`grid gap-2 sm:gap-3 ${gridClass}`}>
+          <div
+            className={`grid h-full overflow-y-auto pr-0.5 ${
+              isLargeGroup ? 'gap-2' : 'gap-2 sm:gap-3'
+            } ${gridClass}`}
+          >
             {participantIds.map((id) => (
               <ParticipantMediaTile
                 key={id}
@@ -474,13 +496,13 @@ export function MeetingRoomShell() {
         )}
       </main>
 
-      <footer className="shrink-0 border-t border-white/10 bg-[#12151a]/95 px-3 py-3 backdrop-blur-md sm:px-4 sm:py-4 md:px-8">
-        <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-2 sm:gap-3 md:gap-4">
+      <footer className="shrink-0 border-t border-white/10 bg-[#12151a]/95 px-2.5 py-2.5 backdrop-blur-md sm:px-4 sm:py-4 md:px-8">
+        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-2 sm:gap-3 md:gap-4">
           <button
             type="button"
             onClick={() => toggleMic()}
             title={localMicOn ? 'Mute' : 'Unmute'}
-            className={`flex h-11 w-11 items-center justify-center rounded-full text-lg transition sm:h-12 sm:w-12 md:h-14 md:w-14 ${
+            className={`flex h-10 w-10 items-center justify-center rounded-full text-base transition sm:h-12 sm:w-12 sm:text-lg md:h-14 md:w-14 ${
               localMicOn
                 ? 'bg-white/10 hover:bg-white/15'
                 : 'bg-rose-600/90 hover:bg-rose-500'
@@ -492,7 +514,7 @@ export function MeetingRoomShell() {
             type="button"
             onClick={() => toggleWebcam()}
             title={localWebcamOn ? 'Camera off' : 'Camera on'}
-            className={`flex h-11 w-11 items-center justify-center rounded-full text-lg transition sm:h-12 sm:w-12 md:h-14 md:w-14 ${
+            className={`flex h-10 w-10 items-center justify-center rounded-full text-base transition sm:h-12 sm:w-12 sm:text-lg md:h-14 md:w-14 ${
               localWebcamOn
                 ? 'bg-white/10 hover:bg-white/15'
                 : 'bg-rose-600/90 hover:bg-rose-500'
@@ -506,7 +528,7 @@ export function MeetingRoomShell() {
             title={localScreenShareOn ? 'Stop sharing' : 'Share screen'}
             aria-pressed={localScreenShareOn}
             disabled={!isMeetingJoined}
-            className={`flex h-11 w-11 items-center justify-center rounded-full transition sm:h-12 sm:w-12 md:h-14 md:w-14 disabled:opacity-40 ${
+            className={`flex h-10 w-10 items-center justify-center rounded-full transition sm:h-12 sm:w-12 md:h-14 md:w-14 disabled:opacity-40 ${
               localScreenShareOn
                 ? 'bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-900/40'
                 : 'bg-white/10 hover:bg-white/15'
@@ -535,7 +557,7 @@ export function MeetingRoomShell() {
                 type="button"
                 onClick={() => setShowLeaveMenu((v) => !v)}
                 title="Leave call"
-                className="flex h-11 items-center gap-2 rounded-2xl bg-rose-600 px-3 text-sm font-semibold shadow-lg shadow-rose-900/40 transition hover:bg-rose-500 sm:h-12 sm:px-4 md:h-14 md:px-5"
+                className="flex h-10 items-center gap-2 rounded-2xl bg-rose-600 px-3 text-xs font-semibold shadow-lg shadow-rose-900/40 transition hover:bg-rose-500 sm:h-12 sm:px-4 sm:text-sm md:h-14 md:px-5"
                 aria-haspopup="menu"
                 aria-expanded={showLeaveMenu}
               >
@@ -588,7 +610,7 @@ export function MeetingRoomShell() {
               type="button"
               onClick={hangUp}
               title="Leave call"
-              className="flex h-11 w-14 items-center justify-center rounded-2xl bg-rose-600 text-sm font-semibold shadow-lg shadow-rose-900/40 transition hover:bg-rose-500 sm:h-12 sm:w-16 md:h-14 md:w-20"
+              className="flex h-10 w-14 items-center justify-center rounded-2xl bg-rose-600 text-xs font-semibold shadow-lg shadow-rose-900/40 transition hover:bg-rose-500 sm:h-12 sm:w-16 sm:text-sm md:h-14 md:w-20"
             >
               Leave
             </button>
