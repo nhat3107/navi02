@@ -7,6 +7,8 @@ import { ChatModule } from './chat/chat.module';
 import { UserModule } from './user/user.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { ConfigModule } from '@nestjs/config';
+import { NetworkModule } from './network/network.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { ConfigModule } from '@nestjs/config';
     JwtModule.register({ global: true }),
     AuthModule,
     UserModule,
+    NetworkModule,
+    NotificationModule,
     CallModule,
     ChatModule,
   ],
