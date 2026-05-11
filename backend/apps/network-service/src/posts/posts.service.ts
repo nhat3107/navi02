@@ -12,9 +12,29 @@ export class PostsService {
     @InjectModel(Like.name) private readonly likeModel: Model<LikeDocument>,
   ) {}
 
-  async create(data: {authorId: string;content: string;mediaUrls?: string[];visibility?: string}): Promise<any> {
+  async create(data: {
+    authorId: string;
+    content?: string;
+    mediaUrls?: string[];
+    visibility?: string;
+  }): Promise<any> {
     try {
-      const created = new this.postModel(data);
+      const text = (data.content ?? '').trim();
+      const media = (data.mediaUrls ?? []).filter(
+        (u) => typeof u === 'string' && u.trim().length > 0,
+      );
+      if (!text && media.length === 0) {
+        throw new RpcException({
+          status: 400,
+          message: 'content or mediaUrls is required',
+        });
+      }
+      const created = new this.postModel({
+        authorId: data.authorId,
+        content: text,
+        mediaUrls: media,
+        visibility: data.visibility,
+      });
       const saved = await created.save();
       return { message: 'Post created successfully', data: saved };
     } catch (error) {

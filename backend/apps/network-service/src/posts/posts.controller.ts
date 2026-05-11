@@ -7,7 +7,12 @@ export class PostsController {
   constructor(private readonly postsService: PostsService) {}
 
   @MessagePattern('post.create', Transport.KAFKA)
-  create(data: {authorId: string;content: string;mediaUrls?: string[];visibility?: string;}): Promise<any> {
+  create(data: {
+    authorId: string;
+    content?: string;
+    mediaUrls?: string[];
+    visibility?: string;
+  }): Promise<any> {
     return this.postsService.create(data);
   }
 

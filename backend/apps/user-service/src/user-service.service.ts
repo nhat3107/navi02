@@ -381,7 +381,9 @@ export class UserServiceService {
 
   /**
    * Kafka: one-shot signed upload params. Browser POSTs file + signature to Cloudinary.
-   * context=chat → CLOUDINARY_CHAT_FOLDER (default navi/chat); else onboarding folder.
+   * context=chat → CLOUDINARY_CHAT_FOLDER (default navi/chat);
+   * context=network → CLOUDINARY_NETWORK_FOLDER (default navi/network);
+   * else onboarding folder.
    * resourceType=video → /video/upload (do not put resource_type in signature; Cloudinary
    * derives it from the URL).
    */
@@ -417,11 +419,13 @@ export class UserServiceService {
       });
     }
 
+    const ctxNorm = (data.context ?? '').trim().toLowerCase();
     const ctx =
-      typeof data.context === 'string' &&
-      data.context.trim().toLowerCase() === 'chat'
+      ctxNorm === 'chat'
         ? 'chat'
-        : 'onboarding';
+        : ctxNorm === 'network'
+          ? 'network'
+          : 'onboarding';
     const rt =
       typeof data.resourceType === 'string' &&
       data.resourceType.trim().toLowerCase() === 'video'
@@ -431,11 +435,14 @@ export class UserServiceService {
     const folderBase =
       ctx === 'chat'
         ? process.env.CLOUDINARY_CHAT_FOLDER?.trim() || 'navi/chat'
-        : process.env.CLOUDINARY_UPLOAD_FOLDER?.trim() || 'navi/onboarding';
+        : ctx === 'network'
+          ? process.env.CLOUDINARY_NETWORK_FOLDER?.trim() || 'navi/network'
+          : process.env.CLOUDINARY_UPLOAD_FOLDER?.trim() || 'navi/onboarding';
 
     const timestamp = Math.round(Date.now() / 1000);
     const folder = `${folderBase.replace(/^\/+|\/+$/g, '')}/${userId}`;
-    const idPrefix = ctx === 'chat' ? 'chat' : 'onboard';
+    const idPrefix =
+      ctx === 'chat' ? 'chat' : ctx === 'network' ? 'network' : 'onboard';
     const public_id = `${idPrefix}_${timestamp}_${Math.random()
       .toString(36)
       .slice(2, 10)}`;

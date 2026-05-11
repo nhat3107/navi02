@@ -4,6 +4,13 @@ import { NetworkController } from './network.controller';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { UserModule } from '../user/user.module';
 
+function kafkaBrokers(): string[] {
+  return (process.env.KAFKA_BROKERS ?? 'localhost:9092')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 @Module({
   imports: [
     ClientsModule.register([
@@ -13,7 +20,7 @@ import { UserModule } from '../user/user.module';
         options: {
           client: {
             clientId: 'api-gateway-network',
-            brokers: ['localhost:9092'],
+            brokers: kafkaBrokers(),
           },
           consumer: {
             groupId: 'api-gateway-network-reply',
