@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { RpcException } from '@nestjs/microservices';
+import { Inject, Injectable } from '@nestjs/common';
+import { ClientKafka, RpcException } from '@nestjs/microservices';
 import { v2 as cloudinary } from 'cloudinary';
 import * as nodemailer from 'nodemailer';
 import { PrismaService } from './prisma.service';
@@ -8,7 +8,10 @@ import { PrismaService } from './prisma.service';
 export class UserServiceService {
   private transporter: nodemailer.Transporter;
 
-  constructor(private readonly prismaService: PrismaService) {
+  constructor(
+    private readonly prismaService: PrismaService,
+    @Inject('KAFKA_SERVICE') private readonly kafkaClient: ClientKafka,
+  ) {
     this.transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -197,6 +200,11 @@ export class UserServiceService {
           data: { followers_count: { increment: 1 } },
         }),
       ]);
+
+      this.kafkaClient.emit('notification.follow', {
+        senderId: userId,
+        recipientId: targetUserId,
+      });
 
       return { message: 'Followed successfully' };
     } catch (error) {

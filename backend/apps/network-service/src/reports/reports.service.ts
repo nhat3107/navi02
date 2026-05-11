@@ -85,7 +85,7 @@ export class ReportsService {
             reviewedBy: data.reviewerId,
             reviewedAt: new Date(),
           },
-          { new: true },
+          { returnDocument: 'after' },
         )
         .exec();
       if (!updated) {

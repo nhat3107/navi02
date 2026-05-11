@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { RpcException } from '@nestjs/microservices';
+import { ClientKafka, RpcException } from '@nestjs/microservices';
 import { Comment, CommentDocument } from './schemas/comment.schema';
 import { PostsService } from '../posts/posts.service';
 
@@ -11,16 +11,19 @@ export class CommentsService {
     @InjectModel(Comment.name)
     private readonly commentModel: Model<CommentDocument>,
     private readonly postsService: PostsService,
+    @Inject('KAFKA_SERVICE') private readonly kafkaClient: ClientKafka,
   ) {}
 
   async create(data: {authorId: string;postId: string;content: string;parentCommentId?: string | null;}): Promise<any> {
     try {
       // Verify the target post exists (throws 404 RpcException if not found)
-      await this.postsService.findById(data.postId);
+      const postResponse = await this.postsService.findById(data.postId);
+      const post = postResponse.data;
 
       // If replying, verify parent comment exists and belongs to the same post
+      let parentComment: CommentDocument | null = null;
       if (data.parentCommentId) {
-        const parentComment = await this.commentModel
+        parentComment = await this.commentModel
           .findById(data.parentCommentId)
           .exec();
         if (!parentComment) {
@@ -51,6 +54,29 @@ export class CommentsService {
           .exec();
       } else {
         await this.postsService.incrementCommentCount(data.postId, 1);
+      }
+
+      // Emit notification events
+      const preview = data.content.length > 100
+        ? data.content.substring(0, 100) + '...'
+        : data.content;
+
+      if (data.parentCommentId && parentComment) {
+        // Reply → notify the parent comment author
+        this.kafkaClient.emit('notification.reply', {
+          senderId: data.authorId,
+          recipientId: parentComment.authorId,
+          commentId: data.parentCommentId,
+          preview,
+        });
+      } else {
+        // Top-level comment → notify the post author
+        this.kafkaClient.emit('notification.comment', {
+          senderId: data.authorId,
+          recipientId: post.authorId,
+          postId: data.postId,
+          preview,
+        });
       }
 
       return { message: 'Comment created successfully', data: saved };
@@ -96,7 +122,7 @@ export class CommentsService {
   async update(id: string, authorId: string, content: string): Promise<any> {
     try {
       const updated = await this.commentModel
-        .findOneAndUpdate({ _id: id, authorId }, { content }, { new: true })
+        .findOneAndUpdate({ _id: id, authorId }, { content }, { returnDocument: 'after' })
         .exec();
       if (!updated) {
         throw new RpcException({ status: 404, message: `Comment ${id} not found` });

@@ -6,6 +6,7 @@ import { LikesController } from './likes.controller';
 import { LikesService } from './likes.service';
 import { PostsModule } from '../posts/posts.module';
 import { CommentsModule } from '../comments/comments.module';
+import { KafkaClientModule } from '../kafka-client.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { CommentsModule } from '../comments/comments.module';
     ]),
     PostsModule,
     CommentsModule,
+    KafkaClientModule,
   ],
   controllers: [LikesController],
   providers: [LikesService],

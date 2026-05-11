@@ -102,7 +102,7 @@ export class PostsService {
   async update(id: string, authorId: string, data: Partial<{ content: string; mediaUrls: string[]; visibility: string }>): Promise<any> {
     try {
       const updated = await this.postModel
-        .findOneAndUpdate({ _id: id, authorId }, data, { new: true })
+        .findOneAndUpdate({ _id: id, authorId }, data, { returnDocument: 'after' })
         .exec();
       if (!updated) {
         throw new RpcException({ status: 403, message: 'You can only update your own posts' });
