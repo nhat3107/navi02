@@ -1,5 +1,5 @@
 export class CreatePostDto {
-  content: string;
+  content?: string;
   mediaUrls?: string[];
   visibility?: string;
 }

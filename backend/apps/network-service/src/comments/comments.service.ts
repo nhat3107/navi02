@@ -14,8 +14,25 @@ export class CommentsService {
     @Inject('KAFKA_SERVICE') private readonly kafkaClient: ClientKafka,
   ) {}
 
-  async create(data: {authorId: string;postId: string;content: string;parentCommentId?: string | null;}): Promise<any> {
+  async create(data: {
+    authorId: string;
+    postId: string;
+    content?: string;
+    mediaUrls?: string[];
+    parentCommentId?: string | null;
+  }): Promise<any> {
     try {
+      const text = (data.content ?? '').trim();
+      const media = (data.mediaUrls ?? []).filter(
+        (u) => typeof u === 'string' && u.trim().length > 0,
+      );
+      if (!text && media.length === 0) {
+        throw new RpcException({
+          status: 400,
+          message: 'content or mediaUrls is required',
+        });
+      }
+
       // Verify the target post exists (throws 404 RpcException if not found)
       const postResponse = await this.postsService.findById(data.postId);
       const post = postResponse.data;
@@ -40,7 +57,8 @@ export class CommentsService {
         parentCommentId: data.parentCommentId
           ? new Types.ObjectId(data.parentCommentId)
           : null,
-        content: data.content,
+        content: text,
+        mediaUrls: media,
       });
       const saved = await created.save();
 

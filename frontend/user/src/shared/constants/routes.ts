@@ -27,7 +27,13 @@ export const ROUTES = {
   VERIFY_OTP: '/verify-otp',
   ONBOARD: '/onboard',
   OAUTH_CALLBACK: '/oauth/callback',
+  /** Single post — comments, likes, report. */
+  POST: '/post/:postId',
 } as const;
+
+/** Path to a post detail screen. */
+export const buildPostPath = (postId: string): string =>
+  `/post/${encodeURIComponent(postId)}`;
 
 /** Build a profile path for someone else by userId. */
 export const buildProfilePath = (userId: string): string =>
@@ -73,4 +79,24 @@ export const API_ROUTES = {
   /** GET — browser redirect; matches api-gateway auth.controller. */
   OAUTH_GOOGLE: 'auth/google',
   OAUTH_GITHUB: 'auth/github',
+  NETWORK_FEED: 'network/feed',
+  NETWORK_POSTS: 'network/posts',
+  NETWORK_COMMENTS: 'network/comments',
+  NETWORK_REPORTS: 'network/reports',
 } as const;
+
+/** `network/posts/:id` — get/patch/delete post; append `/like` for like routes. */
+export const apiNetworkPostById = (postId: string): string =>
+  `network/posts/${encodeURIComponent(postId)}`;
+
+export const apiNetworkPostsByAuthor = (authorId: string): string =>
+  `network/posts/author/${encodeURIComponent(authorId)}`;
+
+export const apiNetworkCommentsByPost = (postId: string): string =>
+  `network/comments/post/${encodeURIComponent(postId)}`;
+
+export const apiNetworkCommentReplies = (parentCommentId: string): string =>
+  `network/comments/${encodeURIComponent(parentCommentId)}/replies`;
+
+export const apiNetworkCommentById = (commentId: string): string =>
+  `network/comments/${encodeURIComponent(commentId)}`;

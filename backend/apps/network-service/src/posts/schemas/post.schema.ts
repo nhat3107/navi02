@@ -16,7 +16,8 @@ export class Post {
   @Prop({ type: String, required: true, index: true })
   authorId: string;
 
-  @Prop({ type: String, required: true, trim: true, maxlength: 5000 })
+  /** May be empty when `mediaUrls` is non-empty (validated in service). */
+  @Prop({ type: String, default: '', trim: true, maxlength: 5000 })
   content: string;
 
   @Prop({ type: [String], default: [] })

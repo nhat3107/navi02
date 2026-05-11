@@ -1,5 +1,6 @@
 export class CreateCommentDto {
   postId: string;
-  content: string;
+  content?: string;
+  mediaUrls?: string[];
   parentCommentId?: string | null;
 }

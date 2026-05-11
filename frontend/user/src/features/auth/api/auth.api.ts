@@ -74,7 +74,7 @@ export async function onboardingApi(
 }
 
 export type CloudinarySignRequestOptions = {
-  context?: 'onboarding' | 'chat';
+  context?: 'onboarding' | 'chat' | 'network';
   resourceType?: 'image' | 'video';
 };
 

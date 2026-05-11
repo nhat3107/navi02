@@ -7,7 +7,13 @@ export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}
 
   @MessagePattern('comment.create', Transport.KAFKA)
-  create(data: {authorId: string;postId: string;content: string;parentCommentId?: string | null;}): Promise<any> {
+  create(data: {
+    authorId: string;
+    postId: string;
+    content?: string;
+    mediaUrls?: string[];
+    parentCommentId?: string | null;
+  }): Promise<any> {
     return this.commentsService.create(data);
   }
 

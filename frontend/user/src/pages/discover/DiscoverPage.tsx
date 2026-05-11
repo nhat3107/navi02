@@ -93,7 +93,7 @@ export function DiscoverPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen bg-neutral-200 dark:bg-slate-950">
       <AppNavBar />
 
       <main className="mx-auto w-full max-w-3xl px-4 py-6">

@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { ClientKafka } from '@nestjs/microservices';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
@@ -32,7 +32,7 @@ const NETWORK_KAFKA_RPC = [
 ] as const;
 
 @Injectable()
-export class NetworkService {
+export class NetworkService implements OnModuleInit {
   constructor(
     @Inject('KAFKA_SERVICE') private readonly kafkaclient: ClientKafka,
   ) {}

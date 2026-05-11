@@ -24,6 +24,7 @@ import {
 import { AppNavBar } from '../../features/user/components/AppNavBar';
 import { Button } from '../../shared/components/Button';
 import { ROUTES } from '../../shared/constants/routes';
+import { isCloudinaryVideoUrl } from '../../shared/lib/cloudinary';
 
 function mapRowsToMessages(
   rows: Array<{
@@ -170,9 +171,6 @@ function PaperclipIcon({ className = '' }: { className?: string }) {
   );
 }
 
-function isCloudinaryVideoUrl(url: string): boolean {
-  return /\/video\/upload\//.test(url);
-}
 
 /** Max size for attachments in bubbles: capped width/height, contain so nothing is cropped. */
 const CHAT_BUBBLE_MEDIA_SHELL_BASE =
@@ -919,7 +917,7 @@ export function ChatPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-8 bg-slate-50 dark:bg-slate-950">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-8 bg-neutral-200 dark:bg-slate-950">
         <p className="text-slate-600 dark:text-slate-400">Sign in to use chat.</p>
         <Link to={ROUTES.LOGIN} className="text-accent font-medium">
           Go to login
@@ -929,7 +927,7 @@ export function ChatPage() {
   }
 
   return (
-    <div className="flex h-[100dvh] flex-col bg-slate-50 dark:bg-slate-950 overflow-hidden">
+    <div className="flex h-[100dvh] flex-col bg-neutral-200 dark:bg-slate-950 overflow-hidden">
       <AppNavBar />
 
       <div className="flex flex-1 min-h-0 w-full max-w-7xl mx-auto md:gap-3 md:px-3 md:pb-3 md:pt-2">
@@ -1262,7 +1260,7 @@ export function ChatPage() {
         </aside>
 
         <main
-          className={`flex-1 flex-col min-w-0 min-h-0 overflow-hidden border-slate-200/90 bg-slate-50 dark:border-slate-700/90 dark:bg-slate-950 md:rounded-3xl md:border md:shadow-[0_8px_40px_-20px_rgba(0,0,0,0.1)] dark:md:shadow-none ${
+          className={`flex-1 flex-col min-w-0 min-h-0 overflow-hidden border-slate-200/90 bg-neutral-100 dark:border-slate-700/90 dark:bg-slate-950 md:rounded-3xl md:border md:shadow-[0_8px_40px_-20px_rgba(0,0,0,0.1)] dark:md:shadow-none ${
             activeConversationId || peerId.trim() ? 'flex' : 'hidden md:flex'
           }`}
         >

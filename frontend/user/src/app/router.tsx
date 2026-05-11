@@ -22,6 +22,7 @@ import { ProfilePage } from '../pages/profile/ProfilePage';
 import { FollowEdgesPage } from '../pages/profile/FollowEdgesPage';
 import { EditProfilePage } from '../pages/settings/EditProfilePage';
 import { DiscoverPage } from '../pages/discover/DiscoverPage';
+import { PostDetailPage } from '../pages/post/PostDetailPage';
 import { RequireUserProfile } from './RequireUserProfile';
 
 export function AppRouter() {
@@ -70,6 +71,14 @@ export function AppRouter() {
               element={
                 <RequireUserProfile>
                   <DiscoverPage />
+                </RequireUserProfile>
+              }
+            />
+            <Route
+              path={ROUTES.POST}
+              element={
+                <RequireUserProfile>
+                  <PostDetailPage />
                 </RequireUserProfile>
               }
             />

@@ -18,8 +18,12 @@ export class Comment {
   @Prop({ type: Types.ObjectId, ref: 'Comment', default: null, index: true })
   parentCommentId: Types.ObjectId | null;
 
-  @Prop({ type: String, required: true, trim: true, maxlength: 2000 })
+  /** May be empty when `mediaUrls` is non-empty (validated in service). */
+  @Prop({ type: String, default: '', trim: true, maxlength: 2000 })
   content: string;
+
+  @Prop({ type: [String], default: [] })
+  mediaUrls: string[];
 
   @Prop({ type: Number, default: 0, min: 0 })
   replyCount: number;
