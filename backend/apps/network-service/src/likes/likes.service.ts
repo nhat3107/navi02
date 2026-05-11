@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { RpcException } from '@nestjs/microservices';
+import { ClientKafka, RpcException } from '@nestjs/microservices';
 import { Like, LikeDocument } from './schemas/like.schema';
 import { CommentLike, CommentLikeDocument } from './schemas/comment-like.schema';
 import { PostsService } from '../posts/posts.service';
@@ -14,15 +14,22 @@ export class LikesService {
     @InjectModel(CommentLike.name) private readonly commentLikeModel: Model<CommentLikeDocument>,
     private readonly postsService: PostsService,
     private readonly commentsService: CommentsService,
+    @Inject('KAFKA_SERVICE') private readonly kafkaClient: ClientKafka,
   ) {}
 
   async likePost(userId: string, postId: string): Promise<any> {
     try {
-      // Verify post exists (throws 404 if not)
-      await this.postsService.findById(postId);
+      const postResponse = await this.postsService.findById(postId);
+      const post = postResponse.data;
 
       await new this.likeModel({ userId, postId: new Types.ObjectId(postId) }).save();
       await this.postsService.incrementLikeCount(postId, 1);
+
+      this.kafkaClient.emit('notification.like_post', {
+        senderId: userId,
+        recipientId: post.authorId,
+        postId,
+      });
 
       return { message: 'Post liked successfully' };
     } catch (error) {
@@ -73,11 +80,16 @@ export class LikesService {
 
   async likeComment(userId: string, commentId: string): Promise<any> {
     try {
-      // Verify comment exists (throws 404 if not)
-      await this.commentsService.findById(commentId);
+      const comment = await this.commentsService.findById(commentId);
 
       await new this.commentLikeModel({ userId, commentId: new Types.ObjectId(commentId) }).save();
       await this.commentsService.incrementLikeCount(commentId, 1);
+
+      this.kafkaClient.emit('notification.like_comment', {
+        senderId: userId,
+        recipientId: comment.authorId,
+        commentId,
+      });
 
       return { message: 'Comment liked successfully' };
     } catch (error) {
