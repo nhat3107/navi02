@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
+import { kafkaBrokersFromEnv } from './kafka-brokers';
 
 @Module({
   imports: [
@@ -10,7 +11,7 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
         options: {
           client: {
             clientId: 'network-producer',
-            brokers: ['localhost:9092'],
+            brokers: kafkaBrokersFromEnv(),
           },
         },
       },

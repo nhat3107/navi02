@@ -2,10 +2,13 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useAuthStore } from '../../auth/store/auth.store';
 import { signOutApi, getProfileApi } from '../../auth/api/auth.api';
+import { fetchNotificationsUnreadApi } from '../../notification/api/notifications.api';
 import { fetchMyFollowing } from '../api/userProfile.api';
 import { useProfileCache } from '../store/profileCache.store';
+import { useNotificationsStore } from '../../notification/store/notifications.store';
 import { ROUTES } from '../../../shared/constants/routes';
 import { UserAvatar } from './UserAvatar';
+import { NotificationNavBell } from '../../notification/components/NotificationNavBell';
 
 const NAV_ITEMS = [
   { to: ROUTES.HOME, label: 'Home' },
@@ -47,6 +50,13 @@ export function AppNavBar() {
         if (!cancelled) setFollowingIds(edges.map((e) => e.id));
       } catch {
         /* ignore — empty set is a fine default */
+      }
+      try {
+        const n = await fetchNotificationsUnreadApi();
+        if (!cancelled)
+          useNotificationsStore.getState().setUnreadFromApi(n);
+      } catch {
+        /* ignore */
       }
     })();
     return () => {
@@ -108,28 +118,31 @@ export function AppNavBar() {
           ))}
         </nav>
 
-        <Link
-          to={ROUTES.PROFILE_ME}
-          title={displayName}
-          className="flex shrink-0 items-center gap-2 rounded-full p-0.5 pr-3 transition hover:bg-slate-100 dark:hover:bg-slate-800"
-        >
-          <UserAvatar
-            label={displayName}
-            src={myProfile?.avatar_url ?? null}
-            size="sm"
-          />
-          <span className="hidden max-w-[140px] truncate text-sm font-medium text-slate-800 dark:text-slate-200 sm:block">
-            {displayName}
-          </span>
-        </Link>
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <NotificationNavBell />
+          <Link
+            to={ROUTES.PROFILE_ME}
+            title={displayName}
+            className="flex shrink-0 items-center gap-2 rounded-full p-0.5 pr-3 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            <UserAvatar
+              label={displayName}
+              src={myProfile?.avatar_url ?? null}
+              size="sm"
+            />
+            <span className="hidden max-w-[140px] truncate text-sm font-medium text-slate-800 dark:text-slate-200 sm:block">
+              {displayName}
+            </span>
+          </Link>
 
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="hidden shrink-0 rounded-2xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 sm:inline-block"
-        >
-          Sign out
-        </button>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="hidden shrink-0 rounded-2xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 sm:inline-block"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
     </header>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { Button } from '../../../shared/components/Button';
 import { UserAvatar } from '../../user/components/UserAvatar';
 import type { PostVisibility } from '../types/network.types';
@@ -198,7 +198,7 @@ type AudienceOption = {
   value: PostVisibility;
   label: string;
   description: string;
-  Icon: (props: { size?: number }) => JSX.Element;
+  Icon: (props: { size?: number }) => ReactElement;
 };
 
 const AUDIENCE_OPTIONS: AudienceOption[] = [

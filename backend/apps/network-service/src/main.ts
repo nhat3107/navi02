@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { NetworkServiceModule } from './network-service.module';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import * as dns from 'node:dns';
+import { kafkaBrokersFromEnv } from './kafka-brokers';
 
 dns.setServers(['8.8.8.8', '1.1.1.1']);
 
@@ -11,7 +12,7 @@ async function bootstrap() {
     options: {
       client: {
         clientId: 'network',
-        brokers: ['localhost:9092'],
+        brokers: kafkaBrokersFromEnv(),
       },
       consumer: {
         groupId: 'network-consumer',

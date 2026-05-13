@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { RpcException } from '@nestjs/microservices';
+import { ClientKafka, RpcException } from '@nestjs/microservices';
 import { Post, PostDocument } from './schemas/post.schema';
 import { Like, LikeDocument } from '../likes/schemas/like.schema';
 
@@ -10,6 +10,7 @@ export class PostsService {
   constructor(
     @InjectModel(Post.name) private readonly postModel: Model<PostDocument>,
     @InjectModel(Like.name) private readonly likeModel: Model<LikeDocument>,
+    @Inject('KAFKA_SERVICE') private readonly kafkaClient: ClientKafka,
   ) {}
 
   async create(data: {
@@ -36,6 +37,23 @@ export class PostsService {
         visibility: data.visibility,
       });
       const saved = await created.save();
+
+      const preview = text
+        ? text.length > 100
+          ? `${text.substring(0, 100)}...`
+          : text
+        : media.length > 0
+          ? 'Shared a photo'
+          : 'New post';
+
+      this.kafkaClient.emit('notification.new_post', {
+        senderId: data.authorId,
+        postId: String(saved._id),
+        preview,
+        visibility:
+          typeof saved.visibility === 'string' ? saved.visibility : 'public',
+      });
+
       return { message: 'Post created successfully', data: saved };
     } catch (error) {
       if (error instanceof RpcException) throw error;

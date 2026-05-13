@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ROUTES } from '../shared/constants/routes';
-import { ChatSocketProvider } from '../shared/socket/SocketProvider';
+import { ChatSocketProvider, NotificationSocketProvider } from '../shared/socket/SocketProvider';
 import { CallSignalBridge } from '../features/call/components/CallSignalBridge';
 import { CallIncomingBanner } from '../features/call/components/CallIncomingBanner';
 import { CallInOtherTabIndicator } from '../features/call/components/CallInOtherTabIndicator';
@@ -23,25 +23,27 @@ import { FollowEdgesPage } from '../pages/profile/FollowEdgesPage';
 import { EditProfilePage } from '../pages/settings/EditProfilePage';
 import { DiscoverPage } from '../pages/discover/DiscoverPage';
 import { PostDetailPage } from '../pages/post/PostDetailPage';
+import { NotificationsPage } from '../pages/notifications/NotificationsPage';
 import { RequireUserProfile } from './RequireUserProfile';
 
 export function AppRouter() {
   return (
     <BrowserRouter>
       <ChatSocketProvider>
-        {/*
-          CallProvider lifts MeetingProvider above <Routes>: when a call is
-          active, MeetingProvider keeps the SDK connection alive across
-          navigation. The route components just consume `useMeeting()`.
-        */}
-        <CallProvider>
-          <CallSignalBridge />
-          <CallIncomingBanner />
-          <CallInOtherTabIndicator />
-          <MiniCallBar />
-          <ThemeToggle />
-          <OAuthReturnHandler />
-          <Routes>
+        <NotificationSocketProvider>
+          {/*
+            CallProvider lifts MeetingProvider above <Routes>: when a call is
+            active, MeetingProvider keeps the SDK connection alive across
+            navigation. The route components just consume `useMeeting()`.
+          */}
+          <CallProvider>
+            <CallSignalBridge />
+            <CallIncomingBanner />
+            <CallInOtherTabIndicator />
+            <MiniCallBar />
+            <ThemeToggle />
+            <OAuthReturnHandler />
+            <Routes>
             <Route
               path={ROUTES.HOME}
               element={
@@ -71,6 +73,14 @@ export function AppRouter() {
               element={
                 <RequireUserProfile>
                   <DiscoverPage />
+                </RequireUserProfile>
+              }
+            />
+            <Route
+              path={ROUTES.NOTIFICATIONS}
+              element={
+                <RequireUserProfile>
+                  <NotificationsPage />
                 </RequireUserProfile>
               }
             />
@@ -150,6 +160,7 @@ export function AppRouter() {
             <Route path={ROUTES.OAUTH_CALLBACK} element={<OAuthCallback />} />
           </Routes>
         </CallProvider>
+        </NotificationSocketProvider>
       </ChatSocketProvider>
     </BrowserRouter>
   );

@@ -1,6 +1,8 @@
 export const ROUTES = {
   HOME: '/',
   DISCOVER: '/discover',
+  /** In-app notifications */
+  NOTIFICATIONS: '/notifications',
   CHAT: '/chat',
   /** Full-screen VideoSDK room */
   CALL: '/call',
@@ -83,6 +85,7 @@ export const API_ROUTES = {
   NETWORK_POSTS: 'network/posts',
   NETWORK_COMMENTS: 'network/comments',
   NETWORK_REPORTS: 'network/reports',
+  NOTIFICATIONS: 'notifications',
 } as const;
 
 /** `network/posts/:id` — get/patch/delete post; append `/like` for like routes. */

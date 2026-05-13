@@ -8,12 +8,32 @@ import {
   NotificationType,
   NotificationReferenceType,
 } from './schemas/notification.schema';
+import { NotificationRealtimeOutboundService } from './notification-realtime-outbound.service';
+
+function serializeForRealtime(doc: NotificationDocument): Record<string, unknown> {
+  const created = (doc as any).createdAt as Date | undefined;
+  return {
+    id: String(doc._id),
+    recipientId: doc.recipientId,
+    senderId: doc.senderId,
+    type: doc.type,
+    referenceId: doc.referenceId,
+    referenceType: doc.referenceType,
+    preview: doc.preview ?? null,
+    isRead: doc.isRead,
+    createdAt:
+      created instanceof Date
+        ? created.toISOString()
+        : new Date().toISOString(),
+  };
+}
 
 @Injectable()
 export class NotificationServiceService {
   constructor(
     @InjectModel(Notification.name)
     private readonly notificationModel: Model<NotificationDocument>,
+    private readonly realtimeOutbound: NotificationRealtimeOutboundService,
   ) {}
 
   async create(data: {
@@ -28,7 +48,8 @@ export class NotificationServiceService {
       // Don't notify yourself
       if (data.recipientId === data.senderId) return;
 
-      await new this.notificationModel(data).save();
+      const doc = await new this.notificationModel(data).save();
+      await this.realtimeOutbound.publish(serializeForRealtime(doc));
     } catch (error) {
       console.error('Error creating notification', error);
     }

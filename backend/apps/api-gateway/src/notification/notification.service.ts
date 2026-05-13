@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { ClientKafka } from '@nestjs/microservices';
 
 const NOTIFICATION_KAFKA_RPC = [
@@ -9,7 +9,7 @@ const NOTIFICATION_KAFKA_RPC = [
 ] as const;
 
 @Injectable()
-export class NotificationService {
+export class NotificationService implements OnModuleInit {
   constructor(
     @Inject('KAFKA_SERVICE') private readonly kafkaclient: ClientKafka,
   ) {}

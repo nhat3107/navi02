@@ -75,9 +75,13 @@ export class CommentsService {
       }
 
       // Emit notification events
-      const preview = data.content.length > 100
-        ? data.content.substring(0, 100) + '...'
-        : data.content;
+      const preview = text
+        ? text.length > 100
+          ? `${text.substring(0, 100)}...`
+          : text
+        : media.length > 0
+          ? 'Sent a photo'
+          : '';
 
       if (data.parentCommentId && parentComment) {
         // Reply → notify the parent comment author

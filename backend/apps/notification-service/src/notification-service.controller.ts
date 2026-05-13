@@ -1,11 +1,15 @@
 import { Controller } from '@nestjs/common';
 import { EventPattern, MessagePattern, Transport } from '@nestjs/microservices';
+import { NotificationFanoutService } from './notification-fanout.service';
 import { NotificationServiceService } from './notification-service.service';
-import { NotificationType, NotificationReferenceType } from './schemas/notification.schema';
+import { NotificationReferenceType, NotificationType } from './schemas/notification.schema';
 
 @Controller()
 export class NotificationServiceController {
-  constructor(private readonly notificationService: NotificationServiceService) {}
+  constructor(
+    private readonly notificationService: NotificationServiceService,
+    private readonly fanout: NotificationFanoutService,
+  ) {}
 
   // --- Event consumers (fire-and-forget from other services) ---
 
@@ -63,6 +67,23 @@ export class NotificationServiceController {
       type: NotificationType.FOLLOW,
       referenceId: data.senderId,
       referenceType: NotificationReferenceType.USER,
+    });
+  }
+
+  @EventPattern('notification.new_post', Transport.KAFKA)
+  async onNewPost(
+    data: {
+      senderId: string;
+      postId: string;
+      preview?: string;
+      visibility?: string;
+    },
+  ) {
+    await this.fanout.fanoutNewPostToFollowers({
+      senderId: data.senderId,
+      postId: data.postId,
+      preview: data.preview ?? null,
+      visibility: data.visibility,
     });
   }
 

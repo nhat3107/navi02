@@ -8,6 +8,7 @@ export enum NotificationType {
   LIKE_COMMENT = 'like_comment',
   COMMENT = 'comment',
   REPLY = 'reply',
+  NEW_POST = 'new_post',
   FOLLOW = 'follow',
   REPORT_REVIEWED = 'report_reviewed',
 }

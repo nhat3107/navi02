@@ -7,6 +7,7 @@ import {
   clearAccessTokenStorage,
 } from '../../../shared/constants/tokens';
 import { useProfileCache } from '../../user/store/profileCache.store';
+import { useNotificationsStore } from '../../notification/store/notifications.store';
 
 function readStoredSession(): { user: User | null; accessToken: string | null } {
   const token = getStoredAccessToken();
@@ -38,6 +39,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     clearAccessTokenStorage();
     // Drop any cached profile + follow-set so the next sign-in starts clean.
     useProfileCache.getState().clear();
+    useNotificationsStore.getState().clear();
     set({ user: null, accessToken: null, isAuthenticated: false });
   },
 }));
