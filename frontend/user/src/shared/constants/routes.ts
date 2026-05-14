@@ -37,6 +37,14 @@ export const ROUTES = {
 export const buildPostPath = (postId: string): string =>
   `/post/${encodeURIComponent(postId)}`;
 
+/**
+ * Pass on `navigate(to, { state })` or `<Link state />` so the post opens as an
+ * overlay while the previous screen stays mounted underneath (see `AppRouter`).
+ */
+export type PostOverlayNavigationState = {
+  backgroundLocation: import('react-router-dom').Location;
+};
+
 /** Build a profile path for someone else by userId. */
 export const buildProfilePath = (userId: string): string =>
   `/u/${encodeURIComponent(userId)}`;

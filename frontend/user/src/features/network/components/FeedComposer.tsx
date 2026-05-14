@@ -117,7 +117,8 @@ export function FeedComposer({
           onBusyChange={setUploadBusy}
           maxFiles={MAX_POST_MEDIA}
           disabled={submitting}
-          addLabel="Add photos & videos"
+          variant="compact"
+          toolbarOnly
         />
 
         {error && (

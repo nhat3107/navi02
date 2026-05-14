@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import type { NotificationRow } from '../../features/notification/types/notification.types';
 import {
   fetchNotificationsListApi,
@@ -38,6 +38,7 @@ function ChevronLeftIcon({ className }: { className?: string }) {
 }
 
 export function NotificationsPage() {
+  const location = useLocation();
   const storeItems = useNotificationsStore((s) => s.items);
   const unreadCount = useNotificationsStore((s) => s.unreadCount);
   const setFromList = useNotificationsStore((s) => s.setFromList);
@@ -246,6 +247,9 @@ export function NotificationsPage() {
                           {act ? (
                             <Link
                               to={act.to}
+                              state={{
+                                backgroundLocation: location,
+                              }}
                               className="text-xs font-bold text-accent hover:text-accent-hover"
                               onClick={() => void handleRowActivate(row)}
                             >

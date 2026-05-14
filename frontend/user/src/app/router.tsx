@@ -1,4 +1,10 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  useLocation,
+} from 'react-router-dom';
+import type { Location as RouterLocation } from 'react-router-dom';
 import { ROUTES } from '../shared/constants/routes';
 import { ChatSocketProvider, NotificationSocketProvider } from '../shared/socket/SocketProvider';
 import { CallSignalBridge } from '../features/call/components/CallSignalBridge';
@@ -26,24 +32,26 @@ import { PostDetailPage } from '../pages/post/PostDetailPage';
 import { NotificationsPage } from '../pages/notifications/NotificationsPage';
 import { RequireUserProfile } from './RequireUserProfile';
 
-export function AppRouter() {
+/**
+ * Renders primary routes at `location.state.backgroundLocation` when present so
+ * the underlying page stays visible, then stacks a second `<Routes>` for
+ * `/post/:postId` as a modal (`PostDetailPage overlay`).
+ */
+function AppShellRoutes() {
+  const location = useLocation();
+  const background = (
+    location.state as { backgroundLocation?: RouterLocation } | undefined
+  )?.backgroundLocation;
+
   return (
-    <BrowserRouter>
-      <ChatSocketProvider>
-        <NotificationSocketProvider>
-          {/*
-            CallProvider lifts MeetingProvider above <Routes>: when a call is
-            active, MeetingProvider keeps the SDK connection alive across
-            navigation. The route components just consume `useMeeting()`.
-          */}
-          <CallProvider>
-            <CallSignalBridge />
-            <CallIncomingBanner />
-            <CallInOtherTabIndicator />
-            <MiniCallBar />
-            <ThemeToggle />
-            <OAuthReturnHandler />
-            <Routes>
+    <>
+      <CallSignalBridge />
+      <CallIncomingBanner />
+      <CallInOtherTabIndicator />
+      <MiniCallBar />
+      <ThemeToggle />
+      <OAuthReturnHandler />
+      <Routes location={background ?? location}>
             <Route
               path={ROUTES.HOME}
               element={
@@ -158,8 +166,36 @@ export function AppRouter() {
             <Route path={ROUTES.VERIFY_OTP} element={<VerifyOtpPage />} />
             <Route path={ROUTES.ONBOARD} element={<OnboardPage />} />
             <Route path={ROUTES.OAUTH_CALLBACK} element={<OAuthCallback />} />
-          </Routes>
-        </CallProvider>
+      </Routes>
+      {background ? (
+        <Routes>
+          <Route
+            path={ROUTES.POST}
+            element={
+              <RequireUserProfile>
+                <PostDetailPage overlay />
+              </RequireUserProfile>
+            }
+          />
+        </Routes>
+      ) : null}
+    </>
+  );
+}
+
+export function AppRouter() {
+  return (
+    <BrowserRouter>
+      <ChatSocketProvider>
+        <NotificationSocketProvider>
+          {/*
+            CallProvider lifts MeetingProvider above <Routes>: when a call is
+            active, MeetingProvider keeps the SDK connection alive across
+            navigation. The route components just consume `useMeeting()`.
+          */}
+          <CallProvider>
+            <AppShellRoutes />
+          </CallProvider>
         </NotificationSocketProvider>
       </ChatSocketProvider>
     </BrowserRouter>

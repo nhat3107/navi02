@@ -223,6 +223,7 @@ export function NotificationNavBell() {
                             {act ? (
                               <Link
                                 to={act.to}
+                                state={{ backgroundLocation: location }}
                                 role="menuitem"
                                 className="mt-1.5 inline-flex text-xs font-semibold text-accent hover:text-accent-hover"
                                 onClick={async () => {

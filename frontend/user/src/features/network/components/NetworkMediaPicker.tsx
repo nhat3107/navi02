@@ -1,10 +1,12 @@
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { isCloudinaryVideoUrl } from '../../../shared/lib/cloudinary';
 import { uploadNetworkMediaFile } from '../lib/uploadNetworkMedia';
 
@@ -28,17 +30,22 @@ type Props = {
   disabled?: boolean;
   addLabel?: string;
   variant?: Variant;
+  /**
+   * No empty-state panel and no inline “add” tile — parent opens the file input via ref only
+   * (e.g. post composer toolbar Photo / Video).
+   */
+  toolbarOnly?: boolean;
   /** Fires whenever the in-flight upload count crosses 0 ↔ >0. */
   onBusyChange?: (busy: boolean) => void;
 };
 
 /**
- * Modern media picker for posts/comments.
- * - Drag-and-drop or click to add.
- * - Responsive square grid with hover remove control.
+ * Media picker for posts/comments.
+ * - Browse (file input) only — no drag-and-drop UI.
+ * - Responsive square grid; click a tile to open a fullscreen preview.
  * - Local blob previews + spinner overlay while each upload is in-flight.
- * - `panel` shows a large dropzone when empty; `compact` only shows tiles.
- * - Parent can call `openFilePicker()` via ref (e.g. from a custom toolbar).
+ * - `panel` shows an add prompt when empty; `compact` only shows tiles.
+ * - `toolbarOnly`: hide empty UI and inline add tile; use ref `openFilePicker()` from parent.
  */
 export const NetworkMediaPicker = forwardRef<NetworkMediaPickerHandle, Props>(
   function NetworkMediaPicker(
@@ -49,6 +56,7 @@ export const NetworkMediaPicker = forwardRef<NetworkMediaPickerHandle, Props>(
       disabled,
       addLabel = 'Add photos & videos',
       variant = 'panel',
+      toolbarOnly = false,
       onBusyChange,
     },
     ref,
@@ -56,8 +64,10 @@ export const NetworkMediaPicker = forwardRef<NetworkMediaPickerHandle, Props>(
     const inputRef = useRef<HTMLInputElement>(null);
     const [pending, setPending] = useState<Pending[]>([]);
     const [error, setError] = useState<string | null>(null);
-    const [dragOver, setDragOver] = useState(false);
-    const dragDepth = useRef(0);
+    const [preview, setPreview] = useState<{
+      src: string;
+      isVideo: boolean;
+    } | null>(null);
 
     // Mirror the latest committed `urls` so concurrent uploads can append
     // without stomping each other (React state is async).
@@ -169,35 +179,21 @@ export const NetworkMediaPicker = forwardRef<NetworkMediaPickerHandle, Props>(
       void processFiles(files);
     }
 
-    function onDrop(e: React.DragEvent<HTMLElement>) {
-      e.preventDefault();
-      dragDepth.current = 0;
-      setDragOver(false);
-      if (disabled) return;
-      const dropped = e.dataTransfer?.files;
-      const files = dropped && dropped.length > 0 ? Array.from(dropped) : [];
-      if (files.length) void processFiles(files);
-    }
+    const closePreview = useCallback(() => setPreview(null), []);
 
-    function onDragOver(e: React.DragEvent<HTMLElement>) {
-      if (disabled) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'copy';
-    }
-
-    function onDragEnter(e: React.DragEvent<HTMLElement>) {
-      if (disabled) return;
-      e.preventDefault();
-      dragDepth.current += 1;
-      setDragOver(true);
-    }
-
-    function onDragLeave(e: React.DragEvent<HTMLElement>) {
-      if (disabled) return;
-      e.preventDefault();
-      dragDepth.current = Math.max(0, dragDepth.current - 1);
-      if (dragDepth.current === 0) setDragOver(false);
-    }
+    useEffect(() => {
+      if (!preview) return;
+      function onKey(e: KeyboardEvent) {
+        if (e.key === 'Escape') closePreview();
+      }
+      document.addEventListener('keydown', onKey);
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.removeEventListener('keydown', onKey);
+        document.body.style.overflow = prev;
+      };
+    }, [preview, closePreview]);
 
     function remove(url: string) {
       const next = urls.filter((u) => u !== url);
@@ -205,20 +201,10 @@ export const NetworkMediaPicker = forwardRef<NetworkMediaPickerHandle, Props>(
       onUrlsChange(next);
     }
 
-    // --- Empty state (panel only) -------------------------------------------
-    if (!isCompact && !hasAny) {
+    // --- Toolbar-only: hidden input, no empty UI (parent opens picker) -------
+    if (toolbarOnly && !hasAny) {
       return (
-        <div
-          onDrop={onDrop}
-          onDragOver={onDragOver}
-          onDragEnter={onDragEnter}
-          onDragLeave={onDragLeave}
-          className={`group relative w-full overflow-hidden rounded-2xl border-2 border-dashed text-center transition ${
-            dragOver
-              ? 'border-accent bg-accent-bg'
-              : 'border-neutral-300 bg-neutral-50 hover:border-neutral-400 dark:border-neutral-700 dark:bg-neutral-900/60 dark:hover:border-neutral-600'
-          }`}
-        >
+        <div className="min-h-0">
           <input
             ref={inputRef}
             type="file"
@@ -227,23 +213,49 @@ export const NetworkMediaPicker = forwardRef<NetworkMediaPickerHandle, Props>(
             className="hidden"
             onChange={pickFromInput}
           />
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => inputRef.current?.click()}
-            className="flex w-full flex-col items-center justify-center gap-3 px-6 py-10 text-neutral-800 disabled:cursor-not-allowed disabled:opacity-60 dark:text-neutral-100 sm:py-12"
-          >
+          {error ? (
+            <p className="text-xs text-red-700 dark:text-red-300">{error}</p>
+          ) : null}
+        </div>
+      );
+    }
+
+    // --- Empty state (panel only) -------------------------------------------
+    if (!isCompact && !hasAny && !toolbarOnly) {
+      return (
+        <div className="relative w-full overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 text-center dark:border-neutral-700 dark:bg-neutral-900/60">
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*,video/*"
+            multiple
+            className="hidden"
+            onChange={pickFromInput}
+          />
+          <div className="flex flex-col items-center justify-center gap-4 px-6 py-10 sm:py-12">
             <span
               aria-hidden
-              className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-neutral-700 shadow-sm ring-1 ring-neutral-200 transition group-hover:scale-105 dark:bg-neutral-800 dark:text-neutral-100 dark:ring-neutral-700"
+              className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-neutral-700 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:ring-neutral-700"
             >
               <PhotoIcon size={26} />
             </span>
-            <span className="text-base font-semibold">{addLabel}</span>
-            <span className="text-xs text-neutral-600 dark:text-neutral-300">
-              Drag &amp; drop, paste, or click to upload — up to {maxFiles}
-            </span>
-          </button>
+            <div className="space-y-1">
+              <p className="text-base font-semibold text-neutral-800 dark:text-neutral-100">
+                {addLabel}
+              </p>
+              <p className="text-xs text-neutral-600 dark:text-neutral-300">
+                Up to {maxFiles} photos or videos. Click preview after adding.
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => inputRef.current?.click()}
+              className="inline-flex items-center justify-center rounded-full bg-accent px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Browse files
+            </button>
+          </div>
 
           {error && (
             <p className="px-4 pb-4 text-xs text-red-700 dark:text-red-300">
@@ -274,17 +286,14 @@ export const NetworkMediaPicker = forwardRef<NetworkMediaPickerHandle, Props>(
           onChange={pickFromInput}
         />
 
-        <div
-          onDrop={onDrop}
-          onDragOver={onDragOver}
-          onDragEnter={onDragEnter}
-          onDragLeave={onDragLeave}
-          className={`relative rounded-2xl ${
-            dragOver
-              ? 'ring-2 ring-accent ring-offset-1 ring-offset-white dark:ring-offset-neutral-950'
-              : ''
-          }`}
-        >
+        {preview
+          ? createPortal(
+              <MediaPreviewModal preview={preview} onClose={closePreview} />,
+              document.body,
+            )
+          : null}
+
+        <div className="relative rounded-2xl">
           <ul
             className={
               isCompact
@@ -300,6 +309,12 @@ export const NetworkMediaPicker = forwardRef<NetworkMediaPickerHandle, Props>(
                   isVideo={isCloudinaryVideoUrl(tile.url)}
                   onRemove={!disabled ? () => remove(tile.url) : undefined}
                   compact={isCompact}
+                  onPreview={() =>
+                    setPreview({
+                      src: tile.url,
+                      isVideo: isCloudinaryVideoUrl(tile.url),
+                    })
+                  }
                 />
               ) : (
                 <Tile
@@ -308,11 +323,17 @@ export const NetworkMediaPicker = forwardRef<NetworkMediaPickerHandle, Props>(
                   isVideo={tile.item.isVideo}
                   pending
                   compact={isCompact}
+                  onPreview={() =>
+                    setPreview({
+                      src: tile.item.previewUrl,
+                      isVideo: tile.item.isVideo,
+                    })
+                  }
                 />
               ),
             )}
 
-            {canAddMore && (
+            {canAddMore && !toolbarOnly && (
               <li
                 className={
                   isCompact ? 'h-16 w-16 shrink-0' : 'aspect-square'
@@ -321,23 +342,17 @@ export const NetworkMediaPicker = forwardRef<NetworkMediaPickerHandle, Props>(
                 <button
                   type="button"
                   onClick={() => inputRef.current?.click()}
-                  className="flex h-full w-full flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-neutral-300 bg-neutral-50 text-neutral-600 transition hover:border-neutral-400 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900/60 dark:text-neutral-300 dark:hover:border-neutral-600 dark:hover:text-neutral-100"
-                  aria-label="Add more media"
+                  className="flex h-full w-full flex-col items-center justify-center gap-1 rounded-xl border border-neutral-300 bg-neutral-50 text-neutral-600 transition hover:border-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900/60 dark:text-neutral-300 dark:hover:border-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+                  aria-label="Browse to add more media"
                 >
                   <PlusIcon />
                   {!isCompact && (
-                    <span className="text-[0.7rem] font-medium">Add more</span>
+                    <span className="text-[0.7rem] font-medium">Browse</span>
                   )}
                 </button>
               </li>
             )}
           </ul>
-
-          {dragOver && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl bg-accent-bg/70 text-sm font-semibold text-accent backdrop-blur-sm dark:bg-accent-bg/40">
-              Drop to upload
-            </div>
-          )}
         </div>
 
         <div className="flex items-center justify-between gap-2 text-[0.7rem]">
@@ -360,12 +375,14 @@ function Tile({
   src,
   isVideo,
   onRemove,
+  onPreview,
   pending,
   compact,
 }: {
   src: string;
   isVideo: boolean;
   onRemove?: () => void;
+  onPreview: () => void;
   pending?: boolean;
   compact?: boolean;
 }) {
@@ -375,10 +392,17 @@ function Tile({
         compact ? 'h-16 w-16 shrink-0' : 'aspect-square'
       }`}
     >
+      <button
+        type="button"
+        onClick={onPreview}
+        className="absolute inset-0 z-[1] cursor-zoom-in bg-transparent"
+        aria-label={pending ? 'Preview media (still uploading)' : 'Preview media'}
+      />
+
       {isVideo ? (
         <video
           src={src}
-          className="h-full w-full object-cover"
+          className="pointer-events-none relative z-0 h-full w-full object-cover"
           muted
           playsInline
           preload="metadata"
@@ -387,7 +411,7 @@ function Tile({
         <img
           src={src}
           alt=""
-          className="h-full w-full object-cover"
+          className="pointer-events-none relative z-0 h-full w-full object-cover"
           loading="lazy"
         />
       )}
@@ -395,14 +419,14 @@ function Tile({
       {isVideo && (
         <span
           aria-hidden
-          className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-md bg-black/55 px-1.5 py-0.5 text-[0.6rem] font-semibold text-white backdrop-blur-sm"
+          className="pointer-events-none absolute left-1.5 top-1.5 z-[1] inline-flex items-center gap-1 rounded-md bg-black/55 px-1.5 py-0.5 text-[0.6rem] font-semibold text-white backdrop-blur-sm"
         >
           <PlayGlyph /> Video
         </span>
       )}
 
       {pending && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/45 backdrop-blur-[1px]">
+        <div className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-center bg-black/45 backdrop-blur-[1px]">
           <UploadingSpinner />
         </div>
       )}
@@ -410,9 +434,12 @@ function Tile({
       {onRemove && !pending && (
         <button
           type="button"
-          onClick={onRemove}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
           aria-label="Remove attachment"
-          className={`absolute right-1.5 top-1.5 flex items-center justify-center rounded-full bg-black/65 text-white shadow-md backdrop-blur-sm transition hover:bg-black/85 ${
+          className={`absolute right-1.5 top-1.5 z-[3] flex items-center justify-center rounded-full bg-black/65 text-white shadow-md backdrop-blur-sm transition hover:bg-black/85 ${
             compact
               ? 'h-5 w-5 text-[11px]'
               : 'h-7 w-7 text-sm opacity-0 group-hover:opacity-100 focus:opacity-100'
@@ -422,6 +449,74 @@ function Tile({
         </button>
       )}
     </li>
+  );
+}
+
+function MediaPreviewModal({
+  preview,
+  onClose,
+}: {
+  preview: { src: string; isVideo: boolean };
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Media preview"
+      onClick={onClose}
+    >
+      <button
+        type="button"
+        aria-label="Close preview"
+        className="absolute right-4 top-4 z-[101] flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
+      >
+        <CloseGlyphLarge />
+      </button>
+      <div
+        className="max-h-[min(90vh,900px)] max-w-full"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {preview.isVideo ? (
+          <video
+            src={preview.src}
+            controls
+            playsInline
+            className="max-h-[min(90vh,900px)] max-w-full rounded-lg shadow-2xl"
+          />
+        ) : (
+          <img
+            src={preview.src}
+            alt=""
+            className="max-h-[min(90vh,900px)] max-w-full rounded-lg object-contain shadow-2xl"
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CloseGlyphLarge() {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
   );
 }
 
