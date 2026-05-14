@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import type { AxiosError } from 'axios';
 import { AppNavBar } from '../../features/user/components/AppNavBar';
 import { UserAvatar } from '../../features/user/components/UserAvatar';
-import { ROUTES, buildProfilePath } from '../../shared/constants/routes';
+import { ROUTES, buildProfilePath, type PostOverlayNavigationState } from '../../shared/constants/routes';
 import { useAuthStore } from '../../features/auth/store/auth.store';
 import type { UserProfile } from '../../features/user/types/user.types';
 import { useAuthorProfiles } from '../../features/network/hooks/useAuthorProfiles';
@@ -32,6 +32,7 @@ const MAX_COMMENT_MEDIA = 4;
 export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
   const { postId } = useParams<{ postId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuthStore();
   const viewerId = user?.id ?? null;
 
@@ -61,6 +62,23 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
   const [composerOpen, setComposerOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const commentInputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const dismissOverlay = useCallback(() => {
+    const bg = (location.state as PostOverlayNavigationState | null | undefined)
+      ?.backgroundLocation;
+    if (bg && typeof bg.pathname === 'string') {
+      navigate(
+        {
+          pathname: bg.pathname,
+          search: bg.search,
+          hash: bg.hash,
+        },
+        { replace: true, state: bg.state },
+      );
+    } else {
+      navigate(-1);
+    }
+  }, [navigate, location.state]);
 
   useEffect(() => {
     setExtraAuthorIds([]);
@@ -126,7 +144,8 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
     setActiveMediaIndex((i) => (i + 1) % mediaCount);
   }, [mediaCount]);
 
-  // Esc: overlay → home; full page → browser back. Lightbox uses capture-phase Esc.
+  // Esc: overlay → previous screen (see `PostOverlayNavigationState`); full page → back.
+  // Lightbox uses capture-phase Esc.
   // Arrow keys step carousel when not typing in a form control.
   useEffect(() => {
     function isTypingTarget(t: EventTarget | null): boolean {
@@ -138,7 +157,7 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
     function onKey(e: KeyboardEvent) {
       const anyLightboxOpen = lightboxIndex !== null || commentLightbox !== null;
       if (e.key === 'Escape' && !anyLightboxOpen) {
-        if (overlay) navigate(ROUTES.HOME);
+        if (overlay) dismissOverlay();
         else navigate(-1);
         return;
       }
@@ -157,6 +176,7 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
   }, [
     navigate,
     overlay,
+    dismissOverlay,
     lightboxIndex,
     commentLightbox,
     mediaCount,
@@ -593,8 +613,8 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
         <button
           type="button"
           className="fixed inset-0 z-0 cursor-default bg-black/60 backdrop-blur-[3px]"
-          aria-label="Close and return to home"
-          onClick={() => navigate(ROUTES.HOME)}
+          aria-label="Close and return"
+          onClick={() => dismissOverlay()}
         />
         <div className="relative z-10 my-8 w-full max-w-[min(1120px,100%)] sm:my-10">
           {pageMain}
