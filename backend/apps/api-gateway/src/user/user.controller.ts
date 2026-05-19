@@ -116,4 +116,18 @@ export class UserController {
       resourceType,
     });
   }
+
+  // ===== SUGGESTIONS =====
+  @HttpCode(HttpStatus.OK)
+  @Get('suggestions')
+  suggest_people(
+    @CurrentUser('sub') userId: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parsedLimit = limit ? parseInt(limit, 10) : undefined;
+    return this.userService.suggest_people(
+      userId,
+      Number.isFinite(parsedLimit) ? parsedLimit : undefined,
+    );
+  }
 }

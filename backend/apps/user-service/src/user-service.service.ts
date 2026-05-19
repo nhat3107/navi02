@@ -388,6 +388,98 @@ export class UserServiceService {
   }
 
   /**
+   * "People You May Know" — mutual-follow-based suggestions.
+   *
+   * Algorithm (2-hop graph walk on the follow graph):
+   *   1. Fetch the IDs of everyone the requesting user already follows.
+   *   2. Fetch everyone those users follow (2nd-degree connections).
+   *   3. Exclude: the requesting user + anyone already followed.
+   *   4. Count how many 1st-degree connections link to each candidate
+   *      (= mutual-friend score).
+   *   5. Sort by score desc, take top `limit`, hydrate with profile data.
+   */
+  async suggest_people(data: {
+    userId: string;
+    limit?: number;
+  }): Promise<any> {
+    try {
+      const userId = typeof data.userId === 'string' ? data.userId.trim() : '';
+      if (!userId) {
+        throw new RpcException({ status: 400, message: 'userId is required' });
+      }
+      const limit = Math.min(Math.max(data.limit ?? 10, 1), 30);
+
+      // Step 1 — who does the requesting user already follow?
+      const myFollowRows = await this.prismaService.userFollow.findMany({
+        where: { follower_id: userId },
+        select: { following_id: true },
+      });
+      const followingIds = myFollowRows.map((r) => r.following_id);
+
+      // If the user follows nobody we have no signal — return empty.
+      if (followingIds.length === 0) {
+        return { message: 'ok', data: [] };
+      }
+
+      // Step 2 — who do the user's followees follow? (2nd-degree connections)
+      // Exclude: the user themselves + anyone they already follow.
+      const excludeIds = [userId, ...followingIds];
+      const secondDegreeRows = await this.prismaService.userFollow.findMany({
+        where: {
+          follower_id: { in: followingIds },
+          following_id: { notIn: excludeIds },
+        },
+        select: { following_id: true },
+      });
+
+      if (secondDegreeRows.length === 0) {
+        return { message: 'ok', data: [] };
+      }
+
+      // Step 3 — count mutual connections per candidate
+      const mutualCount = new Map<string, number>();
+      for (const { following_id } of secondDegreeRows) {
+        mutualCount.set(
+          following_id,
+          (mutualCount.get(following_id) ?? 0) + 1,
+        );
+      }
+
+      // Step 4 — sort by score desc, take top `limit`
+      const topCandidates = [...mutualCount.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit)
+        .map(([id, count]) => ({ id, mutualCount: count }));
+
+      // Step 5 — hydrate with profile data
+      const profiles = await this.prismaService.userProfile.findMany({
+        where: { id: { in: topCandidates.map((c) => c.id) } },
+        select: {
+          id: true,
+          username: true,
+          full_name: true,
+          avatar_url: true,
+        },
+      });
+      const profileMap = new Map(profiles.map((p) => [p.id, p]));
+
+      // Preserve the score-sorted order and merge profile fields
+      const suggestions = topCandidates
+        .filter((c) => profileMap.has(c.id))
+        .map((c) => ({
+          ...profileMap.get(c.id)!,
+          mutualCount: c.mutualCount,
+        }));
+
+      return { message: 'ok', data: suggestions };
+    } catch (error) {
+      if (error instanceof RpcException) throw error;
+      console.error('Error suggest_people', error);
+      throw new RpcException({ status: 500, message: 'Failed to suggest people' });
+    }
+  }
+
+  /**
    * Kafka: one-shot signed upload params. Browser POSTs file + signature to Cloudinary.
    * context=chat → CLOUDINARY_CHAT_FOLDER (default navi/chat);
    * context=network → CLOUDINARY_NETWORK_FOLDER (default navi/network);
