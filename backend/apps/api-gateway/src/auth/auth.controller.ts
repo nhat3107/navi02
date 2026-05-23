@@ -126,23 +126,7 @@ export class AuthController {
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
   async googleCallback(@Req() req: Request, @Res() res: Response) {
-    const oauthUser = req.user as {
-      provider: string;
-      providerId: string;
-      email: string;
-    };
-    const { accessToken, refreshToken } = await firstValueFrom(
-      this.authService.oauthLogin(oauthUser),
-    );
-    attachRefreshTokenCookie(res, refreshToken, 'lax');
-    const frontendUrl = process.env.OAUTH_FRONTEND_REDIRECT_URL;
-    if (!frontendUrl?.trim()) {
-      throw new InternalServerErrorException(
-        'OAUTH_FRONTEND_REDIRECT_URL is not set',
-      );
-    }
-    const q = `access_token=${encodeURIComponent(accessToken)}`;
-    return res.redirect(`${frontendUrl}?${q}`);
+    return this.handleOAuthCallback(req, res);
   }
 
   @Get('github')
@@ -152,22 +136,69 @@ export class AuthController {
   @Get('github/callback')
   @UseGuards(GithubAuthGuard)
   async githubCallback(@Req() req: Request, @Res() res: Response) {
+    return this.handleOAuthCallback(req, res);
+  }
+
+  private resolveOAuthLoginRedirectUrl(): string {
+    const loginUrl = process.env.OAUTH_FRONTEND_LOGIN_URL?.trim();
+    if (loginUrl) return loginUrl;
+
+    const redirectUrl = process.env.OAUTH_FRONTEND_REDIRECT_URL?.trim();
+    if (!redirectUrl) {
+      throw new InternalServerErrorException(
+        'OAUTH_FRONTEND_REDIRECT_URL is not set',
+      );
+    }
+
+    const parsed = new URL(redirectUrl);
+    parsed.pathname = '/login';
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString();
+  }
+
+  private redirectOAuthFailure(res: Response, err: unknown) {
+    clearRefreshTokenCookies(res);
+
+    const rpcError =
+      (err as { error?: { status?: number; message?: string } })?.error ??
+      (err as { status?: number; message?: string });
+    const status = rpcError?.status;
+    const message =
+      typeof rpcError?.message === 'string'
+        ? rpcError.message
+        : 'Sign in failed';
+
+    const loginUrl = new URL(this.resolveOAuthLoginRedirectUrl());
+    const blocked =
+      status === 403 && /blocked|restricted/i.test(message);
+    loginUrl.searchParams.set('oauth_error', blocked ? 'blocked' : 'failed');
+    loginUrl.searchParams.set('error_message', message);
+    return res.redirect(loginUrl.toString());
+  }
+
+  private async handleOAuthCallback(req: Request, res: Response) {
     const oauthUser = req.user as {
       provider: string;
       providerId: string;
       email: string;
     };
-    const { accessToken, refreshToken } = await firstValueFrom(
-      this.authService.oauthLogin(oauthUser),
-    );
-    attachRefreshTokenCookie(res, refreshToken, 'lax');
-    const frontendUrl = process.env.OAUTH_FRONTEND_REDIRECT_URL;
-    if (!frontendUrl?.trim()) {
-      throw new InternalServerErrorException(
-        'OAUTH_FRONTEND_REDIRECT_URL is not set',
+
+    try {
+      const { accessToken, refreshToken } = await firstValueFrom(
+        this.authService.oauthLogin(oauthUser),
       );
+      attachRefreshTokenCookie(res, refreshToken, 'lax');
+      const frontendUrl = process.env.OAUTH_FRONTEND_REDIRECT_URL;
+      if (!frontendUrl?.trim()) {
+        throw new InternalServerErrorException(
+          'OAUTH_FRONTEND_REDIRECT_URL is not set',
+        );
+      }
+      const q = `access_token=${encodeURIComponent(accessToken)}`;
+      return res.redirect(`${frontendUrl}?${q}`);
+    } catch (err) {
+      return this.redirectOAuthFailure(res, err);
     }
-    const q = `access_token=${encodeURIComponent(accessToken)}`;
-    return res.redirect(`${frontendUrl}?${q}`);
   }
 }

@@ -52,9 +52,15 @@ export class NetworkService implements OnModuleInit {
     return this.kafkaclient.send('post.find_by_id', { id, userId });
   }
 
-  findPostsByAuthor(authorId: string, limit?: number, skip?: number) {
+  findPostsByAuthor(
+    authorId: string,
+    viewerId?: string,
+    limit?: number,
+    skip?: number,
+  ) {
     return this.kafkaclient.send('post.find_by_author', {
       authorId,
+      viewerId,
       limit,
       skip,
     });

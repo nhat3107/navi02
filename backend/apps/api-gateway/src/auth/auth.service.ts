@@ -6,6 +6,7 @@ import { ResendOtpDto } from './dto/resend-otp-dto';
 import { SignInDto } from './dto/sign-in-dto';
 import { ForgetPasswdDto } from './dto/forget-passwd-dto';
 import { ResetPasswdDto } from './dto/reset-passwd-dto';
+import { AdminLoginDto } from './dto/admin-login-dto';
 
 /** Patterns handled by auth-service over Kafka (request–reply). */
 const AUTH_KAFKA_RPC = [
@@ -13,11 +14,16 @@ const AUTH_KAFKA_RPC = [
   'auth.verify_otp',
   'auth.resend_otp',
   'auth.signin',
+  'auth.admin_signin',
   'auth.refresh',
   'auth.forget_passwd',
   'auth.reset_passwd',
   'auth.signout',
   'auth.oauth_login',
+  'auth.admin.dashboard_stats',
+  'auth.check_posting_allowed',
+  'auth.apply_violation_penalty',
+  'auth.get_account_status',
 ] as const;
 
 @Injectable()
@@ -48,6 +54,10 @@ export class AuthService {
     return this.kafkaclient.send('auth.signin', signinDto);
   }
 
+  adminSignin(adminLoginDto: AdminLoginDto) {
+    return this.kafkaclient.send('auth.admin_signin', adminLoginDto);
+  }
+
   refresh(refreshToken: string) {
     return this.kafkaclient.send('auth.refresh', { refreshToken });
   }
@@ -70,5 +80,9 @@ export class AuthService {
     email: string;
   }) {
     return this.kafkaclient.send('auth.oauth_login', oauthData);
+  }
+
+  getAccountStatus(userId: string) {
+    return this.kafkaclient.send('auth.get_account_status', { userId });
   }
 }

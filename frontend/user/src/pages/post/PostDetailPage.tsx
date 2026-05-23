@@ -21,6 +21,7 @@ import {
   unlikePost,
 } from '../../features/network/api/network.api';
 import { ReportModal } from '../../features/network/components/ReportModal';
+import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { NetworkMediaPicker } from '../../features/network/components/NetworkMediaPicker';
 import { NetworkMediaStrip } from '../../features/network/components/NetworkMediaStrip';
 import { formatRelativeTime } from '../../features/network/lib/formatRelativeTime';
@@ -38,9 +39,14 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
 
   const [post, setPost] = useState<NetworkPost | null>(null);
   const [comments, setComments] = useState<NetworkComment[]>([]);
-  const [phase, setPhase] = useState<'loading' | 'ready' | 'not-found' | 'error'>(
-    'loading',
-  );
+  const [phase, setPhase] = useState<
+    | 'loading'
+    | 'ready'
+    | 'not-found'
+    | 'removed'
+    | 'under-review'
+    | 'error'
+  >('loading');
   const [commentDraft, setCommentDraft] = useState('');
   const [commentMediaUrls, setCommentMediaUrls] = useState<string[]>([]);
   const [submittingComment, setSubmittingComment] = useState(false);
@@ -51,6 +57,8 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
   const [likeBusy, setLikeBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteBusy] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   /** Active media inside the in-pane carousel (first item by default). */
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
@@ -118,8 +126,13 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
       setComments(list);
       setPhase('ready');
     } catch (e) {
-      const status = (e as AxiosError).response?.status;
-      if (status === 404) setPhase('not-found');
+      const ax = e as AxiosError<{ message?: string }>;
+      const status = ax.response?.status;
+      const msg = ax.response?.data?.message;
+      if (status === 410 || msg === 'POST_REMOVED') setPhase('removed');
+      else if (status === 403 && msg === 'POST_UNDER_REVIEW') {
+        setPhase('under-review');
+      } else if (status === 404) setPhase('not-found');
       else setPhase('error');
     }
   }, [postId]);
@@ -298,6 +311,26 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
             This post is not available.
           </div>
         )}
+        {phase === 'removed' && (
+          <div className="rounded-3xl border border-neutral-200/70 bg-white/80 p-12 text-center shadow-[0_25px_60px_-25px_rgba(15,23,42,0.25)] backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/80">
+            <p className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
+              This post has been removed
+            </p>
+            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+              It was removed because it did not meet our community guidelines.
+            </p>
+          </div>
+        )}
+        {phase === 'under-review' && (
+          <div className="rounded-3xl border border-amber-200/70 bg-amber-50/90 p-12 text-center shadow-[0_25px_60px_-25px_rgba(245,158,11,0.2)] backdrop-blur dark:border-amber-900/40 dark:bg-amber-950/40">
+            <p className="text-base font-semibold text-amber-950 dark:text-amber-100">
+              This post is under review
+            </p>
+            <p className="mt-2 text-sm text-amber-900/80 dark:text-amber-200/90">
+              Only the author can view it while moderation is in progress.
+            </p>
+          </div>
+        )}
         {phase === 'error' && (
           <div className="rounded-3xl border border-rose-200/60 bg-rose-50/80 p-12 text-center text-sm font-medium text-rose-800 shadow-[0_25px_60px_-25px_rgba(244,63,94,0.25)] backdrop-blur dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-200">
             Could not load this post.
@@ -317,6 +350,12 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
                 : 'mx-auto lg:max-w-[700px]'
             }`}
           >
+            {post.visibility === 'pending' && isAuthor && (
+              <p className="border-b border-amber-200/80 bg-amber-50 px-5 py-2.5 text-center text-sm font-semibold text-amber-900 lg:col-span-2 dark:border-amber-900/50 dark:bg-amber-950/50 dark:text-amber-100">
+                Under review — this post is hidden from everyone else until moderation
+                finishes.
+              </p>
+            )}
             {hasMedia && (
               <MediaCarousel
                 urls={post.mediaUrls}
@@ -428,7 +467,10 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
                         <button
                           type="button"
                           className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
-                          onClick={() => void removePost()}
+                          onClick={() => {
+                            setMenuOpen(false);
+                            setDeleteConfirmOpen(true);
+                          }}
                         >
                           Delete
                         </button>
@@ -579,6 +621,15 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
               onClose={() => setReportOpen(false)}
               targetType="post"
               targetId={post.id}
+            />
+            <ConfirmDialog
+              open={deleteConfirmOpen}
+              onClose={() => !deleteBusy && setDeleteConfirmOpen(false)}
+              onConfirm={() => void removePost()}
+              title="Delete post?"
+              message="This will permanently remove the post. You can't undo this."
+              confirmLabel="Delete"
+              confirming={deleteBusy}
             />
           </article>
         )}

@@ -9,6 +9,9 @@ export enum NotificationType {
   COMMENT = 'comment',
   REPLY = 'reply',
   NEW_POST = 'new_post',
+  POST_PENDING = 'post_pending',
+  POST_APPROVED = 'post_approved',
+  POST_DELETED = 'post_deleted',
   FOLLOW = 'follow',
   REPORT_REVIEWED = 'report_reviewed',
 }

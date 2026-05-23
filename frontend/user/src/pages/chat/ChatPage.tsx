@@ -23,6 +23,7 @@ import {
 } from '../../features/user/api/userDirectory.api';
 import { AppNavBar } from '../../features/user/components/AppNavBar';
 import { Button } from '../../shared/components/Button';
+import { MediaLightbox } from '../../shared/components/MediaLightbox';
 import { ROUTES } from '../../shared/constants/routes';
 import { isCloudinaryVideoUrl } from '../../shared/lib/cloudinary';
 
@@ -181,9 +182,11 @@ const CHAT_BUBBLE_MEDIA_BASE =
 function ChatMessageMedia({
   mediaUrl,
   isMe,
+  onOpen,
 }: {
   mediaUrl: string;
   isMe: boolean;
+  onOpen?: () => void;
 }) {
   /** Borders align with bubble: accent = soft light edge; peer = same family as `border-slate-200/80` on bubble */
   const shellTheme = isMe
@@ -195,9 +198,11 @@ function ChatMessageMedia({
   const cls = `${CHAT_BUBBLE_MEDIA_BASE} ${letterbox}`;
   const shell = `${CHAT_BUBBLE_MEDIA_SHELL_BASE} ${shellTheme}`;
 
-  if (isCloudinaryVideoUrl(mediaUrl)) {
+  const isVideo = isCloudinaryVideoUrl(mediaUrl);
+
+  if (isVideo) {
     return (
-      <div className={shell}>
+      <div className={`relative ${shell}`}>
         <video
           src={mediaUrl}
           controls
@@ -205,13 +210,58 @@ function ChatMessageMedia({
           preload="metadata"
           className={cls}
         />
+        {onOpen ? (
+          <button
+            type="button"
+            onClick={onOpen}
+            aria-label="View attachment full screen"
+            className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur transition hover:bg-black/70"
+          >
+            <ExpandMediaIcon />
+          </button>
+        ) : null}
       </div>
     );
   }
+
+  if (onOpen) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label="View attachment full screen"
+        className={`${shell} block cursor-zoom-in text-left`}
+      >
+        <img src={mediaUrl} alt="Attachment" className={cls} loading="lazy" />
+      </button>
+    );
+  }
+
   return (
     <div className={shell}>
       <img src={mediaUrl} alt="Attachment" className={cls} loading="lazy" />
     </div>
+  );
+}
+
+function ExpandMediaIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <polyline points="15 3 21 3 21 9" />
+      <polyline points="9 21 3 21 3 15" />
+      <line x1="21" y1="3" x2="14" y2="10" />
+      <line x1="3" y1="21" x2="10" y2="14" />
+    </svg>
   );
 }
 
@@ -252,6 +302,10 @@ export function ChatPage() {
   const [creatingGroup, setCreatingGroup] = useState(false);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [mediaLightbox, setMediaLightbox] = useState<{
+    urls: string[];
+    startIndex: number;
+  } | null>(null);
   const [draft, setDraft] = useState('');
   const [pendingMedia, setPendingMedia] = useState<{
     file: File;
@@ -332,6 +386,29 @@ export function ChatPage() {
   const activeConversation = useMemo(
     () => conversations.find((c) => c.id === activeConversationId) ?? null,
     [conversations, activeConversationId],
+  );
+
+  const conversationMediaUrls = useMemo(
+    () =>
+      messages
+        .map((m) => m.media_url?.trim())
+        .filter((url): url is string => Boolean(url)),
+    [messages],
+  );
+
+  const openChatMedia = useCallback(
+    (mediaUrl: string) => {
+      const urls =
+        conversationMediaUrls.length > 0
+          ? conversationMediaUrls
+          : [mediaUrl];
+      const idx = urls.indexOf(mediaUrl);
+      setMediaLightbox({
+        urls,
+        startIndex: idx >= 0 ? idx : 0,
+      });
+    },
+    [conversationMediaUrls],
   );
 
   const participantById = useMemo(() => {
@@ -1422,6 +1499,7 @@ export function ChatPage() {
                           <ChatMessageMedia
                             mediaUrl={m.media_url.trim()}
                             isMe={isMe}
+                            onOpen={() => openChatMedia(m.media_url.trim())}
                           />
                         ) : null}
                         {m.content?.trim() ? (
@@ -1728,6 +1806,14 @@ export function ChatPage() {
           </aside>
         </div>
       )}
+
+      {mediaLightbox ? (
+        <MediaLightbox
+          urls={mediaLightbox.urls}
+          startIndex={mediaLightbox.startIndex}
+          onClose={() => setMediaLightbox(null)}
+        />
+      ) : null}
     </div>
   );
 }

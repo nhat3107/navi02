@@ -1,17 +1,45 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ClientKafka, RpcException } from '@nestjs/microservices';
-import { Post, PostDocument } from './schemas/post.schema';
+import { firstValueFrom, timeout } from 'rxjs';
+import { Post, PostDocument, PostVisibility } from './schemas/post.schema';
 import { Like, LikeDocument } from '../likes/schemas/like.schema';
+
+const MODERATION_RPC = 'ai.moderate_content';
+const MODERATION_TIMEOUT_MS = 45_000;
 
 @Injectable()
 export class PostsService {
+  private readonly logger = new Logger(PostsService.name);
+
   constructor(
     @InjectModel(Post.name) private readonly postModel: Model<PostDocument>,
     @InjectModel(Like.name) private readonly likeModel: Model<LikeDocument>,
     @Inject('KAFKA_SERVICE') private readonly kafkaClient: ClientKafka,
   ) {}
+
+  private async assertAuthorCanPost(authorId: string): Promise<void> {
+    try {
+      const res = (await firstValueFrom(
+        this.kafkaClient.send<{ allowed: boolean; message?: string }>(
+          'auth.check_posting_allowed',
+          { userId: authorId },
+        ),
+      )) as { allowed?: boolean; message?: string };
+      if (res?.allowed === false) {
+        throw new RpcException({
+          status: 403,
+          message: res.message ?? 'You are not allowed to post right now',
+        });
+      }
+    } catch (err) {
+      if (err instanceof RpcException) throw err;
+      this.logger.warn(
+        `Posting permission check failed for ${authorId} — allowing post`,
+      );
+    }
+  }
 
   async create(data: {
     authorId: string;
@@ -20,6 +48,8 @@ export class PostsService {
     visibility?: string;
   }): Promise<any> {
     try {
+      await this.assertAuthorCanPost(data.authorId);
+
       const text = (data.content ?? '').trim();
       const media = (data.mediaUrls ?? []).filter(
         (u) => typeof u === 'string' && u.trim().length > 0,
@@ -30,36 +60,130 @@ export class PostsService {
           message: 'content or mediaUrls is required',
         });
       }
+
+      const requested = this.normalizeAudienceVisibility(data.visibility);
+      const awaitsPublicModeration = requested === PostVisibility.PUBLIC;
       const created = new this.postModel({
         authorId: data.authorId,
         content: text,
         mediaUrls: media,
-        visibility: data.visibility,
+        // Hold public-intent posts until AI moderation — followers never see pending.
+        visibility: awaitsPublicModeration
+          ? PostVisibility.PENDING
+          : requested,
       });
       const saved = await created.save();
+      const postId = String(saved._id);
 
-      const preview = text
-        ? text.length > 100
-          ? `${text.substring(0, 100)}...`
-          : text
-        : media.length > 0
-          ? 'Shared a photo'
-          : 'New post';
+      let resultDoc: PostDocument = saved;
 
-      this.kafkaClient.emit('notification.new_post', {
-        senderId: data.authorId,
-        postId: String(saved._id),
-        preview,
-        visibility:
-          typeof saved.visibility === 'string' ? saved.visibility : 'public',
-      });
+      if (awaitsPublicModeration) {
+        await this.runAiModeration(postId, data.authorId, text, media);
+        const refreshed = await this.postModel.findById(postId).exec();
+        if (refreshed) resultDoc = refreshed;
+      } else if (requested === PostVisibility.FOLLOWERS) {
+        this.emitNewPostFanout(data.authorId, postId, text, media, requested);
+      }
 
-      return { message: 'Post created successfully', data: saved };
+      return { message: 'Post created successfully', data: resultDoc };
     } catch (error) {
       if (error instanceof RpcException) throw error;
       console.error('Error creating post', error);
       throw new RpcException({ status: 500, message: 'Failed to create post' });
     }
+  }
+
+  private async runAiModeration(
+    postId: string,
+    authorId: string,
+    text: string,
+    media: string[],
+  ): Promise<void> {
+    try {
+      const res = (await firstValueFrom(
+        this.kafkaClient
+          .send<{ status: 'safe' | 'harmful' }>(MODERATION_RPC, {
+            contentId: postId,
+            authorId,
+            text,
+            images: media,
+          })
+          .pipe(timeout(MODERATION_TIMEOUT_MS)),
+      )) as { status?: 'safe' | 'harmful' };
+
+      const status = res?.status === 'harmful' ? 'harmful' : 'safe';
+      this.logger.log(
+        `AI moderation RPC response postId=${postId}: ${JSON.stringify(res)}`,
+      );
+      await this.applyModerationResult({
+        contentId: postId,
+        authorId,
+        status,
+      });
+    } catch (err) {
+      this.logger.error(
+        `AI moderation RPC failed for post ${postId} — post stays pending (hidden from followers)`,
+        err,
+      );
+      const stillPending = await this.postModel
+        .findOne({
+          _id: postId,
+          authorId,
+          visibility: PostVisibility.PENDING,
+        })
+        .select('_id')
+        .lean()
+        .exec();
+      if (stillPending) {
+        this.emitPostPendingNotification(authorId, postId);
+      }
+    }
+  }
+
+  async applyModerationResult(data: {
+    contentId: string;
+    authorId: string;
+    status: 'safe' | 'harmful';
+  }): Promise<void> {
+    const postId = data.contentId?.trim();
+    if (!postId) return;
+
+    const post = await this.postModel.findById(postId).exec();
+    if (!post) return;
+    if (post.authorId !== data.authorId) return;
+
+    const vis = post.visibility;
+    const inModerationHold = vis === PostVisibility.PENDING;
+    const legacyPublic = vis === PostVisibility.PUBLIC;
+    if (!inModerationHold && !legacyPublic) return;
+
+    if (data.status === 'harmful') {
+      if (legacyPublic) {
+        post.visibility = PostVisibility.PENDING;
+        await post.save();
+      }
+      this.emitPostPendingNotification(post.authorId, postId);
+      this.logger.warn(
+        `Post ${postId} held as pending after AI moderation (visibility=pending)`,
+      );
+      return;
+    }
+
+    post.visibility = PostVisibility.PUBLIC;
+    await post.save();
+    this.logger.log(
+      `Post ${postId} passed AI moderation (now public, fan-out to followers)`,
+    );
+
+    const text = (post.content ?? '').trim();
+    const media = post.mediaUrls ?? [];
+    this.emitNewPostFanout(
+      post.authorId,
+      postId,
+      text,
+      media,
+      PostVisibility.PUBLIC,
+    );
   }
 
   async findById(id: string, userId?: string): Promise<any> {
@@ -68,6 +192,8 @@ export class PostsService {
       if (!post) {
         throw new RpcException({ status: 404, message: `Post ${id} not found` });
       }
+
+      this.assertPostViewable(post, userId);
 
       let liked = false;
       if (userId) {
@@ -81,7 +207,7 @@ export class PostsService {
       return { data: { ...post, liked } };
     } catch (error) {
       if (error instanceof RpcException) throw error;
-      if ((error as any).name === 'CastError') {
+      if ((error as { name?: string }).name === 'CastError') {
         throw new RpcException({ status: 404, message: `Post ${id} not found` });
       }
       console.error('Error finding post by id', error);
@@ -89,10 +215,20 @@ export class PostsService {
     }
   }
 
-  async findByAuthor(authorId: string, limit = 20, skip = 0): Promise<any> {
+  async findByAuthor(
+    authorId: string,
+    viewerId?: string,
+    limit = 20,
+    skip = 0,
+  ): Promise<any> {
     try {
+      const filter =
+        viewerId && viewerId === authorId
+          ? { authorId, visibility: { $nin: [PostVisibility.DELETED] } }
+          : { authorId, visibility: PostVisibility.PUBLIC };
+
       const posts = await this.postModel
-        .find({ authorId })
+        .find(filter)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -105,17 +241,24 @@ export class PostsService {
     }
   }
 
-  async getFeed(authorIds: string[], userId: string, limit = 20, skip = 0): Promise<any> {
+  async getFeed(
+    authorIds: string[],
+    userId: string,
+    limit = 20,
+    skip = 0,
+  ): Promise<any> {
     try {
       const posts = await this.postModel
-        .find({ authorId: { $in: authorIds }, visibility: { $ne: 'private' } })
+        .find({
+          authorId: { $in: authorIds },
+          visibility: PostVisibility.PUBLIC,
+        })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean()
         .exec();
 
-      // Batch-check which posts this user has liked
       const postIds = posts.map((p) => p._id);
       const likedRecords = await this.likeModel
         .find({ userId, postId: { $in: postIds } })
@@ -137,13 +280,26 @@ export class PostsService {
     }
   }
 
-  async update(id: string, authorId: string, data: Partial<{ content: string; mediaUrls: string[]; visibility: string }>): Promise<any> {
+  async update(
+    id: string,
+    authorId: string,
+    data: Partial<{ content: string; mediaUrls: string[]; visibility: string }>,
+  ): Promise<any> {
     try {
+      const patch = { ...data };
+      if (patch.visibility !== undefined) {
+        patch.visibility = this.normalizeAudienceVisibility(patch.visibility);
+      }
       const updated = await this.postModel
-        .findOneAndUpdate({ _id: id, authorId }, data, { returnDocument: 'after' })
+        .findOneAndUpdate({ _id: id, authorId }, patch, {
+          returnDocument: 'after',
+        })
         .exec();
       if (!updated) {
-        throw new RpcException({ status: 403, message: 'You can only update your own posts' });
+        throw new RpcException({
+          status: 403,
+          message: 'You can only update your own posts',
+        });
       }
       return { message: 'Post updated successfully', data: updated };
     } catch (error) {
@@ -159,7 +315,10 @@ export class PostsService {
         .findOneAndDelete({ _id: id, authorId })
         .exec();
       if (!res) {
-        throw new RpcException({ status: 403, message: 'You can only delete your own posts' });
+        throw new RpcException({
+          status: 403,
+          message: 'You can only delete your own posts',
+        });
       }
       return { message: 'Post deleted successfully' };
     } catch (error) {
@@ -169,16 +328,17 @@ export class PostsService {
     }
   }
 
-  // Denormalized counter helpers — called on comment/like/share events.
   async incrementCommentCount(postId: string, delta = 1): Promise<void> {
     try {
       await this.postModel
         .updateOne({ _id: postId }, { $inc: { commentCount: delta } })
         .exec();
     } catch (error) {
-      if (error instanceof RpcException) throw error;
       console.error('Error incrementing comment count', error);
-      throw new RpcException({ status: 500, message: 'Failed to update comment count' });
+      throw new RpcException({
+        status: 500,
+        message: 'Failed to update comment count',
+      });
     }
   }
 
@@ -188,9 +348,11 @@ export class PostsService {
         .updateOne({ _id: postId }, { $inc: { likeCount: delta } })
         .exec();
     } catch (error) {
-      if (error instanceof RpcException) throw error;
       console.error('Error incrementing like count', error);
-      throw new RpcException({ status: 500, message: 'Failed to update like count' });
+      throw new RpcException({
+        status: 500,
+        message: 'Failed to update like count',
+      });
     }
   }
 
@@ -200,9 +362,77 @@ export class PostsService {
         .updateOne({ _id: postId }, { $inc: { shareCount: delta } })
         .exec();
     } catch (error) {
-      if (error instanceof RpcException) throw error;
       console.error('Error incrementing share count', error);
-      throw new RpcException({ status: 500, message: 'Failed to update share count' });
+      throw new RpcException({
+        status: 500,
+        message: 'Failed to update share count',
+      });
     }
+  }
+
+  private normalizeAudienceVisibility(raw?: string): PostVisibility {
+    const v = (raw ?? 'public').trim().toLowerCase();
+    if (v === PostVisibility.FOLLOWERS) return PostVisibility.FOLLOWERS;
+    if (v === PostVisibility.PRIVATE) return PostVisibility.PRIVATE;
+    if (v === PostVisibility.PENDING || v === PostVisibility.DELETED) {
+      return PostVisibility.PUBLIC;
+    }
+    return PostVisibility.PUBLIC;
+  }
+
+  private assertPostViewable(
+    post: { authorId: string; visibility: string },
+    userId?: string,
+  ): void {
+    const vis = post.visibility;
+    if (vis === PostVisibility.DELETED) {
+      throw new RpcException({
+        status: 410,
+        message: 'POST_REMOVED',
+      });
+    }
+    if (vis === PostVisibility.PENDING) {
+      if (!userId || userId !== post.authorId) {
+        throw new RpcException({
+          status: 403,
+          message: 'POST_UNDER_REVIEW',
+        });
+      }
+    }
+    if (vis === PostVisibility.PRIVATE) {
+      if (!userId || userId !== post.authorId) {
+        throw new RpcException({ status: 404, message: `Post not found` });
+      }
+    }
+  }
+
+  private emitPostPendingNotification(authorId: string, postId: string): void {
+    this.kafkaClient.emit('notification.post_pending', {
+      recipientId: authorId,
+      postId,
+    });
+  }
+
+  private emitNewPostFanout(
+    authorId: string,
+    postId: string,
+    text: string,
+    media: string[],
+    visibility: string,
+  ): void {
+    const preview = text
+      ? text.length > 100
+        ? `${text.substring(0, 100)}...`
+        : text
+      : media.length > 0
+        ? 'Shared a photo'
+        : 'New post';
+
+    this.kafkaClient.emit('notification.new_post', {
+      senderId: authorId,
+      postId,
+      preview,
+      visibility,
+    });
   }
 }

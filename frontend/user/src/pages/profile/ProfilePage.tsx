@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import type { AxiosError } from 'axios';
 import {
   ROUTES,
+  PROFILE_ACCOUNT_STATUS_HASH,
   buildProfileFollowersPath,
   buildProfileFollowingPath,
 } from '../../shared/constants/routes';
@@ -14,13 +15,18 @@ import {
 } from '../../features/user/api/userProfile.api';
 import { useProfileCache } from '../../features/user/store/profileCache.store';
 import type { UserProfile } from '../../features/user/types/user.types';
-import { AppNavBar } from '../../features/user/components/AppNavBar';
+import { AppPage } from '../../shared/layout/AppPage';
+import { LoadingState } from '../../shared/components/LoadingState';
+import { EmptyState } from '../../shared/components/EmptyState';
 import { UserAvatar } from '../../features/user/components/UserAvatar';
 import { FollowButton } from '../../features/user/components/FollowButton';
 import { fetchPostsByAuthor } from '../../features/network/api/network.api';
 import type { NetworkPost } from '../../features/network/types/network.types';
 import { useAuthorProfiles } from '../../features/network/hooks/useAuthorProfiles';
 import { PostCard } from '../../features/network/components/PostCard';
+import { fetchAccountStatusApi } from '../../features/user/api/accountStatus.api';
+import type { AccountStatus } from '../../features/user/types/accountStatus.types';
+import { PenaltyStatusCard } from '../../features/user/components/PenaltyStatusCard';
 
 /**
  * `/profile` — own profile (uses cached `myProfile` first, refreshes in
@@ -57,6 +63,7 @@ function formatJoined(iso: string): string {
 
 export function ProfilePage({ mode }: ProfilePageProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const params = useParams<{ userId: string }>();
   const { isAuthenticated, user } = useAuthStore();
   const myProfile = useProfileCache((s) => s.myProfile);
@@ -72,6 +79,10 @@ export function ProfilePage({ mode }: ProfilePageProps) {
     mode === 'me' ? myProfile : cachedProfile,
   );
   const [error, setError] = useState<string | null>(null);
+  const [accountStatus, setAccountStatus] = useState<AccountStatus | null>(
+    null,
+  );
+  const [highlightPenalty, setHighlightPenalty] = useState(false);
 
   const targetUserId =
     mode === 'me' ? user?.id ?? null : params.userId ?? null;
@@ -155,49 +166,68 @@ export function ProfilePage({ mode }: ProfilePageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, params.userId]);
 
-  return (
-    <div className="min-h-screen bg-neutral-200 dark:bg-black">
-      <AppNavBar />
+  useEffect(() => {
+    if (mode !== 'me' || !isAuthenticated) {
+      setAccountStatus(null);
+      return;
+    }
+    let cancelled = false;
+    void fetchAccountStatusApi()
+      .then((status) => {
+        if (!cancelled) setAccountStatus(status);
+      })
+      .catch(() => {
+        if (!cancelled) setAccountStatus(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, isAuthenticated]);
 
-      <main className="mx-auto w-full max-w-4xl px-3 py-4 sm:px-4">
+  useEffect(() => {
+    if (mode !== 'me' || !accountStatus) return;
+    if (location.hash !== `#${PROFILE_ACCOUNT_STATUS_HASH}`) return;
+    setHighlightPenalty(true);
+    requestAnimationFrame(() => {
+      document.getElementById(PROFILE_ACCOUNT_STATUS_HASH)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
+    const timer = window.setTimeout(() => setHighlightPenalty(false), 2500);
+    return () => window.clearTimeout(timer);
+  }, [mode, location.hash, accountStatus]);
+
+  return (
+    <AppPage mainClassName="max-w-4xl">
         {phase === 'loading' && (
-          <div className="rounded-lg border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-500 dark:border-neutral-800 dark:bg-neutral-950">
-            Loading profile…
-          </div>
+          <LoadingState label="Loading profile…" />
         )}
 
         {phase === 'not-found' && (
-          <div className="rounded-lg border border-neutral-200 bg-white p-10 text-center dark:border-neutral-800 dark:bg-neutral-950">
-            <p className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-              Profile not found
-            </p>
-            <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-              {mode === 'me'
+          <EmptyState
+            title="Profile not found"
+            description={
+              mode === 'me'
                 ? 'Finish onboarding to set up your profile.'
-                : "We couldn't find that user."}
-            </p>
-            <div className="mt-4 flex justify-center gap-2">
-              {mode === 'me' ? (
-                <Link
-                  to={ROUTES.ONBOARD}
-                  className="rounded-2xl bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
-                >
+                : "We couldn't find that user."
+            }
+            action={
+              mode === 'me' ? (
+                <Link to={ROUTES.ONBOARD} className="chip-btn chip-btn--primary">
                   Set up profile
                 </Link>
               ) : (
-                <Link
-                  to={ROUTES.DISCOVER}
-                  className="rounded-2xl bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
-                >
+                <Link to={ROUTES.DISCOVER} className="chip-btn chip-btn--primary">
                   Discover people
                 </Link>
-              )}
-            </div>
-          </div>
+              )
+            }
+          />
         )}
 
         {phase === 'error' && (
-          <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300">
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300">
             {error ?? 'Something went wrong.'}
           </div>
         )}
@@ -209,14 +239,20 @@ export function ProfilePage({ mode }: ProfilePageProps) {
               isSelf={isSelf}
               viewerUserId={user?.id ?? null}
             />
+            {mode === 'me' && accountStatus && (
+              <PenaltyStatusCard
+                status={accountStatus}
+                highlight={highlightPenalty}
+              />
+            )}
             <ProfilePostsSection
               profileUserId={profile.id}
               viewerUserId={user?.id ?? null}
+              isSelf={isSelf}
             />
           </>
         )}
-      </main>
-    </div>
+    </AppPage>
   );
 }
 
@@ -235,7 +271,7 @@ function ProfileHero({
     Boolean(profile.createdAt);
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] dark:border-neutral-800 dark:bg-neutral-950 dark:shadow-none">
+    <article className="surface-card mb-5">
       <div className="h-24 bg-gradient-to-br from-violet-500/90 via-fuchsia-500/85 to-orange-400/80 sm:h-28" />
       <div className="px-4 pb-5 sm:px-6">
         <div className="-mt-10 flex flex-wrap items-end gap-4 sm:-mt-12">
@@ -357,9 +393,11 @@ const PROFILE_POSTS_PAGE = 12;
 function ProfilePostsSection({
   profileUserId,
   viewerUserId,
+  isSelf,
 }: {
   profileUserId: string;
   viewerUserId: string | null;
+  isSelf: boolean;
 }) {
   const [posts, setPosts] = useState<NetworkPost[]>([]);
   const [skip, setSkip] = useState(0);
@@ -406,7 +444,49 @@ function ProfilePostsSection({
   const authorIds = posts.map((p) => p.authorId);
   const { byId: authorById } = useAuthorProfiles(authorIds);
 
+  const pendingPosts = isSelf
+    ? posts.filter((p) => p.visibility === 'pending')
+    : [];
+  const publishedPosts = isSelf
+    ? posts.filter((p) => p.visibility !== 'pending')
+    : posts;
+
+  const handlePostDeleted = (postId: string) => {
+    setPosts((prev) => prev.filter((p) => p.id !== postId));
+  };
+
   return (
+    <>
+      {pendingPosts.length > 0 && (
+        <section
+          className="mt-5 rounded-2xl border border-amber-200/80 bg-amber-50/50 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-5 dark:border-amber-900/40 dark:bg-amber-950/30 dark:shadow-none"
+          aria-label="Posts under review"
+        >
+          <div className="mb-4 border-b border-amber-200/80 pb-3 dark:border-amber-900/50">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-amber-950 dark:text-amber-100">
+              Under review
+            </h2>
+            <p className="mt-1 text-sm text-amber-900/80 dark:text-amber-200/90">
+              Only you can see these posts until moderation finishes. You can delete
+              them anytime.
+            </p>
+          </div>
+          <div className="space-y-5">
+            {pendingPosts.map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                author={authorById[post.authorId]}
+                viewerUserId={viewerUserId}
+                mode="feed"
+                onChanged={() => void load(0, false)}
+                onPostDeleted={() => handlePostDeleted(post.id)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
     <section
       className="mt-5 rounded-2xl border border-neutral-200 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] sm:p-5 dark:border-neutral-800 dark:bg-neutral-950 dark:shadow-none"
       aria-label="Posts"
@@ -421,13 +501,18 @@ function ProfilePostsSection({
           Loading…
         </p>
       )}
-      {!loading && posts.length === 0 && (
+      {!loading && publishedPosts.length === 0 && pendingPosts.length === 0 && (
         <p className="py-10 text-center text-sm font-medium text-neutral-600 dark:text-neutral-300">
           No posts yet.
         </p>
       )}
+      {!loading && publishedPosts.length === 0 && pendingPosts.length > 0 && (
+        <p className="py-6 text-center text-sm font-medium text-neutral-600 dark:text-neutral-300">
+          No published posts yet.
+        </p>
+      )}
       <div className="grid grid-cols-3 gap-1.5 sm:gap-2.5">
-        {posts.map((post) => (
+        {publishedPosts.map((post) => (
           <PostCard
             key={post.id}
             post={post}
@@ -451,6 +536,7 @@ function ProfilePostsSection({
         </div>
       )}
     </section>
+    </>
   );
 }
 

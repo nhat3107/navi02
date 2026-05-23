@@ -22,8 +22,18 @@ export class PostsController {
   }
 
   @MessagePattern('post.find_by_author', Transport.KAFKA)
-  findByAuthor(data: {authorId: string;limit?: number;skip?: number}): Promise<any> {
-    return this.postsService.findByAuthor(data.authorId, data.limit, data.skip);
+  findByAuthor(data: {
+    authorId: string;
+    viewerId?: string;
+    limit?: number;
+    skip?: number;
+  }): Promise<any> {
+    return this.postsService.findByAuthor(
+      data.authorId,
+      data.viewerId,
+      data.limit,
+      data.skip,
+    );
   }
 
   @MessagePattern('post.feed', Transport.KAFKA)

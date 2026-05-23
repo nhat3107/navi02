@@ -2,12 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../features/auth/store/auth.store';
 import { useProfileCache } from '../../features/user/store/profileCache.store';
-import { Button } from '../../shared/components/Button';
-import { ROUTES } from '../../shared/constants/routes';
-import { AppNavBar } from '../../features/user/components/AppNavBar';
 import { fetchFeed } from '../../features/network/api/network.api';
 import type { NetworkPost } from '../../features/network/types/network.types';
 import { useAuthorProfiles } from '../../features/network/hooks/useAuthorProfiles';
+import { Button } from '../../shared/components/Button';
+import { EmptyState } from '../../shared/components/EmptyState';
+import { ThemeToggleCorner } from '../../shared/components/ThemeToggle';
+import { AppPage } from '../../shared/layout/AppPage';
+import { ROUTES } from '../../shared/constants/routes';
 import { FeedComposer } from '../../features/network/components/FeedComposer';
 import { PostCard } from '../../features/network/components/PostCard';
 
@@ -84,22 +86,24 @@ export function HomePage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-8">
-        <div className="text-center">
-          <h1 className="text-4xl font-semibold text-slate-900 dark:text-slate-100 -tracking-wide mb-2">
+      <div className="auth-page relative">
+        <ThemeToggleCorner />
+        <div className="w-full max-w-lg px-4 text-center">
+          <div className="auth-card__badge mx-auto mb-6">N</div>
+          <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl">
             Welcome to Navi
           </h1>
-          <p className="text-lg text-slate-500 dark:text-slate-400">
+          <p className="mx-auto mt-4 max-w-md text-lg text-slate-300">
             Connect, follow, and chat with the people you care about.
           </p>
-          <div className="flex gap-3 justify-center mt-6">
-            <Button onClick={() => navigate(ROUTES.LOGIN)} className="w-auto">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <Button onClick={() => navigate(ROUTES.LOGIN)} className="w-auto min-w-[140px]">
               Sign in
             </Button>
             <Button
               variant="secondary"
               onClick={() => navigate(ROUTES.REGISTER)}
-              className="w-auto"
+              className="w-auto min-w-[140px]"
             >
               Create account
             </Button>
@@ -115,10 +119,7 @@ export function HomePage() {
     'You';
 
   return (
-    <div className="min-h-screen bg-neutral-200 dark:bg-black">
-      <AppNavBar />
-
-      <main className="mx-auto w-full max-w-[min(100%,640px)] px-3 pb-12 pt-4 sm:px-4 sm:pt-6">
+    <AppPage mainClassName="max-w-[min(100%,640px)]">
         <FeedComposer
           displayName={displayName}
           avatarUrl={myProfile?.avatar_url ?? null}
@@ -134,28 +135,26 @@ export function HomePage() {
           )}
 
           {!loading && posts.length === 0 && (
-            <div className="rounded-2xl border border-neutral-200 bg-white px-6 py-12 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-neutral-800 dark:bg-neutral-950 dark:shadow-none">
-              <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
-                No posts yet
-              </h2>
-              <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
-                Follow people or share something to get started.
-              </p>
-              <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-                <Link
-                  to={ROUTES.DISCOVER}
-                  className="inline-flex items-center justify-center rounded-lg bg-[#0095f6] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1877f2]"
-                >
-                  Find people
-                </Link>
-                <Link
-                  to={ROUTES.CHAT}
-                  className="inline-flex items-center justify-center rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
-                >
-                  Messages
-                </Link>
-              </div>
-            </div>
+            <EmptyState
+              icon={
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-7 w-7">
+                  <rect x="3" y="3" width="18" height="18" rx="3" />
+                  <path d="M8 12h8M12 8v8" />
+                </svg>
+              }
+              title="No posts yet"
+              description="Follow people or share something to get started."
+              action={
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <Link to={ROUTES.DISCOVER} className="chip-btn chip-btn--primary">
+                    Find people
+                  </Link>
+                  <Link to={ROUTES.CHAT} className="chip-btn">
+                    Messages
+                  </Link>
+                </div>
+              }
+            />
           )}
 
           {posts.map((post) => (
@@ -166,6 +165,9 @@ export function HomePage() {
               viewerUserId={user?.id ?? null}
               mode="feed"
               onChanged={() => void refreshFeed()}
+              onPostDeleted={() =>
+                setPosts((prev) => prev.filter((p) => p.id !== post.id))
+              }
             />
           ))}
         </section>
@@ -173,14 +175,13 @@ export function HomePage() {
         <div ref={sentinelRef} className="h-4 w-full" aria-hidden />
         {loadingMore && <FeedSkeleton />}
         {!loading && !loadingMore && posts.length > 0 && !hasMore && (
-          <p className="py-6 text-center text-xs font-medium text-neutral-500 dark:text-neutral-400">
+          <p className="py-6 text-center text-xs font-medium text-slate-500 dark:text-slate-400">
             You're all caught up.
           </p>
         )}
-      </main>
 
       <ChatFloatingBubble />
-    </div>
+    </AppPage>
   );
 }
 
@@ -230,7 +231,7 @@ function ChatBubbleIcon() {
 
 function FeedSkeleton() {
   return (
-    <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-neutral-800 dark:bg-neutral-950 dark:shadow-none">
+    <div className="surface-card animate-pulse">
       <div className="flex items-center gap-3 px-5 py-4">
         <div className="h-11 w-11 animate-pulse rounded-full bg-neutral-200 dark:bg-neutral-800" />
         <div className="flex-1 space-y-2">

@@ -1,4 +1,9 @@
-export type PostVisibility = 'public' | 'followers' | 'private';
+export type PostVisibility =
+  | 'public'
+  | 'followers'
+  | 'private'
+  | 'pending'
+  | 'deleted';
 
 export type ReportTargetType = 'post' | 'comment' | 'user';
 

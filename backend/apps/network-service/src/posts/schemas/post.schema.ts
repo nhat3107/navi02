@@ -3,20 +3,22 @@ import { Document } from 'mongoose';
 
 export type PostDocument = Post & Document;
 
+/** Single source of truth for post lifecycle (see prompt/backend/ai). */
 export enum PostVisibility {
   PUBLIC = 'public',
   FOLLOWERS = 'followers',
   PRIVATE = 'private',
+  /** AI or policy hold — hidden from public feed. */
+  PENDING = 'pending',
+  /** Admin rejection — never shown. */
+  DELETED = 'deleted',
 }
 
 @Schema({ timestamps: true, collection: 'posts' })
 export class Post {
-  // UUID string from auth-service (Postgres User.id / JWT `sub`).
-  // NOT a Mongo ObjectId — User is in a different database, so no `ref`.
   @Prop({ type: String, required: true, index: true })
   authorId: string;
 
-  /** May be empty when `mediaUrls` is non-empty (validated in service). */
   @Prop({ type: String, default: '', trim: true, maxlength: 5000 })
   content: string;
 
@@ -43,6 +45,6 @@ export class Post {
 
 export const PostSchema = SchemaFactory.createForClass(Post);
 
-// Feed queries: newest posts per author, and newest public posts globally.
 PostSchema.index({ authorId: 1, createdAt: -1 });
 PostSchema.index({ createdAt: -1 });
+PostSchema.index({ visibility: 1, createdAt: -1 });

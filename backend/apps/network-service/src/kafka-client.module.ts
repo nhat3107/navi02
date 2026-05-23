@@ -13,6 +13,9 @@ import { kafkaBrokersFromEnv } from './kafka-brokers';
             clientId: 'network-producer',
             brokers: kafkaBrokersFromEnv(),
           },
+          consumer: {
+            groupId: 'network-producer-reply',
+          },
         },
       },
     ]),

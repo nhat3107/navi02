@@ -8,7 +8,9 @@ import { uploadAvatarToCloudinary } from '../../features/auth/lib/uploadAvatarTo
 import { updateOwnProfile } from '../../features/user/api/userProfile.api';
 import { useProfileCache } from '../../features/user/store/profileCache.store';
 import { useAuthStore } from '../../features/auth/store/auth.store';
-import { AppNavBar } from '../../features/user/components/AppNavBar';
+import { AppPage } from '../../shared/layout/AppPage';
+import { PageHeader } from '../../shared/components/PageHeader';
+import { LoadingState } from '../../shared/components/LoadingState';
 import { UserAvatar } from '../../features/user/components/UserAvatar';
 
 const GENDER_OPTIONS = [
@@ -183,39 +185,22 @@ export function EditProfilePage() {
   const previewSrc = pendingPreview ?? avatarUrl;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      <AppNavBar />
+    <AppPage mainClassName="max-w-2xl">
+        <PageHeader
+          eyebrow="Settings"
+          title="Edit profile"
+          description="Update how you appear across Navi."
+          actions={
+            <Link to={ROUTES.PROFILE_ME} className="chip-btn">
+              ← Profile
+            </Link>
+          }
+        />
 
-      <main className="mx-auto w-full max-w-2xl px-4 py-6">
-        <div className="mb-4 flex items-center gap-3">
-          <Link
-            to={ROUTES.PROFILE_ME}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-            aria-label="Back to profile"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="19" y1="12" x2="5" y2="12" />
-              <polyline points="12 19 5 12 12 5" />
-            </svg>
-          </Link>
-          <div>
-            <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-              Edit profile
-            </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Update how you appear across Navi.
-            </p>
-          </div>
-        </div>
-
-        {phase === 'loading' && (
-          <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            Loading…
-          </div>
-        )}
+        {phase === 'loading' && <LoadingState />}
 
         {phase === 'error' && (
-          <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300">
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300">
             {loadError ?? 'Could not load profile.'}
           </div>
         )}
@@ -224,7 +209,7 @@ export function EditProfilePage() {
           <form
             onSubmit={handleSubmit}
             noValidate
-            className="flex flex-col gap-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+            className="surface-card flex flex-col gap-5 p-6"
           >
             {formError && (
               <div className="rounded-lg bg-error-bg px-3.5 py-2.5 text-center text-sm font-medium text-error">
@@ -377,13 +362,12 @@ export function EditProfilePage() {
             </div>
           </form>
         )}
-      </main>
-    </div>
+    </AppPage>
   );
 }
 
 const inputCls =
-  'w-full rounded-lg border-[1.5px] border-slate-300 bg-white px-3.5 py-2.5 text-[0.935rem] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-accent focus:ring-2 focus:ring-accent-bg dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500';
+  'w-full rounded-xl border-[1.5px] border-slate-300 bg-white px-3.5 py-2.5 text-[0.935rem] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-accent focus:ring-2 focus:ring-accent-bg dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500';
 
 function Field({
   label,

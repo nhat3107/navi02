@@ -6,6 +6,7 @@ import { UserAvatar } from '../../user/components/UserAvatar';
 import { buildPostPath, buildProfilePath, type PostOverlayNavigationState } from '../../../shared/constants/routes';
 import { likePost, unlikePost, deletePost } from '../api/network.api';
 import { ReportModal } from './ReportModal';
+import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { NetworkMediaStrip } from './NetworkMediaStrip';
 import { isCloudinaryVideoUrl } from '../../../shared/lib/cloudinary';
 import { formatRelativeTime } from '../lib/formatRelativeTime';
@@ -36,6 +37,7 @@ export function PostCard({
         post={post}
         firstMediaUrl={post.mediaUrls[0]}
         textPreview={post.content.trim()}
+        isPending={post.visibility === 'pending'}
       />
     );
   }
@@ -56,10 +58,12 @@ function PostGridTile({
   post,
   firstMediaUrl,
   textPreview,
+  isPending = false,
 }: {
   post: NetworkPost;
   firstMediaUrl: string | undefined;
   textPreview: string;
+  isPending?: boolean;
 }) {
   const location = useLocation();
   const postPath = buildPostPath(post.id);
@@ -71,8 +75,15 @@ function PostGridTile({
     <Link
       to={postPath}
       state={overlayState}
-      className="group relative aspect-square overflow-hidden rounded-xl bg-neutral-200 ring-1 ring-black/5 transition-shadow hover:shadow-[0_8px_24px_-12px_rgba(0,0,0,0.25)] dark:bg-neutral-900 dark:ring-white/5 sm:rounded-2xl"
+      className={`group relative aspect-square overflow-hidden rounded-xl bg-neutral-200 ring-1 ring-black/5 transition-shadow hover:shadow-[0_8px_24px_-12px_rgba(0,0,0,0.25)] dark:bg-neutral-900 dark:ring-white/5 sm:rounded-2xl ${
+        isPending ? 'ring-2 ring-amber-400/80 dark:ring-amber-500/60' : ''
+      }`}
     >
+      {isPending && (
+        <span className="absolute left-1.5 top-1.5 z-10 rounded-md bg-amber-500/95 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
+          Review
+        </span>
+      )}
       {firstMediaUrl ? (
         isCloudinaryVideoUrl(firstMediaUrl) ? (
           <video
@@ -131,6 +142,7 @@ function PostFeedCard({
   const [likeCount, setLikeCount] = useState(post.likeCount);
   const [busy, setBusy] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -186,6 +198,7 @@ function PostFeedCard({
     setBusy(true);
     try {
       await deletePost(post.id);
+      setDeleteConfirmOpen(false);
       setMenuOpen(false);
       onPostDeleted?.();
       onChanged?.();
@@ -199,6 +212,8 @@ function PostFeedCard({
   const hasMedia = post.mediaUrls.length > 0;
   const bodyText = post.content.trim();
   const textOnly = !hasMedia && bodyText.length > 0;
+  const pendingReview =
+    post.visibility === 'pending' && isAuthor;
 
   /**
    * Treat the whole card as a single tap target for opening the detail view,
@@ -242,8 +257,13 @@ function PostFeedCard({
         aria-label={`Open post by ${username}`}
         onClick={handleCardClick}
         onKeyDown={handleCardKeyDown}
-        className="cursor-pointer overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-[0_2px_12px_-4px_rgba(0,0,0,0.06)] transition-[box-shadow] duration-300 hover:shadow-[0_8px_28px_-12px_rgba(0,0,0,0.1)] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 dark:border-neutral-800/90 dark:bg-neutral-950 dark:shadow-[0_2px_20px_-8px_rgba(0,0,0,0.55)] dark:hover:shadow-[0_12px_40px_-16px_rgba(0,0,0,0.65)]"
+        className="surface-card surface-card--hover cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
       >
+        {pendingReview && (
+          <p className="border-b border-amber-200/80 bg-amber-50 px-5 py-2 text-center text-xs font-semibold text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/50 dark:text-amber-100">
+            Under review — only you can see this post
+          </p>
+        )}
         <header className="flex items-start gap-3 px-5 py-4 sm:gap-4">
           <Link to={profilePath} className="shrink-0 pt-0.5">
             <span className="inline-flex rounded-full ring-2 ring-neutral-100 dark:ring-neutral-800">
@@ -294,7 +314,10 @@ function PostFeedCard({
                   <button
                     type="button"
                     className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
-                    onClick={() => void removePost()}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setDeleteConfirmOpen(true);
+                    }}
                   >
                     Delete
                   </button>
@@ -392,6 +415,15 @@ function PostFeedCard({
         onClose={() => setReportOpen(false)}
         targetType="post"
         targetId={post.id}
+      />
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onClose={() => !busy && setDeleteConfirmOpen(false)}
+        onConfirm={() => void removePost()}
+        title="Delete post?"
+        message="This will permanently remove the post. You can't undo this."
+        confirmLabel="Delete"
+        confirming={busy}
       />
     </>
   );

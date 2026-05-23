@@ -12,7 +12,6 @@ import { CallIncomingBanner } from '../features/call/components/CallIncomingBann
 import { CallInOtherTabIndicator } from '../features/call/components/CallInOtherTabIndicator';
 import { CallProvider } from '../features/call/components/CallProvider';
 import { MiniCallBar } from '../features/call/components/MiniCallBar';
-import { ThemeToggle } from '../shared/components/ThemeToggle';
 import { OAuthReturnHandler } from './OAuthReturnHandler';
 import { LoginPage } from '../pages/auth/login/LoginPage';
 import { ForgotPasswordPage } from '../pages/auth/forgot-password/ForgotPasswordPage';
@@ -49,7 +48,6 @@ function AppShellRoutes() {
       <CallIncomingBanner />
       <CallInOtherTabIndicator />
       <MiniCallBar />
-      <ThemeToggle />
       <OAuthReturnHandler />
       <Routes location={background ?? location}>
             <Route

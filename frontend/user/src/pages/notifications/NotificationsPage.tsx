@@ -2,20 +2,29 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import type { NotificationRow } from '../../features/notification/types/notification.types';
 import {
+  deleteNotificationApi,
   fetchNotificationsListApi,
   fetchNotificationsUnreadApi,
   markAllNotificationsReadApi,
   markNotificationReadApi,
 } from '../../features/notification/api/notifications.api';
+import { NotificationDismissButton } from '../../features/notification/components/NotificationDismissButton';
+import { NotificationTypeBadge } from '../../features/notification/components/NotificationTypeBadge';
+import { isAuthorSystemNotice } from '../../features/notification/lib/isAuthorSystemNotice';
+import { notificationCardClasses } from '../../features/notification/lib/notificationVisual';
+import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { useNotificationsStore } from '../../features/notification/store/notifications.store';
 import {
   notificationAction,
+  notificationLinkState,
   summarizeNotificationType,
 } from '../../features/notification/lib/notificationLabels';
 import { useAuthorProfiles } from '../../features/network/hooks/useAuthorProfiles';
 import { formatRelativeTime } from '../../features/network/lib/formatRelativeTime';
 import { UserAvatar } from '../../features/user/components/UserAvatar';
-import { AppNavBar } from '../../features/user/components/AppNavBar';
+import { AppPage } from '../../shared/layout/AppPage';
+import { PageHeader } from '../../shared/components/PageHeader';
+import { EmptyState } from '../../shared/components/EmptyState';
 import { ROUTES } from '../../shared/constants/routes';
 
 function ChevronLeftIcon({ className }: { className?: string }) {
@@ -45,9 +54,14 @@ export function NotificationsPage() {
   const setUnreadFromApi = useNotificationsStore((s) => s.setUnreadFromApi);
   const markAllReadLocal = useNotificationsStore((s) => s.markAllReadLocal);
   const patchRead = useNotificationsStore((s) => s.patchRead);
+  const removeLocal = useNotificationsStore((s) => s.removeLocal);
 
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<NotificationRow | null>(
+    null,
+  );
+  const [deleting, setDeleting] = useState(false);
 
   const refresh = useCallback(async () => {
     setErr(null);
@@ -95,53 +109,58 @@ export function NotificationsPage() {
     }
   };
 
+  const confirmDelete = async () => {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    setErr(null);
+    try {
+      await deleteNotificationApi(deleteTarget.id);
+      removeLocal(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch {
+      setErr('Could not remove that notification.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-neutral-200 dark:bg-black">
-      <AppNavBar />
-
-      <main className="mx-auto w-full max-w-[min(100%,640px)] px-3 pb-12 pt-4 sm:px-4 sm:pt-6">
-        <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <Link
-              to={ROUTES.HOME}
-              className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-neutral-200/70 bg-white/90 px-3.5 py-1.5 text-sm font-semibold text-neutral-700 shadow-sm backdrop-blur transition hover:border-neutral-300 hover:bg-white hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900/85 dark:text-neutral-200 dark:hover:border-neutral-600 dark:hover:bg-neutral-900 dark:hover:text-neutral-100"
-            >
-              <ChevronLeftIcon className="h-4 w-4 shrink-0 text-neutral-500 dark:text-neutral-400" />
-              Back to home
-            </Link>
-            <div className="flex flex-wrap items-end gap-3">
-              <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100 sm:text-3xl">
-                Notifications
-              </h1>
-              {unreadCount > 0 ? (
-                <span className="inline-flex items-center rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-semibold text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
-                  {unreadCount} unread
-                </span>
-              ) : null}
-            </div>
-            <p className="mt-2 max-w-lg text-sm text-neutral-600 dark:text-neutral-400">
-              Likes, comments, and updates from people you follow.
-            </p>
-          </div>
-        </div>
-
-        <div className="mb-5 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void refresh()}
-            disabled={loading}
-            className="rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-800 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition hover:border-neutral-300 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 dark:hover:bg-neutral-900 dark:hover:border-neutral-700"
-          >
-            Refresh
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleMarkAll()}
-            className="rounded-2xl bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-hover dark:shadow-none"
-          >
-            Mark all read
-          </button>
-        </div>
+    <AppPage mainClassName="max-w-[min(100%,640px)]">
+        <PageHeader
+          eyebrow="Activity"
+          title="Notifications"
+          description="Likes, comments, and updates from people you follow."
+          badge={
+            unreadCount > 0 ? (
+              <span className="inline-flex items-center rounded-full bg-accent-bg px-2.5 py-1 text-[11px] font-semibold text-accent">
+                {unreadCount} unread
+              </span>
+            ) : null
+          }
+          actions={
+            <>
+              <Link to={ROUTES.HOME} className="chip-btn">
+                <ChevronLeftIcon className="mr-1.5 h-4 w-4" />
+                Home
+              </Link>
+              <button
+                type="button"
+                onClick={() => void refresh()}
+                disabled={loading}
+                className="chip-btn"
+              >
+                Refresh
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleMarkAll()}
+                className="chip-btn chip-btn--primary"
+              >
+                Mark all read
+              </button>
+            </>
+          }
+        />
 
         {err ? (
           <p className="mb-4 rounded-2xl border border-red-200/80 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/80 dark:bg-red-950/50 dark:text-red-200">
@@ -165,27 +184,16 @@ export function NotificationsPage() {
             ))}
           </ul>
         ) : storeItems.length === 0 ? (
-          <div className="rounded-2xl border border-neutral-200 bg-white px-6 py-16 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-neutral-800 dark:bg-neutral-950 dark:shadow-none">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500">
-              <svg
-                className="h-8 w-8"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.5}
-              >
+          <EmptyState
+            icon={
+              <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
                 <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
                 <path d="M10.3 21h3.4c.3 0 .6-.2.7-.5l.4-1.2H9.2l.4 1.2c.1.3.4.5.7.5Z" />
               </svg>
-            </div>
-            <p className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
-              You&apos;re all caught up
-            </p>
-            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-              When something happens, it&apos;ll show up here and in the bell in
-              the header.
-            </p>
-          </div>
+            }
+            title="You're all caught up"
+            description="When something happens, it'll show up here and in the bell in the header."
+          />
         ) : (
           <ul className="flex flex-col gap-3">
             {storeItems.map((row) => {
@@ -201,37 +209,61 @@ export function NotificationsPage() {
               const act = notificationAction(row);
               const headline = summarizeNotificationType(row);
               const avatarUrl = prof?.avatar_url ?? null;
+              const systemNotice = isAuthorSystemNotice(row);
 
               return (
                 <li key={row.id}>
                   <div
-                    className={`rounded-2xl border p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors dark:shadow-none ${
-                      row.isRead
-                        ? 'border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950'
-                        : 'border-neutral-200 bg-accent-bg ring-1 ring-neutral-200/90 dark:border-neutral-800 dark:bg-accent-bg dark:ring-neutral-800'
-                    }`}
+                    className={`rounded-2xl border p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors dark:shadow-none ${notificationCardClasses(row, row.isRead)}`}
                   >
                     <div className="flex gap-4">
-                      <UserAvatar label={name} src={avatarUrl} size="md" />
+                      <UserAvatar
+                        label={systemNotice ? 'You' : name}
+                        src={systemNotice ? null : avatarUrl}
+                        size="md"
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <p className="text-[15px] leading-snug text-neutral-900 dark:text-neutral-100">
-                            <button
-                              type="button"
-                              className="text-left font-semibold text-accent hover:underline hover:text-accent-hover"
-                              onClick={() => void handleRowActivate(row)}
-                            >
-                              {name}
-                            </button>{' '}
-                            <span className="font-normal text-neutral-600 dark:text-neutral-400">
-                              {headline}
-                            </span>
+                            {systemNotice ? (
+                              act ? (
+                                <Link
+                                  to={act.to}
+                                  state={notificationLinkState(row, location)}
+                                  className="font-semibold text-accent hover:underline hover:text-accent-hover"
+                                  onClick={() => void handleRowActivate(row)}
+                                >
+                                  {headline}
+                                </Link>
+                              ) : (
+                                <span className="font-semibold">{headline}</span>
+                              )
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  className="text-left font-semibold text-accent hover:underline hover:text-accent-hover"
+                                  onClick={() => void handleRowActivate(row)}
+                                >
+                                  {name}
+                                </button>{' '}
+                                <span className="font-normal text-neutral-600 dark:text-neutral-400">
+                                  {headline}
+                                </span>
+                              </>
+                            )}
                           </p>
-                          {!row.isRead ? (
-                            <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-                              New
-                            </span>
-                          ) : null}
+                          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                            <NotificationTypeBadge row={row} />
+                            {!row.isRead ? (
+                              <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                                New
+                              </span>
+                            ) : null}
+                            <NotificationDismissButton
+                              onDismiss={() => setDeleteTarget(row)}
+                            />
+                          </div>
                         </div>
                         {preview ? (
                           <p className="mt-2 line-clamp-2 rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
@@ -247,9 +279,7 @@ export function NotificationsPage() {
                           {act ? (
                             <Link
                               to={act.to}
-                              state={{
-                                backgroundLocation: location,
-                              }}
+                              state={notificationLinkState(row, location)}
                               className="text-xs font-bold text-accent hover:text-accent-hover"
                               onClick={() => void handleRowActivate(row)}
                             >
@@ -269,7 +299,15 @@ export function NotificationsPage() {
             })}
           </ul>
         )}
-      </main>
-    </div>
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onClose={() => !deleting && setDeleteTarget(null)}
+        onConfirm={() => void confirmDelete()}
+        title="Delete notification?"
+        message="This will remove the notification from your list. You can't undo this."
+        confirmLabel="Delete"
+        confirming={deleting}
+      />
+    </AppPage>
   );
 }

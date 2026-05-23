@@ -21,6 +21,7 @@ async function bootstrap() {
   app.enableCors({
     origin: process.env.FRONTEND_ORIGIN?.split(',').map((o) => o.trim()) ?? [
       'http://localhost:5173',
+      'http://localhost:5174',
     ],
     credentials: true,
   });

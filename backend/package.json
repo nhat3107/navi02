@@ -13,7 +13,8 @@
     "start:dev:gateway": "nest start api-gateway --watch",
     "start:dev:auth": "nest start auth-service --watch",
     "start:dev:user": "nest start user-service --watch",
-    "start:dev:stack": "npx concurrently -n gateway,auth,user,chat,network -c blue,green,magenta,cyan,yellow \"npm run start:dev:gateway\" \"npm run start:dev:auth\" \"npm run start:dev:user\" \"npm run start:dev:chat\" \"npm run start:dev:network\" \"npm run start:dev:notification\"",  
+    "start:dev:stack": "npx concurrently -n gateway,auth,user,chat,network,notification,ai -c blue,green,magenta,cyan,yellow,red,white \"npm run start:dev:gateway\" \"npm run start:dev:auth\" \"npm run start:dev:user\" \"npm run start:dev:chat\" \"npm run start:dev:network\" \"npm run start:dev:notification\" \"npm run start:dev:ai\"",
+    "start:dev:ai": "nest start ai-service --watch",
     "start:dev:chat": "nest start chat-service --watch",
     "start:dev:notification": "nest start notification-service --watch",
     "start:dev:network": "nest start network-service --watch",
@@ -24,7 +25,8 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./apps/api-gateway/test/jest-e2e.json"
+    "test:e2e": "jest --config ./apps/api-gateway/test/jest-e2e.json",
+    "seed:admin": "npx prisma generate --config apps/auth-service/prisma.config.ts && npx tsx apps/auth-service/scripts/seed-admin.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -49,6 +51,7 @@
     "kafkajs": "^2.2.4",
     "mongoose": "^9.4.1",
     "nodemailer": "^8.0.3",
+    "openai": "^6.38.0",
     "passport": "^0.7.0",
     "passport-github2": "^0.1.12",
     "passport-google-oauth20": "^2.0.0",
