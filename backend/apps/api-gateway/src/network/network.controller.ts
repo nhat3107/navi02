@@ -20,6 +20,7 @@ import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
 import { CreateReportDto } from './dto/create-report.dto';
 import { ReviewReportDto } from './dto/review-report.dto';
+import { SharePostDto } from './dto/share-post.dto';
 import { firstValueFrom } from 'rxjs';
 
 @Controller('network')
@@ -123,6 +124,16 @@ export class NetworkController {
     @Query('skip', new ParseIntPipe({ optional: true })) skip?: number,
   ) {
     return this.networkService.getPostLikes(postId, limit, skip);
+  }
+
+  @HttpCode(HttpStatus.CREATED)
+  @Post('posts/:id/share')
+  share_post(
+    @Param('id') postId: string,
+    @Body() dto: SharePostDto,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.networkService.sharePost(userId, postId, dto?.content);
   }
 
   // Comments

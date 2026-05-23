@@ -70,6 +70,23 @@ export class NotificationServiceController {
     });
   }
 
+  @EventPattern('notification.share_post', Transport.KAFKA)
+  async onSharePost(data: {
+    senderId: string;
+    recipientId: string;
+    postId: string;
+    preview?: string;
+  }) {
+    await this.notificationService.create({
+      recipientId: data.recipientId,
+      senderId: data.senderId,
+      type: NotificationType.SHARE_POST,
+      referenceId: data.postId,
+      referenceType: NotificationReferenceType.POST,
+      preview: data.preview || null,
+    });
+  }
+
   @EventPattern('notification.new_post', Transport.KAFKA)
   async onNewPost(
     data: {

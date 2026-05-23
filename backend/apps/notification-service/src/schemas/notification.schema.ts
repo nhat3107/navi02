@@ -10,6 +10,7 @@ export enum NotificationType {
   REPLY = 'reply',
   NEW_POST = 'new_post',
   FOLLOW = 'follow',
+  SHARE_POST = 'share_post',
   REPORT_REVIEWED = 'report_reviewed',
 }
 

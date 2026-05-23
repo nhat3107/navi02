@@ -17,6 +17,7 @@ const NETWORK_KAFKA_RPC = [
   'post.like',
   'post.unlike',
   'post.get_likes',
+  'post.share',
   'comment.create',
   'comment.find_by_post',
   'comment.find_replies',
@@ -83,6 +84,10 @@ export class NetworkService implements OnModuleInit {
 
   getPostLikes(postId: string, limit?: number, skip?: number) {
     return this.kafkaclient.send('post.get_likes', { postId, limit, skip });
+  }
+
+  sharePost(userId: string, postId: string, content?: string) {
+    return this.kafkaclient.send('post.share', { userId, postId, content });
   }
 
   // Comments

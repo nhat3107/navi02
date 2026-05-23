@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
 export type PostDocument = Post & Document;
 
@@ -39,6 +39,10 @@ export class Post {
 
   @Prop({ type: Number, default: 0, min: 0 })
   shareCount: number;
+
+  /** Set when this post is a share/repost of another post. */
+  @Prop({ type: Types.ObjectId, ref: 'Post', default: null, index: true })
+  originalPostId: Types.ObjectId | null;
 }
 
 export const PostSchema = SchemaFactory.createForClass(Post);
