@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from 'react';
 import { AuthInput } from '../../../features/auth/components/AuthInput';
+import { AuthAlert } from '../../../features/auth/components/AuthAlert';
 import { Button } from '../../../shared/components/Button';
 import { useRegister } from '../../../features/auth/hooks/useRegister';
 
@@ -41,12 +42,8 @@ export function RegisterForm() {
   };
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
-      {error && (
-        <div className="px-3.5 py-2.5 bg-error-bg text-error rounded-lg text-sm font-medium text-center">
-          {error}
-        </div>
-      )}
+    <form className="auth-form" onSubmit={handleSubmit} noValidate>
+      {error ? <AuthAlert>{error}</AuthAlert> : null}
 
       <AuthInput
         label="Email"

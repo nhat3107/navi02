@@ -1,18 +1,45 @@
 import { create } from 'zustand';
 import type { AuthState, User } from '../types/auth.types';
+import { decodeJwtPayload } from '../../../shared/utils/jwt';
+import {
+  getStoredAccessToken,
+  persistAccessToken,
+  clearAccessTokenStorage,
+} from '../../../shared/constants/tokens';
+import { useProfileCache } from '../../user/store/profileCache.store';
+import { useNotificationsStore } from '../../notification/store/notifications.store';
+
+function readStoredSession(): { user: User | null; accessToken: string | null } {
+  const token = getStoredAccessToken();
+  if (!token) return { user: null, accessToken: null };
+  const payload = decodeJwtPayload<{ sub: string; email: string }>(token);
+  if (!payload?.sub || !payload?.email) {
+    clearAccessTokenStorage();
+    return { user: null, accessToken: null };
+  }
+  return {
+    user: { id: payload.sub, email: payload.email },
+    accessToken: token,
+  };
+}
+
+const initial = readStoredSession();
 
 export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  accessToken: localStorage.getItem('accessToken'),
-  isAuthenticated: !!localStorage.getItem('accessToken'),
+  user: initial.user,
+  accessToken: initial.accessToken,
+  isAuthenticated: !!initial.accessToken && !!initial.user,
 
   setAuth: (user: User, accessToken: string) => {
-    localStorage.setItem('accessToken', accessToken);
+    persistAccessToken(accessToken);
     set({ user, accessToken, isAuthenticated: true });
   },
 
   logout: () => {
-    localStorage.removeItem('accessToken');
+    clearAccessTokenStorage();
+    // Drop any cached profile + follow-set so the next sign-in starts clean.
+    useProfileCache.getState().clear();
+    useNotificationsStore.getState().clear();
     set({ user: null, accessToken: null, isAuthenticated: false });
   },
 }));

@@ -1,0 +1,185 @@
+import { type FormEvent, useState } from 'react';
+import { Button } from '../../../shared/components/Button';
+import { AuthAlert } from '../../../features/auth/components/AuthAlert';
+import { useOnboard } from '../../../features/auth/hooks/useOnboard';
+
+const GENDER_OPTIONS = [
+  { label: 'Male', value: 'male' },
+  { label: 'Female', value: 'female' },
+  { label: 'Other', value: 'other' },
+] as const;
+
+type OnboardFormProps = {
+  avatarUrl: string;
+  onBackToPhoto: () => void;
+};
+
+export function OnboardForm({ avatarUrl, onBackToPhoto }: OnboardFormProps) {
+  const [fullName, setFullName] = useState('');
+  const [username, setUsername] = useState('');
+  const [bio, setBio] = useState('');
+  const [dob, setDob] = useState('');
+  const [gender, setGender] = useState<
+    (typeof GENDER_OPTIONS)[number]['value'] | ''
+  >('');
+  const [errors, setErrors] = useState<{
+    full_name?: string;
+    username?: string;
+    dob?: string;
+    gender?: string;
+  }>({});
+  const { onboard, loading, error } = useOnboard();
+
+  const validate = (): boolean => {
+    const newErrors: typeof errors = {};
+    if (!fullName.trim()) {
+      newErrors.full_name = 'Full name is required';
+    }
+    if (!username.trim()) {
+      newErrors.username = 'Username is required';
+    } else if (!/^[a-zA-Z0-9._-]{2,30}$/.test(username.trim())) {
+      newErrors.username =
+        'Use 2–30 characters: letters, numbers, . _ -';
+    }
+    if (!dob) {
+      newErrors.dob = 'Date of birth is required';
+    }
+    if (!gender) {
+      newErrors.gender = 'Please select a gender';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (validate()) {
+      onboard({
+        full_name: fullName.trim(),
+        username: username.trim(),
+        dob,
+        gender,
+        bio: bio.trim(),
+        avatar_url: avatarUrl.trim(),
+      });
+    }
+  };
+
+  return (
+    <form className="auth-form gap-5" onSubmit={handleSubmit} noValidate>
+      {error ? <AuthAlert>{error}</AuthAlert> : null}
+
+      <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-800/50">
+        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt=""
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-xs text-slate-500 dark:text-slate-400">
+              —
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+            Profile photo
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {avatarUrl ? 'Uploaded' : 'None — you can add one now or later'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onBackToPhoto}
+          className="auth-inline-link shrink-0"
+        >
+          {avatarUrl ? 'Change' : 'Add'}
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label className="auth-field-label">Full name</label>
+        <input
+          type="text"
+          placeholder="Your display name"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          className={`auth-field${errors.full_name ? ' auth-field--error' : ''}`}
+          autoComplete="name"
+        />
+        {errors.full_name && (
+          <span className="text-xs text-error">{errors.full_name}</span>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label className="auth-field-label">Username</label>
+        <input
+          type="text"
+          placeholder="e.g. nhat317 (stored lowercase)"
+          value={username}
+          onChange={(e) => setUsername(e.target.value.toLowerCase())}
+          className={`auth-field${errors.username ? ' auth-field--error' : ''}`}
+          autoComplete="username"
+        />
+        {errors.username && (
+          <span className="text-xs text-error">{errors.username}</span>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label className="auth-field-label">
+          Bio <span className="font-normal text-slate-400">(optional)</span>
+        </label>
+        <textarea
+          placeholder="Short intro about you"
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
+          rows={3}
+          maxLength={500}
+          className="auth-field min-h-[4.5rem] resize-y"
+        />
+        <span className="text-xs text-slate-400">{bio.length}/500</span>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label className="auth-field-label">Date of birth</label>
+        <input
+          type="date"
+          value={dob}
+          onChange={(e) => setDob(e.target.value)}
+          className={`auth-field${errors.dob ? ' auth-field--error' : ''}`}
+        />
+        {errors.dob && (
+          <span className="text-xs text-error">{errors.dob}</span>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <label className="auth-field-label">Gender</label>
+        <div className="flex gap-2">
+          {GENDER_OPTIONS.map(({ label, value }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setGender(value)}
+              className={`auth-chip ${gender === value ? 'auth-chip--active' : 'auth-chip--idle'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {errors.gender && (
+          <span className="text-xs text-error">{errors.gender}</span>
+        )}
+      </div>
+
+      <Button type="submit" variant="primary" loading={loading}>
+        Complete setup
+      </Button>
+    </form>
+  );
+}
