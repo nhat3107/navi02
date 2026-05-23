@@ -40,7 +40,7 @@ export function LoginForm() {
   };
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
+    <form className="auth-form" onSubmit={handleSubmit} noValidate>
       <AuthInput
         label="Email"
         type="email"
@@ -62,10 +62,7 @@ export function LoginForm() {
           autoComplete="current-password"
         />
         <div className="flex justify-end">
-          <Link
-            to={ROUTES.FORGOT_PASSWORD}
-            className="text-xs font-medium text-accent hover:text-accent-hover"
-          >
+          <Link to={ROUTES.FORGOT_PASSWORD} className="auth-inline-link">
             Forgot password?
           </Link>
         </div>

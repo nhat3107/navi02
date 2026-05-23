@@ -1,7 +1,8 @@
 import { type FormEvent, useCallback, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { forgetPasswordApi } from '../../../features/auth/api/auth.api';
 import { AuthInput } from '../../../features/auth/components/AuthInput';
+import { AuthFooter, AuthFooterLink } from '../../../features/auth/components/AuthFooter';
+import { AuthAlert } from '../../../features/auth/components/AuthAlert';
 import { Button } from '../../../shared/components/Button';
 import { AuthLayout } from '../../../shared/layout/AuthLayout';
 import { AUTH_EMAIL_REGEX } from '../../../shared/constants/validation';
@@ -54,9 +55,14 @@ export function ForgotPasswordPage() {
     <AuthLayout
       title="Forgot password"
       description="We'll email a reset link only for addresses with a verified account."
+      footer={
+        <AuthFooter>
+          <AuthFooterLink to={ROUTES.LOGIN}>Back to sign in</AuthFooterLink>
+        </AuthFooter>
+      }
     >
       {successMessage ? (
-        <div className="space-y-4 rounded-xl border border-emerald-200/80 bg-emerald-50/80 p-4 text-center dark:border-emerald-900/50 dark:bg-emerald-950/30">
+        <div className="auth-success-panel">
           <p className="text-sm text-slate-700 dark:text-slate-200">
             {successMessage}
           </p>
@@ -66,12 +72,8 @@ export function ForgotPasswordPage() {
           </p>
         </div>
       ) : (
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
-          {bannerError && (
-            <div className="rounded-xl bg-error-bg px-3.5 py-2.5 text-center text-sm font-medium text-error">
-              {bannerError}
-            </div>
-          )}
+        <form className="auth-form" onSubmit={handleSubmit} noValidate>
+          {bannerError ? <AuthAlert>{bannerError}</AuthAlert> : null}
           <AuthInput
             label="Email"
             type="email"
@@ -86,15 +88,11 @@ export function ForgotPasswordPage() {
             autoComplete="email"
             disabled={loading}
           />
-          <Button type="submit" variant="primary" loading={loading} className="mt-1">
+          <Button type="submit" variant="primary" loading={loading}>
             Send reset link
           </Button>
         </form>
       )}
-
-      <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
-        <Link to={ROUTES.LOGIN}>Back to sign in</Link>
-      </p>
     </AuthLayout>
   );
 }

@@ -107,6 +107,7 @@ h1 {
   border-radius: var(--radius-lg);
   padding: 2.25rem 2rem 2rem;
   box-shadow: var(--shadow-md);
+  backdrop-filter: blur(12px);
 }
 
 .auth-card__badge {
@@ -121,6 +122,7 @@ h1 {
   color: #fff;
   font-weight: 700;
   font-size: 1.25rem;
+  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.35);
 }
 
 .auth-card__eyebrow {
@@ -178,8 +180,9 @@ h1 {
   color: var(--text-h);
   background: var(--surface);
   border: 1.5px solid var(--border);
-  border-radius: 8px;
+  border-radius: 12px;
   outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .field__input:focus {

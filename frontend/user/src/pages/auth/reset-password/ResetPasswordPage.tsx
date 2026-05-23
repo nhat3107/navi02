@@ -2,8 +2,10 @@ import { type FormEvent, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { resetPasswordApi } from '../../../features/auth/api/auth.api';
 import { AuthInput } from '../../../features/auth/components/AuthInput';
+import { AuthAlert } from '../../../features/auth/components/AuthAlert';
+import { AuthFooter, AuthFooterLink } from '../../../features/auth/components/AuthFooter';
 import { Button } from '../../../shared/components/Button';
-import { ThemeToggleCorner } from '../../../shared/components/ThemeToggle';
+import { AuthLayout } from '../../../shared/layout/AuthLayout';
 import { ROUTES } from '../../../shared/constants/routes';
 import {
   PASSWORD_MAX_LEN,
@@ -80,89 +82,75 @@ export function ResetPasswordPage() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center px-4 py-8 bg-[radial-gradient(ellipse_at_20%_50%,_var(--color-accent-bg)_0%,_transparent_50%),radial-gradient(ellipse_at_80%_20%,_rgba(139,92,246,0.04)_0%,_transparent_50%)] bg-slate-50 dark:bg-slate-950">
-      <ThemeToggleCorner />
-      <div className="w-full max-w-[420px] rounded-xl border border-slate-200 bg-white p-8 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.12)] dark:border-slate-800 dark:bg-slate-900 dark:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] max-[480px]:border-none max-[480px]:bg-transparent max-[480px]:shadow-none max-[480px]:px-5">
-        <div className="mb-8 text-center">
-          <h1 className="mb-1 text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-            New password
-          </h1>
-          <p className="text-[0.935rem] text-slate-500 dark:text-slate-400">
-            Choose a strong password ({PASSWORD_MIN_LEN}–{PASSWORD_MAX_LEN}{' '}
-            characters).
+    <AuthLayout
+      eyebrow="Account recovery"
+      title={done ? 'Password updated' : 'New password'}
+      description={
+        done
+          ? 'Your password has been changed successfully.'
+          : `Choose a strong password (${PASSWORD_MIN_LEN}–${PASSWORD_MAX_LEN} characters).`
+      }
+      footer={
+        <AuthFooter>
+          <AuthFooterLink to={ROUTES.LOGIN}>Back to sign in</AuthFooterLink>
+        </AuthFooter>
+      }
+    >
+      {done ? (
+        <div className="auth-success-panel">
+          <p className="text-sm text-slate-700 dark:text-slate-200">
+            You can sign in with your new password now.
           </p>
+          <Link to={ROUTES.LOGIN} className="auth-footer__link inline-block">
+            Go to sign in
+          </Link>
         </div>
-
-        {done ? (
-          <div className="space-y-4 text-center">
-            <p className="text-sm text-slate-600 dark:text-slate-300">
-              Your password has been updated. You can sign in now.
-            </p>
-            <Link
-              to={ROUTES.LOGIN}
-              className="inline-block text-sm font-medium text-accent"
-            >
-              Sign in
-            </Link>
-          </div>
-        ) : !hasToken ? (
-          <div className="space-y-4 text-center">
-            <p className="text-sm text-slate-600 dark:text-slate-300">
-              This page needs a valid reset link from your email. The link may
-              be incomplete or expired.
-            </p>
-            <Link
-              to={ROUTES.FORGOT_PASSWORD}
-              className="inline-block text-sm font-medium text-accent"
-            >
-              Request a new reset link
-            </Link>
-          </div>
-        ) : (
-          <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
-            {bannerError && (
-              <div className="rounded-lg bg-error-bg px-3.5 py-2.5 text-center text-sm font-medium text-error">
-                {bannerError}
-              </div>
-            )}
-            <AuthInput
-              label="New password"
-              type="password"
-              placeholder={`${PASSWORD_MIN_LEN}+ characters`}
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (passwordError) setPasswordError(undefined);
-                if (bannerError) setBannerError(null);
-              }}
-              error={passwordError}
-              autoComplete="new-password"
-              disabled={loading}
-            />
-            <AuthInput
-              label="Confirm password"
-              type="password"
-              placeholder="Repeat password"
-              value={confirm}
-              onChange={(e) => {
-                setConfirm(e.target.value);
-                if (confirmError) setConfirmError(undefined);
-                if (bannerError) setBannerError(null);
-              }}
-              error={confirmError}
-              autoComplete="new-password"
-              disabled={loading}
-            />
-            <Button type="submit" variant="primary" loading={loading} className="mt-1">
-              Update password
-            </Button>
-          </form>
-        )}
-
-        <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
-          <Link to={ROUTES.LOGIN}>Back to sign in</Link>
-        </p>
-      </div>
-    </div>
+      ) : !hasToken ? (
+        <div className="auth-alert auth-alert--info">
+          <p className="mb-3">
+            This page needs a valid reset link from your email. The link may be
+            incomplete or expired.
+          </p>
+          <Link to={ROUTES.FORGOT_PASSWORD} className="auth-footer__link">
+            Request a new reset link
+          </Link>
+        </div>
+      ) : (
+        <form className="auth-form" onSubmit={handleSubmit} noValidate>
+          {bannerError ? <AuthAlert>{bannerError}</AuthAlert> : null}
+          <AuthInput
+            label="New password"
+            type="password"
+            placeholder={`${PASSWORD_MIN_LEN}+ characters`}
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (passwordError) setPasswordError(undefined);
+              if (bannerError) setBannerError(null);
+            }}
+            error={passwordError}
+            autoComplete="new-password"
+            disabled={loading}
+          />
+          <AuthInput
+            label="Confirm password"
+            type="password"
+            placeholder="Repeat password"
+            value={confirm}
+            onChange={(e) => {
+              setConfirm(e.target.value);
+              if (confirmError) setConfirmError(undefined);
+              if (bannerError) setBannerError(null);
+            }}
+            error={confirmError}
+            autoComplete="new-password"
+            disabled={loading}
+          />
+          <Button type="submit" variant="primary" loading={loading}>
+            Update password
+          </Button>
+        </form>
+      )}
+    </AuthLayout>
   );
 }

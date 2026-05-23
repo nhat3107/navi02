@@ -172,6 +172,76 @@ function PaperclipIcon({ className = '' }: { className?: string }) {
   );
 }
 
+function VideoCallIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5" />
+      <rect x="2" y="6" width="14" height="12" rx="2" />
+    </svg>
+  );
+}
+
+function PhoneCallIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+    </svg>
+  );
+}
+
+function ChatEmptyIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function InfoIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 16v-4M12 8h.01" />
+    </svg>
+  );
+}
+
 
 /** Max size for attachments in bubbles: capped width/height, contain so nothing is cropped. */
 const CHAT_BUBBLE_MEDIA_SHELL_BASE =
@@ -265,6 +335,20 @@ function ExpandMediaIcon() {
   );
 }
 
+function conversationTitle(
+  c: ConversationListItem,
+  userId: string | null,
+): string {
+  if (c.isGroup) return c.group_name?.trim() || 'Group';
+  return dmTitle(c, userId);
+}
+
+function formatListPreview(text: string | null | undefined): string {
+  const t = text?.trim();
+  if (!t) return 'No messages yet';
+  return t.length > 72 ? `${t.slice(0, 72)}…` : t;
+}
+
 export function ChatPage() {
   const navigate = useNavigate();
   const { user, accessToken, isAuthenticated } = useAuthStore();
@@ -281,7 +365,6 @@ export function ChatPage() {
   const [peerId, setPeerId] = useState('');
   const [peerLabel, setPeerLabel] = useState('');
   const [peerAvatarUrl, setPeerAvatarUrl] = useState('');
-  const [userSearchInput, setUserSearchInput] = useState('');
   const [userSearchResults, setUserSearchResults] = useState<UserSearchHit[]>(
     [],
   );
@@ -344,25 +427,19 @@ export function ChatPage() {
     });
   }, []);
 
-  const directConversations = useMemo(
-    () => conversations.filter((c) => !c.isGroup),
-    [conversations],
-  );
-  const groupConversations = useMemo(
-    () => conversations.filter((c) => c.isGroup),
-    [conversations],
-  );
-
   const [convFilter, setConvFilter] = useState('');
-  const [showUserLookup, setShowUserLookup] = useState(true);
+  const [sidebarTab, setSidebarTab] = useState<'direct' | 'groups'>('direct');
   const [showInfo, setShowInfo] = useState(false);
   const convFilterNorm = convFilter.trim().toLowerCase();
 
-  const filteredDirectConversations = useMemo(() => {
-    if (!convFilterNorm) return directConversations;
-    return directConversations.filter((c) => {
-      const title = dmTitle(c, userId).toLowerCase();
+  const filteredConversations = useMemo(() => {
+    if (!convFilterNorm) return conversations;
+    return conversations.filter((c) => {
+      const title = conversationTitle(c, userId).toLowerCase();
       const last = (c.last_message ?? '').toLowerCase();
+      if (c.isGroup) {
+        return title.includes(convFilterNorm) || last.includes(convFilterNorm);
+      }
       const hay = c.participants
         .map((p) => `${p.full_name ?? ''} ${p.username ?? ''}`.toLowerCase())
         .join(' ');
@@ -372,16 +449,27 @@ export function ChatPage() {
         hay.includes(convFilterNorm)
       );
     });
-  }, [directConversations, userId, convFilterNorm]);
+  }, [conversations, userId, convFilterNorm]);
 
-  const filteredGroupConversations = useMemo(() => {
-    if (!convFilterNorm) return groupConversations;
-    return groupConversations.filter((c) => {
-      const name = (c.group_name ?? 'group').toLowerCase();
-      const last = (c.last_message ?? '').toLowerCase();
-      return name.includes(convFilterNorm) || last.includes(convFilterNorm);
-    });
-  }, [groupConversations, convFilterNorm]);
+  const filteredDirectConversations = useMemo(
+    () => filteredConversations.filter((c) => !c.isGroup),
+    [filteredConversations],
+  );
+
+  const filteredGroupConversations = useMemo(
+    () => filteredConversations.filter((c) => c.isGroup),
+    [filteredConversations],
+  );
+
+  const directCount = useMemo(
+    () => conversations.filter((c) => !c.isGroup).length,
+    [conversations],
+  );
+
+  const groupCount = useMemo(
+    () => conversations.filter((c) => c.isGroup).length,
+    [conversations],
+  );
 
   const activeConversation = useMemo(
     () => conversations.find((c) => c.id === activeConversationId) ?? null,
@@ -566,7 +654,7 @@ export function ChatPage() {
 
   useEffect(() => {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    const q = userSearchInput.trim();
+    const q = convFilter.trim();
     if (q.length < 2) {
       setUserSearchResults([]);
       setUserSearchLoading(false);
@@ -582,7 +670,7 @@ export function ChatPage() {
     return () => {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
-  }, [userSearchInput]);
+  }, [convFilter]);
 
   useEffect(() => {
     if (groupSearchDebounceRef.current)
@@ -609,10 +697,11 @@ export function ChatPage() {
   const selectPeer = (hit: UserSearchHit) => {
     clearPendingMedia();
     setShowGroupForm(false);
+    setSidebarTab('direct');
     setPeerId(hit.id);
     setPeerLabel(hit.username || hit.full_name);
     setPeerAvatarUrl(hit.avatar_url?.trim() ?? '');
-    setUserSearchInput('');
+    setConvFilter('');
     setUserSearchResults([]);
     setActiveConversationId(null);
     setMessages([]);
@@ -639,7 +728,7 @@ export function ChatPage() {
     setPeerId('');
     setPeerLabel('');
     setPeerAvatarUrl('');
-    setUserSearchInput('');
+    setConvFilter('');
     setUserSearchResults([]);
     setShowGroupForm(false);
     setNewGroupName('');
@@ -676,6 +765,7 @@ export function ChatPage() {
       setNewGroupMembers([]);
       setGroupSearchInput('');
       setGroupSearchResults([]);
+      setSidebarTab('groups');
       void reloadConversations();
     } catch (e) {
       const msg =
@@ -717,7 +807,7 @@ export function ChatPage() {
     [userId],
   );
 
-  const { connected, emitTyping } = useChatSocket({
+  const { emitTyping } = useChatSocket({
     onReceive,
     onTyping,
   });
@@ -976,21 +1066,65 @@ export function ChatPage() {
   const openConversation = (c: ConversationListItem) => {
     clearPendingMedia();
     setActiveConversationId(c.id);
+    setSidebarTab(c.isGroup ? 'groups' : 'direct');
     setPeerId('');
     setPeerLabel('');
     setPeerAvatarUrl('');
-    setUserSearchInput('');
+    setConvFilter('');
     setUserSearchResults([]);
     setShowGroupForm(false);
     setError(null);
   };
 
   const sidebarRowClass = (isActive: boolean) =>
-    `w-full text-left flex items-start gap-3 px-3 py-2.5 text-sm transition-all rounded-2xl mx-1.5 ${
+    `flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all ${
       isActive
-        ? 'bg-accent-bg text-accent shadow-sm ring-1 ring-accent/20'
-        : 'hover:bg-slate-100/80 dark:hover:bg-slate-800/80 text-slate-800 dark:text-slate-200'
+        ? 'bg-accent-bg shadow-sm ring-1 ring-accent/20'
+        : 'hover:bg-slate-100/90 dark:hover:bg-slate-800/70'
     }`;
+
+  const renderConversationRow = (c: ConversationListItem) => {
+    const title = conversationTitle(c, userId);
+    const isActive = activeConversationId === c.id;
+    return (
+      <li key={c.id}>
+        <button
+          type="button"
+          title={title}
+          onClick={() => openConversation(c)}
+          className={sidebarRowClass(isActive)}
+        >
+          <ChatAvatar
+            label={title}
+            imageUrl={
+              c.isGroup ? null : getOtherParticipant(c, userId)?.avatar_url
+            }
+            size="sm"
+          />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+              {title}
+            </span>
+            <span className="mt-0.5 block truncate text-xs text-slate-500 dark:text-slate-400">
+              {formatListPreview(c.last_message)}
+            </span>
+          </span>
+        </button>
+      </li>
+    );
+  };
+
+  const toggleGroupForm = () => {
+    setShowGroupForm((open) => {
+      if (open) {
+        setNewGroupName('');
+        setNewGroupMembers([]);
+        setGroupSearchInput('');
+        setGroupSearchResults([]);
+      }
+      return !open;
+    });
+  };
 
   if (!isAuthenticated) {
     return (
@@ -1004,351 +1138,241 @@ export function ChatPage() {
   }
 
   return (
-    <div className="flex h-[100dvh] flex-col bg-neutral-200 dark:bg-slate-950 overflow-hidden">
+    <div className="chat-page">
       <AppNavBar />
 
-      <div className="flex flex-1 min-h-0 w-full max-w-7xl mx-auto md:gap-3 md:px-3 md:pb-3 md:pt-2">
+      <div className="chat-page__layout">
         <aside
-          className={`h-full min-h-0 w-full shrink-0 flex-col overflow-hidden border-slate-200/90 bg-white dark:border-slate-700/90 dark:bg-slate-900 md:max-w-[320px] md:rounded-3xl md:border md:shadow-[4px_0_32px_-16px_rgba(0,0,0,0.12)] dark:md:shadow-none ${
+          className={`chat-sidebar h-full min-h-0 w-full shrink-0 flex-col overflow-hidden md:max-w-[340px] ${
             activeConversationId || peerId.trim() ? 'hidden md:flex' : 'flex'
           }`}
         >
-          <div className="shrink-0 space-y-2 border-b border-slate-100 p-3 dark:border-slate-800">
-            <div className="flex items-center justify-between gap-2 px-1">
-              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                Conversations
-              </h2>
-              <span
-                title={connected ? 'Realtime connection active' : 'Reconnecting…'}
-                className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.6rem] font-medium uppercase tracking-wider ${
-                  connected
-                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300'
-                    : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                }`}
-              >
-                <span
-                  aria-hidden
-                  className={`h-1.5 w-1.5 rounded-full ${
-                    connected ? 'bg-emerald-500' : 'bg-slate-400'
-                  }`}
-                />
-                {connected ? 'Live' : 'Offline'}
-              </span>
-            </div>
-            <label className="sr-only" htmlFor="conv-filter">
-              Filter conversations
+          <div className="chat-sidebar__head">
+            <h2 className="chat-sidebar__title">Messages</h2>
+          </div>
+
+          <div className="chat-sidebar__search-wrap">
+            <label className="sr-only" htmlFor="chat-sidebar-search">
+              Search chats or people
             </label>
+            <span className="chat-sidebar__search-icon" aria-hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+            </span>
             <input
-              id="conv-filter"
+              id="chat-sidebar-search"
               value={convFilter}
               onChange={(e) => setConvFilter(e.target.value)}
-              placeholder="Search chats…"
+              placeholder="Search chats or people…"
               autoComplete="off"
-              className="w-full px-3 py-2.5 text-sm rounded-3xl border border-slate-200 bg-slate-50 dark:border-slate-600 dark:bg-slate-800/50 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-accent/30"
+              className="chat-sidebar__search"
             />
-            <div className="flex gap-2">
-              <Button
-                variant="secondary"
-                type="button"
-                className="min-w-0 flex-1 text-sm rounded-3xl shadow-sm"
-                onClick={() => clearNewChat()}
-              >
-                New DM
-              </Button>
+          </div>
+
+          <div className="chat-sidebar__tabs" role="tablist" aria-label="Chat type">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={sidebarTab === 'direct'}
+              onClick={() => {
+                setSidebarTab('direct');
+                setShowGroupForm(false);
+                setNewGroupName('');
+                setNewGroupMembers([]);
+                setGroupSearchInput('');
+                setGroupSearchResults([]);
+              }}
+              className={`chat-sidebar__tab${sidebarTab === 'direct' ? ' chat-sidebar__tab--active' : ''}`}
+            >
+              Direct
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={sidebarTab === 'groups'}
+              onClick={() => setSidebarTab('groups')}
+              className={`chat-sidebar__tab${sidebarTab === 'groups' ? ' chat-sidebar__tab--active' : ''}`}
+            >
+              Groups
+            </button>
+          </div>
+
+          {sidebarTab === 'groups' ? (
+            <div className="chat-sidebar__actions">
               <button
                 type="button"
-                onClick={() => setShowUserLookup((v) => !v)}
-                className={`shrink-0 rounded-3xl border px-3 text-sm font-medium transition-colors ${
-                  showUserLookup
-                    ? 'border-accent/40 bg-accent-bg text-accent'
-                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
-                }`}
-                aria-expanded={showUserLookup}
-                title="Find people to message"
+                onClick={toggleGroupForm}
+                className={`chat-sidebar__create-btn${showGroupForm ? ' chat-sidebar__create-btn--active' : ''}`}
               >
-                Find
+                {showGroupForm ? 'Cancel' : 'Create group'}
               </button>
             </div>
-            {showUserLookup && (
-              <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50/50 p-2.5 dark:border-slate-800 dark:bg-slate-800/30">
-                <label className="block text-[0.65rem] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  Directory search
-                </label>
-                <input
-                  value={userSearchInput}
-                  onChange={(e) => setUserSearchInput(e.target.value)}
-                  placeholder="Username or name…"
-                  className="w-full px-3 py-2 text-sm rounded-2xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800/80 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-accent/25"
-                />
-                <div className="max-h-28 overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40">
-                  {userSearchLoading && (
-                    <p className="p-2 text-xs text-slate-500">Searching…</p>
-                  )}
-                  {!userSearchLoading &&
-                    userSearchInput.trim().length >= 2 &&
-                    userSearchResults.length === 0 && (
-                      <p className="p-2 text-xs text-slate-500">No matches.</p>
-                    )}
-                  <ul>
+          ) : null}
+
+          {sidebarTab === 'groups' && showGroupForm ? (
+            <div className="chat-sidebar__group-panel">
+              <input
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                placeholder="Group name"
+                className="chat-sidebar__input"
+              />
+              {newGroupMembers.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {newGroupMembers.map((m) => (
+                    <span key={m.id} className="chat-sidebar__member-chip">
+                      @{m.username}
+                      <button
+                        type="button"
+                        onClick={() => removeGroupMember(m.id)}
+                        aria-label={`Remove ${m.username}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              <input
+                value={groupSearchInput}
+                onChange={(e) => setGroupSearchInput(e.target.value)}
+                placeholder="Add members (search users)…"
+                className="chat-sidebar__input"
+              />
+              {groupSearchLoading ? (
+                <p className="chat-sidebar__hint !py-1 !px-0">Searching members…</p>
+              ) : groupSearchResults.length > 0 ? (
+                <ul className="chat-sidebar__mini-list">
+                  {groupSearchResults.map((hit) => (
+                    <li key={hit.id}>
+                      <button
+                        type="button"
+                        disabled={!userId || hit.id === userId}
+                        onClick={() => addGroupMember(hit)}
+                        className="chat-sidebar__mini-row"
+                      >
+                        {hit.full_name?.trim() || hit.username}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              <Button
+                variant="primary"
+                className="w-full !min-h-[40px] text-sm"
+                loading={creatingGroup}
+                disabled={
+                  creatingGroup ||
+                  !newGroupName.trim() ||
+                  newGroupMembers.length < 2
+                }
+                onClick={() => void submitCreateGroup()}
+              >
+                Create group
+              </Button>
+            </div>
+          ) : null}
+
+          <div className="chat-sidebar__list min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            {sidebarTab === 'direct' && convFilterNorm.length >= 2 ? (
+              <section className="chat-sidebar__section">
+                <p className="chat-sidebar__section-label">People</p>
+                {userSearchLoading ? (
+                  <p className="chat-sidebar__hint">Searching…</p>
+                ) : userSearchResults.length === 0 ? (
+                  <p className="chat-sidebar__hint">No people found.</p>
+                ) : (
+                  <ul className="space-y-0.5 px-2 pb-2">
                     {userSearchResults.map((hit) => (
                       <li key={hit.id}>
                         <button
                           type="button"
                           onClick={() => selectPeer(hit)}
-                          className="flex w-full items-center gap-2 px-2.5 py-2 text-left text-sm transition-colors hover:bg-accent-bg/60 hover:text-accent last:rounded-b-2xl first:rounded-t-2xl"
+                          className={sidebarRowClass(false)}
                         >
                           <ChatAvatar
                             label={hit.full_name || hit.username}
                             imageUrl={hit.avatar_url}
                             size="sm"
                           />
-                          <span className="min-w-0">
-                            <span className="block truncate font-medium text-slate-900 dark:text-slate-100">
-                              {hit.username}
+                          <span className="min-w-0 flex-1 text-left">
+                            <span className="block truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                              {hit.full_name?.trim() || `@${hit.username}`}
                             </span>
                             <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
-                              {hit.full_name}
+                              @{hit.username}
                             </span>
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="flex min-h-0 flex-1 flex-col">
-            <section
-              className="flex min-h-0 flex-[1.15] flex-col border-b border-slate-100 dark:border-slate-800"
-              aria-label="Direct messages"
-            >
-              <p className="shrink-0 px-3 py-2 text-[0.65rem] font-bold uppercase tracking-wider text-slate-400">
-                Direct
-              </p>
-              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-gutter:stable]">
-                {loadingList ? (
-                  <p className="p-3 text-sm text-slate-500">Loading…</p>
-                ) : directConversations.length === 0 ? (
-                  <p className="p-3 text-sm text-slate-500">No direct chats yet.</p>
-                ) : filteredDirectConversations.length === 0 ? (
-                  <p className="p-3 text-xs text-slate-500">
-                    No chats match &ldquo;{convFilter.trim()}&rdquo;.
-                  </p>
-                ) : (
-                  <ul className="space-y-0.5 pb-1">
-                    {filteredDirectConversations.map((c) => (
-                      <li key={c.id}>
-                        <button
-                          type="button"
-                          title={dmTitle(c, userId)}
-                          onClick={() => openConversation(c)}
-                          className={sidebarRowClass(
-                            activeConversationId === c.id,
-                          )}
-                        >
-                          <ChatAvatar
-                            label={dmTitle(c, userId)}
-                            imageUrl={
-                              getOtherParticipant(c, userId)?.avatar_url
-                            }
-                            size="sm"
-                            className="mt-0.5"
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate font-semibold text-slate-900 dark:text-slate-100">
-                              {dmTitle(c, userId)}
-                            </span>
-                            {c.last_message && (
-                              <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
-                                {c.last_message}
-                              </span>
-                            )}
                           </span>
                         </button>
                       </li>
                     ))}
                   </ul>
                 )}
-              </div>
-            </section>
+              </section>
+            ) : null}
 
             <section
-              className="flex min-h-0 flex-1 flex-col"
-              aria-label="Group chats"
+              className="chat-sidebar__section"
+              aria-label={sidebarTab === 'direct' ? 'Direct messages' : 'Group chats'}
             >
-              <p className="shrink-0 px-3 py-2 text-[0.65rem] font-bold uppercase tracking-wider text-slate-400">
-                Groups
-              </p>
-              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-gutter:stable]">
-                {loadingList ? (
-                  <p className="p-3 text-sm text-slate-500">Loading…</p>
-                ) : groupConversations.length === 0 ? (
-                  <p className="p-3 text-sm text-slate-500">No groups yet.</p>
-                ) : filteredGroupConversations.length === 0 ? (
-                  <p className="p-3 text-xs text-slate-500">
-                    No groups match &ldquo;{convFilter.trim()}&rdquo;.
-                  </p>
-                ) : (
-                  <ul className="space-y-0.5 pb-1">
-                    {filteredGroupConversations.map((c) => (
-                      <li key={c.id}>
-                        <button
-                          type="button"
-                          title={c.group_name || 'Group'}
-                          onClick={() => openConversation(c)}
-                          className={sidebarRowClass(
-                            activeConversationId === c.id,
-                          )}
-                        >
-                          <ChatAvatar
-                            label={c.group_name || 'Group'}
-                            size="sm"
-                            className="mt-0.5"
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate font-semibold text-slate-900 dark:text-slate-100">
-                              {c.group_name || 'Group'}
-                            </span>
-                            {c.last_message && (
-                              <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
-                                {c.last_message}
-                              </span>
-                            )}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </section>
-          </div>
-
-          <div className="max-h-[min(40vh,280px)] shrink-0 overflow-y-auto overscroll-contain border-t border-slate-100 dark:border-slate-800">
-            <div className="space-y-2 p-3">
-              <Button
-                variant="secondary"
-                type="button"
-                className="w-full text-sm rounded-3xl shadow-sm"
-                onClick={() => {
-                  setShowGroupForm((open) => {
-                    if (open) {
-                      setNewGroupName('');
-                      setNewGroupMembers([]);
-                      setGroupSearchInput('');
-                      setGroupSearchResults([]);
-                    } else {
-                      setPeerId('');
-                      setPeerLabel('');
-                      setPeerAvatarUrl('');
-                      setUserSearchInput('');
-                      setUserSearchResults([]);
-                      setError(null);
-                    }
-                    return !open;
-                  });
-                }}
-              >
-                {showGroupForm ? 'Cancel new group' : 'Create group'}
-              </Button>
-              {showGroupForm && (
-                <div className="space-y-2.5 rounded-3xl border border-slate-200 bg-slate-50/80 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800/40">
-                  <input
-                    value={newGroupName}
-                    onChange={(e) => setNewGroupName(e.target.value)}
-                    placeholder="Group name"
-                    className="w-full rounded-3xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-accent/25"
-                  />
-                  {newGroupMembers.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {newGroupMembers.map((m) => (
-                        <span
-                          key={m.id}
-                          className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white py-1 pl-2.5 pr-1 text-xs text-slate-800 shadow-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                        >
-                          @{m.username}
-                          <button
-                            type="button"
-                            onClick={() => removeGroupMember(m.id)}
-                            className="rounded-full px-1 hover:bg-slate-200 dark:hover:bg-slate-600"
-                            aria-label={`Remove ${m.username}`}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <label className="block text-[0.65rem] font-medium uppercase tracking-wide text-slate-500">
-                    Add members (min 2)
-                  </label>
-                  <input
-                    value={groupSearchInput}
-                    onChange={(e) => setGroupSearchInput(e.target.value)}
-                    placeholder="Search users…"
-                    className="w-full rounded-3xl border border-slate-200 bg-white px-3 py-2.5 text-sm placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-accent/25"
-                  />
-                  <div className="max-h-24 overflow-y-auto overscroll-contain rounded-3xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50">
-                    {groupSearchLoading && (
-                      <p className="p-2 text-xs text-slate-500">Searching…</p>
-                    )}
-                    {!groupSearchLoading &&
-                      groupSearchInput.trim().length >= 2 &&
-                      groupSearchResults.length === 0 && (
-                        <p className="p-2 text-xs text-slate-500">No matches.</p>
-                      )}
-                    <ul>
-                      {groupSearchResults.map((hit) => (
-                        <li key={hit.id}>
-                          <button
-                            type="button"
-                            disabled={!userId || hit.id === userId}
-                            onClick={() => addGroupMember(hit)}
-                            className="w-full border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-accent-bg/60 hover:text-accent disabled:opacity-40 dark:border-slate-700/80 last:border-0"
-                          >
-                            {hit.username}
-                            <span className="block text-xs text-slate-500">
-                              {hit.full_name}
-                            </span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
+              {loadingList ? (
+                <p className="chat-sidebar__hint">Loading conversations…</p>
+              ) : sidebarTab === 'direct' ? (
+                directCount === 0 ? (
+                  <div className="chat-sidebar__empty">
+                    <p className="font-semibold text-slate-800 dark:text-slate-100">
+                      No direct messages yet
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      Search above to find someone and start chatting.
+                    </p>
                   </div>
-                  <Button
-                    variant="primary"
-                    className="w-full rounded-3xl text-sm"
-                    loading={creatingGroup}
-                    disabled={
-                      creatingGroup ||
-                      !newGroupName.trim() ||
-                      newGroupMembers.length < 2
-                    }
-                    onClick={() => void submitCreateGroup()}
-                  >
-                    Create group
-                  </Button>
+                ) : filteredDirectConversations.length === 0 ? (
+                  <p className="chat-sidebar__hint">
+                    No direct chats match &ldquo;{convFilter.trim()}&rdquo;.
+                  </p>
+                ) : (
+                  <ul className="space-y-0.5 px-2 pb-3">
+                    {filteredDirectConversations.map(renderConversationRow)}
+                  </ul>
+                )
+              ) : groupCount === 0 ? (
+                <div className="chat-sidebar__empty">
+                  <p className="font-semibold text-slate-800 dark:text-slate-100">
+                    No group chats yet
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Tap Create group to start one.
+                  </p>
                 </div>
+              ) : filteredGroupConversations.length === 0 ? (
+                <p className="chat-sidebar__hint">
+                  No groups match &ldquo;{convFilter.trim()}&rdquo;.
+                </p>
+              ) : (
+                <ul className="space-y-0.5 px-2 pb-3">
+                  {filteredGroupConversations.map(renderConversationRow)}
+                </ul>
               )}
-            </div>
+            </section>
           </div>
         </aside>
 
         <main
-          className={`flex-1 flex-col min-w-0 min-h-0 overflow-hidden border-slate-200/90 bg-neutral-100 dark:border-slate-700/90 dark:bg-slate-950 md:rounded-3xl md:border md:shadow-[0_8px_40px_-20px_rgba(0,0,0,0.1)] dark:md:shadow-none ${
+          className={`chat-panel ${
             activeConversationId || peerId.trim() ? 'flex' : 'hidden md:flex'
           }`}
         >
-          {headerMeta && (
-            <div className="shrink-0 px-3 py-3 sm:px-4 border-b border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-2 sm:gap-3 shadow-sm">
+          {headerMeta ? (
+            <div className="chat-panel__header">
               <button
                 type="button"
                 onClick={clearNewChat}
                 aria-label="Back to conversations"
                 title="Back to conversations"
-                className="md:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                className="chat-panel__back"
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -1368,38 +1392,36 @@ export function ChatPage() {
                 imageUrl={headerMeta.avatarImageUrl}
                 size="lg"
               />
-              <div className="min-w-0 flex-1">
-                <p className="text-base font-semibold text-slate-900 dark:text-slate-100 truncate">
-                  {headerMeta.title}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                  {headerMeta.subtitle}
-                </p>
+              <div className="chat-panel__identity">
+                <p className="chat-panel__title">{headerMeta.title}</p>
+                <p className="chat-panel__subtitle">{headerMeta.subtitle}</p>
               </div>
-              <div className="flex shrink-0 items-center gap-1.5">
-                {canPlaceCall && (
+              <div className="chat-panel__actions">
+                {canPlaceCall ? (
                   <>
                     <button
                       type="button"
                       disabled={callStarting}
                       onClick={() => void startOutgoingCall('video')}
-                      title="Start video call"
-                      className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                      title="Video call"
+                      aria-label="Start video call"
+                      className="chat-panel__action chat-panel__action--accent"
                     >
-                      Video
+                      <VideoCallIcon className="h-[1.125rem] w-[1.125rem]" />
                     </button>
                     <button
                       type="button"
                       disabled={callStarting}
                       onClick={() => void startOutgoingCall('audio')}
-                      title="Start voice call"
-                      className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                      title="Voice call"
+                      aria-label="Start voice call"
+                      className="chat-panel__action chat-panel__action--accent"
                     >
-                      Audio
+                      <PhoneCallIcon className="h-[1.125rem] w-[1.125rem]" />
                     </button>
                   </>
-                )}
-                {activeConversation && (
+                ) : null}
+                {activeConversation ? (
                   <button
                     type="button"
                     onClick={() => setShowInfo(true)}
@@ -1407,188 +1429,161 @@ export function ChatPage() {
                     aria-label="Show chat info"
                     aria-haspopup="dialog"
                     aria-expanded={showInfo}
-                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                    className="chat-panel__action"
                   >
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="h-4 w-4"
-                      aria-hidden
-                    >
-                      <circle cx="12" cy="12" r="9" />
-                      <path d="M12 8h.01M11 12h1v4h1" />
-                    </svg>
+                    <InfoIcon className="h-[1.125rem] w-[1.125rem]" />
                   </button>
-                )}
+                ) : null}
               </div>
             </div>
-          )}
-
-          {!headerMeta && (
-            <div className="shrink-0 px-4 py-8 border-b border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 text-center">
-              <p className="text-sm text-slate-600 dark:text-slate-400 max-w-sm mx-auto">
-                Choose someone or a group on the left, or start a new direct
-                message.
+          ) : (
+            <div className="chat-panel__empty flex-1">
+              <div className="chat-panel__empty-icon">
+                <ChatEmptyIcon className="h-8 w-8" />
+              </div>
+              <p className="chat-panel__empty-title">Select a conversation</p>
+              <p className="chat-panel__empty-desc">
+                Pick a chat from the sidebar or search for someone to message.
               </p>
             </div>
           )}
 
-          {error && (
-            <div className="mx-4 mt-3 px-4 py-3 rounded-3xl bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-sm border border-red-100 dark:border-red-900/50 shadow-sm">
-              {error}
-            </div>
-          )}
+          {error ? <div className="chat-panel__error">{error}</div> : null}
 
-          <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-3 scroll-smooth">
-            {loadingMessages ? (
-              <p className="text-sm text-slate-500 text-center py-8">
-                Loading messages…
-              </p>
-            ) : messages.length === 0 && headerMeta && !loadingMessages ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center px-4">
-                <div className="h-14 w-14 rounded-3xl bg-slate-200/80 dark:bg-slate-800 flex items-center justify-center text-2xl mb-3 shadow-inner">
-                  💬
-                </div>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  No messages yet. Say hello below.
+          {headerMeta ? (
+            <div className="chat-panel__messages">
+              {loadingMessages ? (
+                <p className="py-12 text-center text-sm text-slate-500">
+                  Loading messages…
                 </p>
-              </div>
-            ) : (
-              messages.map((m) => {
-                const isMe = m.sender_id === userId;
-                const showPeerAvatar = Boolean(userId) && !isMe;
-                const label = senderLabel(m.sender_id);
-                const senderVisual = participantById.get(m.sender_id);
-                return (
-                  <div
-                    key={m.id}
-                    className={`flex gap-2 max-w-[min(92%,40rem)] ${
-                      isMe
-                        ? 'ml-auto flex-row-reverse items-end'
-                        : 'mr-auto flex-row items-end'
-                    }`}
-                  >
-                    {showPeerAvatar && (
-                      <ChatAvatar
-                        label={label}
-                        imageUrl={senderVisual?.avatar_url}
-                        size="sm"
-                        className="mb-1 ring-2 ring-white dark:ring-slate-900"
-                      />
-                    )}
+              ) : messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="chat-panel__empty-icon mb-3 !h-14 !w-14">
+                    <ChatEmptyIcon className="h-7 w-7" />
+                  </div>
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    No messages yet
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Send a message to start the conversation.
+                  </p>
+                </div>
+              ) : (
+                messages.map((m) => {
+                  const isMe = m.sender_id === userId;
+                  const showPeerAvatar = Boolean(userId) && !isMe;
+                  const label = senderLabel(m.sender_id);
+                  const senderVisual = participantById.get(m.sender_id);
+                  return (
                     <div
-                      className={`flex min-w-0 flex-col gap-0.5 ${isMe ? 'items-end' : 'items-start'}`}
+                      key={m.id}
+                      className={`chat-msg ${isMe ? 'chat-msg--mine' : 'chat-msg--theirs'} items-end`}
                     >
-                      {activeConversation?.isGroup && !isMe && (
-                        <span className="max-w-full truncate px-1 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                          {label}
-                        </span>
-                      )}
+                      {showPeerAvatar ? (
+                        <ChatAvatar
+                          label={label}
+                          imageUrl={senderVisual?.avatar_url}
+                          size="sm"
+                          className="mb-0.5 ring-2 ring-white dark:ring-slate-900"
+                        />
+                      ) : null}
                       <div
-                        className={`rounded-[1.35rem] px-4 py-2.5 text-sm shadow-md shadow-slate-900/5 dark:shadow-none ${
-                          isMe
-                            ? 'bg-accent text-white rounded-br-lg'
-                            : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200/80 dark:border-slate-700 rounded-bl-lg'
-                        }`}
+                        className={`chat-msg__body ${isMe ? 'chat-msg__body--mine' : 'chat-msg__body--theirs'}`}
                       >
-                        {m.media_url?.trim() ? (
-                          <ChatMessageMedia
-                            mediaUrl={m.media_url.trim()}
-                            isMe={isMe}
-                            onOpen={() => openChatMedia(m.media_url.trim())}
-                          />
+                        {activeConversation?.isGroup && !isMe ? (
+                          <span className="chat-msg__sender">{label}</span>
                         ) : null}
-                        {m.content?.trim() ? (
-                          <p
-                            className={`whitespace-pre-wrap break-words leading-relaxed ${
-                              m.media_url?.trim() ? 'mt-2' : ''
-                            }`}
-                          >
-                            {m.content}
-                          </p>
-                        ) : null}
-                        <p
-                          className={`text-[0.65rem] mt-1 tabular-nums ${
-                            isMe
-                              ? 'text-white/70'
-                              : 'text-slate-400 dark:text-slate-500'
-                          }`}
+                        <div
+                          className={`chat-bubble ${isMe ? 'chat-bubble--mine' : 'chat-bubble--theirs'}`}
                         >
-                          {formatChatTime(m.createdAt)}
-                        </p>
+                          {m.media_url?.trim() ? (
+                            <ChatMessageMedia
+                              mediaUrl={m.media_url.trim()}
+                              isMe={isMe}
+                              onOpen={() => openChatMedia(m.media_url.trim())}
+                            />
+                          ) : null}
+                          {m.content?.trim() ? (
+                            <p
+                              className={`whitespace-pre-wrap break-words ${
+                                m.media_url?.trim() ? 'mt-2' : ''
+                              }`}
+                            >
+                              {m.content}
+                            </p>
+                          ) : null}
+                          <p
+                            className={`chat-bubble__time ${isMe ? 'chat-bubble__time--mine' : 'chat-bubble__time--theirs'}`}
+                          >
+                            {formatChatTime(m.createdAt)}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })
-            )}
-            {typingFrom && (
-              <div className="inline-flex max-w-full items-center gap-2 rounded-2xl border border-slate-200/80 bg-white/90 px-3 py-2 text-xs text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-800/90 dark:text-slate-300">
-                <TypingDots />
-                <span className="italic">
-                  {activeConversation?.isGroup
-                    ? `${senderLabel(typingFrom)} is typing…`
-                    : 'Typing…'}
-                </span>
-              </div>
-            )}
-            <div ref={messagesEndRef} className="h-1" aria-hidden />
-          </div>
+                  );
+                })
+              )}
+              {typingFrom ? (
+                <div className="chat-typing">
+                  <TypingDots />
+                  <span className="italic">
+                    {activeConversation?.isGroup
+                      ? `${senderLabel(typingFrom)} is typing…`
+                      : 'Typing…'}
+                  </span>
+                </div>
+              ) : null}
+              <div ref={messagesEndRef} className="h-1" aria-hidden />
+            </div>
+          ) : null}
 
-          <div className="shrink-0 px-3 py-3 md:px-4 md:py-4 border-t border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900">
-            <div className="max-w-4xl mx-auto">
-              {pendingMedia && (
+          {headerMeta ? (
+          <div className="chat-composer">
+            <div className="chat-composer__inner">
+              {pendingMedia ? (
                 <div
                   role="status"
                   aria-label="Attachment preview"
-                  className="mb-3 flex flex-col gap-3 rounded-2xl border border-slate-200/90 bg-slate-50 p-3 shadow-sm dark:border-slate-600 dark:bg-slate-800/80 sm:flex-row sm:items-stretch"
+                  className="chat-composer__preview"
                 >
                   <div className="flex shrink-0 justify-center sm:justify-start">
-                    <div className="w-full max-w-[min(280px,calc(100vw-5rem))] sm:max-w-[300px] overflow-hidden rounded-xl border border-slate-200/90 bg-slate-100/50 dark:border-slate-600 dark:bg-slate-900/35">
+                    <div className="w-full max-w-[min(280px,calc(100vw-5rem))] overflow-hidden rounded-xl border border-slate-200/90 bg-slate-100/50 sm:max-w-[300px] dark:border-slate-600 dark:bg-slate-900/35">
                       {pendingMedia.isVideo ? (
                         <video
                           src={pendingMedia.previewUrl}
                           controls
                           playsInline
-                          className="block w-full max-h-[min(34vh,240px)] sm:max-h-[min(38vh,288px)] h-auto object-contain bg-slate-200/30 dark:bg-slate-950/50"
+                          className="block h-auto max-h-[min(34vh,240px)] w-full bg-slate-200/30 object-contain dark:bg-slate-950/50 sm:max-h-[min(38vh,288px)]"
                         />
                       ) : (
                         <img
                           src={pendingMedia.previewUrl}
                           alt="Attachment preview"
-                          className="block w-full max-h-[min(34vh,240px)] sm:max-h-[min(38vh,288px)] h-auto object-contain bg-slate-200/30 dark:bg-slate-950/50"
+                          className="block h-auto max-h-[min(34vh,240px)] w-full bg-slate-200/30 object-contain dark:bg-slate-950/50 sm:max-h-[min(38vh,288px)]"
                         />
                       )}
                     </div>
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col justify-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                    <p>
-                      Preview ready. Add a caption in the field below if you like,
-                      then tap send.
+                    <p className="font-medium text-slate-800 dark:text-slate-200">
+                      Ready to send
                     </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={clearPendingMedia}
-                        disabled={sending}
-                        className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                      >
-                        Cancel attachment
-                      </button>
-                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Add an optional caption below, then tap send.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={clearPendingMedia}
+                      disabled={sending}
+                      className="self-start rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                    >
+                      Remove
+                    </button>
                   </div>
                 </div>
-              )}
+              ) : null}
               <div
-                className={`relative rounded-3xl border bg-slate-50 dark:bg-slate-800/90 transition-shadow ${
-                  canSend
-                    ? 'border-slate-200 dark:border-slate-600 focus-within:ring-2 focus-within:ring-accent/20 focus-within:border-accent/50'
-                    : 'border-slate-200/70 dark:border-slate-700'
-                }`}
+                className={`chat-composer__field ${canSend ? 'chat-composer__field--active' : 'chat-composer__field--idle'}`}
               >
                 <input
                   ref={mediaInputRef}
@@ -1605,7 +1600,7 @@ export function ChatPage() {
                   disabled={sending || !canSend}
                   aria-label="Attach photo or video"
                   title="Attach photo or video"
-                  className="absolute bottom-2.5 left-2.5 z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-slate-600 transition hover:bg-slate-200/90 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-700/90"
+                  className="chat-composer__attach"
                 >
                   <PaperclipIcon className="h-5 w-5" />
                 </button>
@@ -1624,11 +1619,11 @@ export function ChatPage() {
                       ? pendingMedia
                         ? 'Caption (optional)…'
                         : 'Write a message…'
-                      : 'Choose a chat on the left'
+                      : 'Choose a chat to start messaging'
                   }
                   disabled={sending || !canSend}
                   rows={1}
-                  className="block w-full min-h-[48px] max-h-[120px] resize-none rounded-3xl bg-transparent pl-12 pr-[3.25rem] py-3.5 text-sm leading-relaxed text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
+                  className="chat-composer__input"
                 />
                 <button
                   type="button"
@@ -1638,29 +1633,30 @@ export function ChatPage() {
                     pendingMedia ? 'Send attachment' : 'Send message'
                   }
                   title={pendingMedia ? 'Send attachment' : 'Send'}
-                  className="absolute bottom-2.5 right-2.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent text-white shadow-md shadow-accent/25 transition hover:bg-accent-hover hover:shadow-lg hover:shadow-accent/20 active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 disabled:shadow-none dark:disabled:bg-slate-600 dark:disabled:text-slate-400"
+                  className="chat-composer__send"
                 >
                   {sending ? (
-                    <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
                   ) : (
                     <SendIcon className="h-4 w-4 -ml-0.5" />
                   )}
                 </button>
               </div>
-              {canSend && (
-                <p className="mt-2 text-center text-[0.65rem] text-slate-400 dark:text-slate-500 tabular-nums">
-                  <kbd className="rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-100/80 dark:bg-slate-800 px-1.5 py-0.5 font-sans text-[0.6rem]">
+              {canSend ? (
+                <p className="chat-composer__hint">
+                  <kbd className="rounded-md border border-slate-200 bg-slate-100/80 px-1.5 py-0.5 font-sans text-[0.6rem] dark:border-slate-600 dark:bg-slate-800">
                     Enter
                   </kbd>{' '}
-                  send · paperclip picks photo/video (preview first) ·{' '}
-                  <kbd className="rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-100/80 dark:bg-slate-800 px-1.5 py-0.5 font-sans text-[0.6rem]">
+                  to send ·{' '}
+                  <kbd className="rounded-md border border-slate-200 bg-slate-100/80 px-1.5 py-0.5 font-sans text-[0.6rem] dark:border-slate-600 dark:bg-slate-800">
                     Shift+Enter
                   </kbd>{' '}
-                  new line
+                  for new line
                 </p>
-              )}
+              ) : null}
             </div>
           </div>
+          ) : null}
         </main>
       </div>
 
@@ -1677,19 +1673,16 @@ export function ChatPage() {
             onClick={() => setShowInfo(false)}
             className="flex-1 cursor-default bg-slate-900/40 backdrop-blur-sm"
           />
-          <aside className="flex h-full w-full max-w-sm flex-col overflow-hidden border-l border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-            <header className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-              <p
-                id="chat-info-title"
-                className="text-sm font-semibold text-slate-900 dark:text-slate-100"
-              >
+          <aside className="chat-info">
+            <header className="chat-info__header">
+              <p id="chat-info-title" className="chat-info__title">
                 {activeConversation.isGroup ? 'Group info' : 'Contact info'}
               </p>
               <button
                 type="button"
                 onClick={() => setShowInfo(false)}
                 aria-label="Close"
-                className="flex h-9 w-9 items-center justify-center rounded-2xl text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                className="chat-info__close"
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -1707,7 +1700,7 @@ export function ChatPage() {
             </header>
 
             <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5">
-              <div className="flex flex-col items-center gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
+              <div className="chat-info__hero">
                 <ChatAvatar
                   label={headerMeta.avatarLabel}
                   imageUrl={headerMeta.avatarImageUrl}
@@ -1725,7 +1718,7 @@ export function ChatPage() {
 
               {activeConversation.isGroup ? (
                 <section>
-                  <p className="mb-2 px-1 text-[0.65rem] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  <p className="chat-info__section-label">
                     Members · {activeConversation.participants.length}
                   </p>
                   <ul className="space-y-1">
@@ -1735,10 +1728,7 @@ export function ChatPage() {
                         (p.username ? `@${p.username}` : `${p.id.slice(0, 8)}…`);
                       const isSelf = p.id === userId;
                       return (
-                        <li
-                          key={p.id}
-                          className="flex items-center gap-3 rounded-2xl px-2 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                        >
+                        <li key={p.id} className="chat-info__member">
                           <ChatAvatar
                             label={displayName}
                             imageUrl={p.avatar_url}
@@ -1780,16 +1770,11 @@ export function ChatPage() {
                   if (rows.length === 0) return null;
                   return (
                     <section>
-                      <p className="mb-2 px-1 text-[0.65rem] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                        About
-                      </p>
+                      <p className="chat-info__section-label">About</p>
                       <dl className="space-y-2">
                         {rows.map((r) => (
-                          <div
-                            key={r.k}
-                            className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/50"
-                          >
-                            <dt className="text-[0.65rem] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                          <div key={r.k} className="chat-info__detail">
+                            <dt className="text-[0.65rem] font-bold uppercase tracking-wider text-slate-400">
                               {r.k}
                             </dt>
                             <dd className="mt-0.5 break-words text-sm font-medium text-slate-900 dark:text-slate-100">

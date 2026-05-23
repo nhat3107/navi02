@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from 'react';
 import { AuthInput } from '../../../features/auth/components/AuthInput';
+import { AuthAlert } from '../../../features/auth/components/AuthAlert';
 import { Button } from '../../../shared/components/Button';
 import { useVerifyOtp } from '../../../features/auth/hooks/useVerifyOtp';
 
@@ -32,16 +33,12 @@ export function VerifyOtpForm({ email }: VerifyOtpFormProps) {
   };
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
-      {error && (
-        <div className="px-3.5 py-2.5 bg-error-bg text-error rounded-lg text-sm font-medium text-center">
-          {error}
-        </div>
-      )}
+    <form className="auth-form" onSubmit={handleSubmit} noValidate>
+      {error ? <AuthAlert>{error}</AuthAlert> : null}
 
-      <p className="text-sm text-slate-600 dark:text-slate-400 text-center">
+      <p className="auth-alert auth-alert--info !text-left">
         We sent a verification code to{' '}
-        <span className="font-medium text-slate-900 dark:text-slate-100">
+        <span className="font-semibold text-slate-900 dark:text-slate-100">
           {email}
         </span>
       </p>
@@ -51,13 +48,14 @@ export function VerifyOtpForm({ email }: VerifyOtpFormProps) {
         type="text"
         inputMode="numeric"
         autoComplete="one-time-code"
-        placeholder="6-digit code"
+        placeholder="000000"
         value={otp}
         onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 8))}
         error={errors.otp}
+        inputClassName="auth-otp-input"
       />
 
-      <Button type="submit" variant="primary" loading={loading} className="mt-1">
+      <Button type="submit" variant="primary" loading={loading}>
         Verify email
       </Button>
 

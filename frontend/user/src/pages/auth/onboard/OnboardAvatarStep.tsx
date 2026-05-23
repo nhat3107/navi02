@@ -1,5 +1,6 @@
 import { type FormEvent, useRef, useState } from 'react';
 import { Button } from '../../../shared/components/Button';
+import { AuthAlert } from '../../../features/auth/components/AuthAlert';
 import { getCloudinaryUploadSignatureApi } from '../../../features/auth/api/auth.api';
 import { uploadAvatarToCloudinary } from '../../../features/auth/lib/uploadAvatarToCloudinary';
 import { extractApiMessage } from '../../../shared/utils/api-error';
@@ -83,19 +84,15 @@ export function OnboardAvatarStep({
   };
 
   return (
-    <div className="flex flex-col gap-5">
-      {error && (
-        <div className="px-3.5 py-2.5 bg-error-bg text-error rounded-lg text-sm font-medium text-center">
-          {error}
-        </div>
-      )}
+    <div className="auth-form gap-5">
+      {error ? <AuthAlert>{error}</AuthAlert> : null}
 
       <div className="flex flex-col items-center gap-3">
         <div className="relative">
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="relative w-28 h-28 rounded-full border-2 border-dashed border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 cursor-pointer overflow-hidden transition-all duration-150 hover:border-accent hover:bg-accent-bg group"
+            className="auth-avatar-drop group"
           >
             {preview || existingAvatarUrl ? (
               <img
@@ -156,7 +153,7 @@ export function OnboardAvatarStep({
         </span>
       </div>
 
-      <form className="flex flex-col gap-3" onSubmit={handleSubmit} noValidate>
+      <form className="auth-form" onSubmit={handleSubmit} noValidate>
         <Button
           type="submit"
           variant="primary"
