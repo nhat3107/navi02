@@ -37,9 +37,20 @@ export class ChatService implements OnModuleInit {
   async createMessage(userId: string, dto: CreateMessageDto) {
     const text = (dto.content ?? '').trim();
     const media = (dto.media_url ?? '').trim();
-    if (!text && !media) {
-      throw new BadRequestException('content or media_url is required');
+    const isPostShare = dto.type === 'post_share';
+
+    if (isPostShare) {
+      if (!dto.sharedPostId?.trim()) {
+        throw new BadRequestException(
+          'sharedPostId is required when type is post_share',
+        );
+      }
+    } else {
+      if (!text && !media) {
+        throw new BadRequestException('content or media_url is required');
+      }
     }
+
     if (!dto.conversationId && !dto.receiverId) {
       throw new BadRequestException(
         'receiverId is required when conversationId is omitted',
@@ -52,6 +63,8 @@ export class ChatService implements OnModuleInit {
         receiverId: dto.receiverId,
         content: text,
         mediaUrl: media,
+        type: dto.type ?? 'text',
+        sharedPostId: dto.sharedPostId,
       }),
     )) as {
       message: string;
@@ -61,6 +74,8 @@ export class ChatService implements OnModuleInit {
         sender_id: string;
         content: string;
         media_url: string;
+        type: string;
+        shared_post_id: string | null;
         createdAt: string;
         receiverIds: string[];
       };
@@ -73,6 +88,8 @@ export class ChatService implements OnModuleInit {
         sender_id: row.sender_id,
         content: row.content,
         media_url: row.media_url,
+        type: row.type,
+        shared_post_id: row.shared_post_id,
         createdAt: row.createdAt,
       },
     };

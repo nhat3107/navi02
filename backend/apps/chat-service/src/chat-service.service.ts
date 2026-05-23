@@ -156,6 +156,8 @@ export class ChatServiceService implements OnModuleInit {
     conversationId?: string;
     content?: string;
     mediaUrl?: string;
+    type?: string;
+    sharedPostId?: string;
   }): Promise<any> {
     const {
       senderId,
@@ -163,14 +165,27 @@ export class ChatServiceService implements OnModuleInit {
       conversationId: inputConvId,
       content,
       mediaUrl = '',
+      type = 'text',
+      sharedPostId,
     } = data;
     const text = (content ?? '').trim();
     const media = (mediaUrl ?? '').trim();
-    if (!text && !media) {
-      throw new RpcException({
-        status: 400,
-        message: 'Message text or media is required',
-      });
+    const isPostShare = type === 'post_share';
+
+    if (isPostShare) {
+      if (!sharedPostId?.trim()) {
+        throw new RpcException({
+          status: 400,
+          message: 'sharedPostId is required when type is post_share',
+        });
+      }
+    } else {
+      if (!text && !media) {
+        throw new RpcException({
+          status: 400,
+          message: 'Message text or media is required',
+        });
+      }
     }
     let conversationId = inputConvId ?? '';
     let receiverIds: string[] = [];
@@ -213,13 +228,14 @@ export class ChatServiceService implements OnModuleInit {
       sender_id: senderId,
       content: text,
       media_url: media,
+      type: isPostShare ? 'post_share' : 'text',
+      shared_post_id: isPostShare ? (sharedPostId ?? null) : null,
     });
 
     const now = new Date();
-    const lastPreview = (text || (media ? 'Sent a photo or video' : '')).slice(
-      0,
-      500,
-    );
+    const lastPreview = isPostShare
+    ? 'Shared a post'
+    : (text || (media ? 'Sent a photo or video' : '')).slice(0, 500,);
     await this.convModel.updateOne(
       { _id: conversationId },
       {
@@ -230,7 +246,9 @@ export class ChatServiceService implements OnModuleInit {
       },
     );
 
-    const preview = (text || (media ? 'Sent media' : '')).slice(0, 120);
+    const preview = isPostShare
+    ? 'Shared a post'
+    : (text || (media ? 'Sent media' : '')).slice(0, 120);
     for (const rid of receiverIds) {
       try {
         this.kafkaclient.emit('chat.message', {
@@ -259,6 +277,8 @@ export class ChatServiceService implements OnModuleInit {
         sender_id: msgDoc.sender_id,
         content: msgDoc.content,
         media_url: msgDoc.media_url,
+        type: msgDoc.type,
+        shared_post_id: msgDoc.shared_post_id ?? null,
         createdAt: (msgDoc as { createdAt?: Date }).createdAt?.toISOString?.() ?? now.toISOString(),
         receiverIds,
       },
@@ -288,6 +308,8 @@ export class ChatServiceService implements OnModuleInit {
         sender_id: m.sender_id,
         content: m.content,
         media_url: m.media_url,
+        type: m.type ?? 'text',
+        shared_post_id: m.shared_post_id ?? null,
         createdAt: (m as { createdAt?: Date }).createdAt?.toISOString?.() ?? new Date().toISOString(),
       })),
     };

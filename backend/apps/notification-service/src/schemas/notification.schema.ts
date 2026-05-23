@@ -13,6 +13,7 @@ export enum NotificationType {
   POST_APPROVED = 'post_approved',
   POST_DELETED = 'post_deleted',
   FOLLOW = 'follow',
+  SHARE_POST = 'share_post',
   REPORT_REVIEWED = 'report_reviewed',
 }
 

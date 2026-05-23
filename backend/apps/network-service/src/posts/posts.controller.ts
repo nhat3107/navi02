@@ -51,4 +51,13 @@ export class PostsController {
   remove(data: { id: string; authorId: string }): Promise<any> {
     return this.postsService.remove(data.id, data.authorId);
   }
+
+  @MessagePattern('post.share', Transport.KAFKA)
+  share(data: {
+    userId: string;
+    postId: string;
+    content?: string;
+  }): Promise<any> {
+    return this.postsService.sharePost(data.userId, data.postId, data.content);
+  }
 }
