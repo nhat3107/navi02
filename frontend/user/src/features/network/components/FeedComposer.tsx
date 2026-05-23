@@ -76,10 +76,10 @@ export function FeedComposer({
   return (
     <section
       aria-label="Create post"
-      className={`mb-5 overflow-hidden rounded-2xl border bg-white transition-all dark:bg-neutral-950 ${
+      className={`surface-card mb-5 transition-all ${
         focused
-          ? 'border-neutral-300 shadow-[0_8px_28px_-8px_rgba(0,0,0,0.12)] dark:border-neutral-700 dark:shadow-none'
-          : 'border-neutral-200 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-neutral-800 dark:shadow-none'
+          ? 'border-violet-300 shadow-[0_8px_28px_-8px_rgba(139,92,246,0.15)] dark:border-violet-700'
+          : ''
       }`}
     >
       <header className="flex items-start justify-between gap-3 px-5 pt-4 sm:px-6 sm:pt-5">
@@ -117,7 +117,8 @@ export function FeedComposer({
           onBusyChange={setUploadBusy}
           maxFiles={MAX_POST_MEDIA}
           disabled={submitting}
-          addLabel="Add photos & videos"
+          variant="compact"
+          toolbarOnly
         />
 
         {error && (

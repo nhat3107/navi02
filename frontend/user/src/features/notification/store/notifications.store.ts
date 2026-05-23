@@ -9,6 +9,7 @@ type NotificationsState = {
   pushRealtimeRow: (row: NotificationRow) => void;
   patchRead: (id: string, isRead: boolean) => void;
   markAllReadLocal: () => void;
+  removeLocal: (id: string) => void;
   clear: () => void;
 };
 
@@ -48,6 +49,17 @@ export const useNotificationsStore = create<NotificationsState>((set) => ({
       ),
       unreadCount: 0,
     })),
+
+  removeLocal: (id) =>
+    set((s) => {
+      const row = s.items.find((i) => i.id === id);
+      if (!row) return s;
+      return {
+        items: s.items.filter((i) => i.id !== id),
+        unreadCount:
+          row.isRead ? s.unreadCount : Math.max(0, s.unreadCount - 1),
+      };
+    }),
 
   clear: () =>
     set({

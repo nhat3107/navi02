@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { UserService } from './user.service';
 import { UserController } from './user.controller';
+import { AuthModule } from '../auth/auth.module';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 
 function kafkaBrokers(): string[] {
@@ -12,6 +13,7 @@ function kafkaBrokers(): string[] {
 
 @Module({
   imports: [
+    AuthModule,
     ClientsModule.register([
       {
         name: 'USER_KAFKA_SERVICE',

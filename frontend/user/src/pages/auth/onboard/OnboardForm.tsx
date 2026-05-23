@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from 'react';
 import { Button } from '../../../shared/components/Button';
+import { AuthAlert } from '../../../features/auth/components/AuthAlert';
 import { useOnboard } from '../../../features/auth/hooks/useOnboard';
 
 const GENDER_OPTIONS = [
@@ -65,14 +66,10 @@ export function OnboardForm({ avatarUrl, onBackToPhoto }: OnboardFormProps) {
   };
 
   return (
-    <form className="flex flex-col gap-5" onSubmit={handleSubmit} noValidate>
-      {error && (
-        <div className="px-3.5 py-2.5 bg-error-bg text-error rounded-lg text-sm font-medium text-center">
-          {error}
-        </div>
-      )}
+    <form className="auth-form gap-5" onSubmit={handleSubmit} noValidate>
+      {error ? <AuthAlert>{error}</AuthAlert> : null}
 
-      <div className="flex items-center gap-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50 p-3">
+      <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-800/50">
         <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
           {avatarUrl ? (
             <img
@@ -97,26 +94,20 @@ export function OnboardForm({ avatarUrl, onBackToPhoto }: OnboardFormProps) {
         <button
           type="button"
           onClick={onBackToPhoto}
-          className="shrink-0 text-sm font-medium text-accent hover:underline"
+          className="auth-inline-link shrink-0"
         >
           {avatarUrl ? 'Change' : 'Add'}
         </button>
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
-          Full name
-        </label>
+        <label className="auth-field-label">Full name</label>
         <input
           type="text"
           placeholder="Your display name"
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
-          className={`w-full px-3.5 py-2.5 text-[0.935rem] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 border-[1.5px] rounded-lg outline-none transition-all duration-150 placeholder:text-slate-400 dark:placeholder:text-slate-500 ${
-            errors.full_name
-              ? 'border-error focus:ring-2 focus:ring-error-bg'
-              : 'border-slate-300 dark:border-slate-600 focus:border-accent focus:ring-2 focus:ring-accent-bg'
-          }`}
+          className={`auth-field${errors.full_name ? ' auth-field--error' : ''}`}
           autoComplete="name"
         />
         {errors.full_name && (
@@ -125,19 +116,13 @@ export function OnboardForm({ avatarUrl, onBackToPhoto }: OnboardFormProps) {
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
-          Username
-        </label>
+        <label className="auth-field-label">Username</label>
         <input
           type="text"
           placeholder="e.g. nhat317 (stored lowercase)"
           value={username}
           onChange={(e) => setUsername(e.target.value.toLowerCase())}
-          className={`w-full px-3.5 py-2.5 text-[0.935rem] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 border-[1.5px] rounded-lg outline-none transition-all duration-150 placeholder:text-slate-400 dark:placeholder:text-slate-500 ${
-            errors.username
-              ? 'border-error focus:ring-2 focus:ring-error-bg'
-              : 'border-slate-300 dark:border-slate-600 focus:border-accent focus:ring-2 focus:ring-accent-bg'
-          }`}
+          className={`auth-field${errors.username ? ' auth-field--error' : ''}`}
           autoComplete="username"
         />
         {errors.username && (
@@ -146,8 +131,8 @@ export function OnboardForm({ avatarUrl, onBackToPhoto }: OnboardFormProps) {
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
-          Bio <span className="text-slate-400 font-normal">(optional)</span>
+        <label className="auth-field-label">
+          Bio <span className="font-normal text-slate-400">(optional)</span>
         </label>
         <textarea
           placeholder="Short intro about you"
@@ -155,24 +140,18 @@ export function OnboardForm({ avatarUrl, onBackToPhoto }: OnboardFormProps) {
           onChange={(e) => setBio(e.target.value)}
           rows={3}
           maxLength={500}
-          className="w-full px-3.5 py-2.5 text-[0.935rem] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 border-[1.5px] border-slate-300 dark:border-slate-600 rounded-lg outline-none transition-all duration-150 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-accent focus:ring-2 focus:ring-accent-bg resize-y min-h-[4.5rem]"
+          className="auth-field min-h-[4.5rem] resize-y"
         />
         <span className="text-xs text-slate-400">{bio.length}/500</span>
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
-          Date of birth
-        </label>
+        <label className="auth-field-label">Date of birth</label>
         <input
           type="date"
           value={dob}
           onChange={(e) => setDob(e.target.value)}
-          className={`w-full px-3.5 py-2.5 text-[0.935rem] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 border-[1.5px] rounded-lg outline-none transition-all duration-150 ${
-            errors.dob
-              ? 'border-error focus:ring-2 focus:ring-error-bg'
-              : 'border-slate-300 dark:border-slate-600 focus:border-accent focus:ring-2 focus:ring-accent-bg'
-          }`}
+          className={`auth-field${errors.dob ? ' auth-field--error' : ''}`}
         />
         {errors.dob && (
           <span className="text-xs text-error">{errors.dob}</span>
@@ -180,20 +159,14 @@ export function OnboardForm({ avatarUrl, onBackToPhoto }: OnboardFormProps) {
       </div>
 
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
-          Gender
-        </label>
+        <label className="auth-field-label">Gender</label>
         <div className="flex gap-2">
           {GENDER_OPTIONS.map(({ label, value }) => (
             <button
               key={value}
               type="button"
               onClick={() => setGender(value)}
-              className={`flex-1 py-2.5 px-3 text-sm font-medium rounded-lg border-[1.5px] cursor-pointer transition-all duration-150 ${
-                gender === value
-                  ? 'border-accent bg-accent-bg text-accent'
-                  : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500'
-              }`}
+              className={`auth-chip ${gender === value ? 'auth-chip--active' : 'auth-chip--idle'}`}
             >
               {label}
             </button>
@@ -204,7 +177,7 @@ export function OnboardForm({ avatarUrl, onBackToPhoto }: OnboardFormProps) {
         )}
       </div>
 
-      <Button type="submit" variant="primary" loading={loading} className="mt-1">
+      <Button type="submit" variant="primary" loading={loading}>
         Complete setup
       </Button>
     </form>

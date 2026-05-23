@@ -70,20 +70,61 @@ export class NotificationServiceController {
     });
   }
 
-  @EventPattern('notification.share_post', Transport.KAFKA)
-  async onSharePost(data: {
-    senderId: string;
-    recipientId: string;
-    postId: string;
-    preview?: string;
-  }) {
-    await this.notificationService.create({
+  @EventPattern('notification.post_pending', Transport.KAFKA)
+  async onPostPending(data: { recipientId: string; postId: string }) {
+    await this.notificationService.createAuthorNotice({
       recipientId: data.recipientId,
-      senderId: data.senderId,
-      type: NotificationType.SHARE_POST,
+      type: NotificationType.POST_PENDING,
       referenceId: data.postId,
-      referenceType: NotificationReferenceType.POST,
-      preview: data.preview || null,
+      preview: 'Your post is under review',
+    });
+  }
+
+  @EventPattern('notification.post_approved', Transport.KAFKA)
+  async onPostApproved(data: { recipientId: string; postId: string }) {
+    await this.notificationService.createAuthorNotice({
+      recipientId: data.recipientId,
+      type: NotificationType.POST_APPROVED,
+      referenceId: data.postId,
+      preview: 'Your post is now visible',
+    });
+  }
+
+  @EventPattern('notification.post_deleted', Transport.KAFKA)
+  async onPostDeleted(data: { recipientId: string; postId: string }) {
+    await this.notificationService.createAuthorNotice({
+      recipientId: data.recipientId,
+      type: NotificationType.POST_DELETED,
+      referenceId: data.postId,
+      preview: 'Your post was removed due to policy violation',
+    });
+  }
+
+  @EventPattern('notification.penalty', Transport.KAFKA)
+  async onPenalty(data: { recipientId: string; preview: string }) {
+    await this.notificationService.createAuthorNotice({
+      recipientId: data.recipientId,
+      type: NotificationType.POST_DELETED,
+      referenceId: data.recipientId,
+      referenceType: NotificationReferenceType.USER,
+      preview: data.preview,
+    });
+  }
+
+  @EventPattern('notification.report_reviewed', Transport.KAFKA)
+  async onReportReviewed(data: {
+    recipientId: string;
+    reportId: string;
+    upheld: boolean;
+  }) {
+    await this.notificationService.createAuthorNotice({
+      recipientId: data.recipientId,
+      type: NotificationType.REPORT_REVIEWED,
+      referenceId: data.reportId,
+      referenceType: NotificationReferenceType.REPORT,
+      preview: data.upheld
+        ? 'Your report was reviewed and action was taken'
+        : 'Your report was reviewed and dismissed',
     });
   }
 
@@ -124,5 +165,13 @@ export class NotificationServiceController {
   @MessagePattern('notification.mark_all_read', Transport.KAFKA)
   markAllAsRead(data: { recipientId: string }) {
     return this.notificationService.markAllAsRead(data.recipientId);
+  }
+
+  @MessagePattern('notification.delete', Transport.KAFKA)
+  deleteNotification(data: { recipientId: string; notificationId: string }) {
+    return this.notificationService.deleteById(
+      data.recipientId,
+      data.notificationId,
+    );
   }
 }

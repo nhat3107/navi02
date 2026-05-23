@@ -2,6 +2,9 @@ import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../features/auth/store/auth.store';
 import { completeOAuthSession } from '../features/auth/lib/completeOAuthSession';
+import {
+  OAUTH_ERROR_QUERY,
+} from '../shared/constants/auth-storage';
 import { ROUTES } from '../shared/constants/routes';
 import { decodeJwtPayload } from '../shared/utils/jwt';
 
@@ -38,6 +41,21 @@ export function OAuthReturnHandler() {
     }
 
     const params = new URLSearchParams(location.search);
+
+    const oauthError = params.get(OAUTH_ERROR_QUERY)?.trim();
+    if (oauthError) {
+      if (location.pathname !== ROUTES.LOGIN) {
+        navigate(
+          {
+            pathname: ROUTES.LOGIN,
+            search: location.search,
+          },
+          { replace: true },
+        );
+      }
+      return;
+    }
+
     const raw =
       ACCESS_TOKEN_KEYS.map((k) => params.get(k)?.trim()).find(Boolean) ?? null;
 

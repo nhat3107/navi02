@@ -4,6 +4,11 @@ import {
   fetchNotificationsListApi,
   markNotificationReadApi,
 } from '../api/notifications.api';
+import { isAuthorSystemNotice } from '../lib/isAuthorSystemNotice';
+import {
+  notificationRowClasses,
+  notificationUnreadDotClass,
+} from '../lib/notificationVisual';
 import { useNotificationsStore } from '../store/notifications.store';
 import { useAuthorProfiles } from '../../network/hooks/useAuthorProfiles';
 import { formatRelativeTime } from '../../network/lib/formatRelativeTime';
@@ -12,8 +17,10 @@ import { UserAvatar } from '../../user/components/UserAvatar';
 import type { NotificationRow } from '../types/notification.types';
 import {
   notificationAction,
+  notificationLinkState,
   summarizeNotificationType,
 } from '../lib/notificationLabels';
+import { NotificationTypeBadge } from './NotificationTypeBadge';
 
 function BellGlyph({ className }: { className?: string }) {
   return (
@@ -179,35 +186,62 @@ export function NotificationNavBell() {
                       : '';
                     const act = notificationAction(row);
                     const primary = summarizeNotificationType(row);
+                    const systemNotice = isAuthorSystemNotice(row);
 
                     return (
                       <li key={row.id}>
                         <div
-                          className={`flex gap-3 px-3 py-2.5 transition-colors ${
-                            row.isRead
-                              ? 'hover:bg-neutral-50 dark:hover:bg-neutral-900'
-                              : 'bg-accent-bg hover:bg-accent-bg/80 dark:hover:bg-accent-bg'
-                          }`}
+                          className={`flex gap-3 px-3 py-2.5 transition-colors ${notificationRowClasses(row, row.isRead)}`}
                         >
                           <div className="relative shrink-0">
                             <UserAvatar
-                              label={name}
-                              src={prof?.avatar_url ?? null}
+                              label={systemNotice ? 'You' : name}
+                              src={systemNotice ? null : prof?.avatar_url ?? null}
                               size="sm"
                             />
                             {!row.isRead ? (
                               <span
-                                className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-accent shadow ring-2 ring-white dark:ring-neutral-950"
+                                className={`absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full shadow ring-2 ring-white dark:ring-neutral-950 ${notificationUnreadDotClass(row)}`}
                                 aria-hidden
                               />
                             ) : null}
                           </div>
                           <div className="min-w-0 flex-1">
+                            <div className="mb-1">
+                              <NotificationTypeBadge row={row} />
+                            </div>
                             <p className="text-[13px] leading-snug text-neutral-800 dark:text-neutral-200">
-                              <span className="font-semibold">{name}</span>{' '}
-                              <span className="font-normal text-neutral-600 dark:text-neutral-400">
-                                {primary}
-                              </span>
+                              {systemNotice ? (
+                                act ? (
+                                  <Link
+                                    to={act.to}
+                                    state={notificationLinkState(row, location)}
+                                    className="font-semibold text-accent hover:text-accent-hover"
+                                    onClick={async () => {
+                                      setOpen(false);
+                                      if (!row.isRead) {
+                                        try {
+                                          await markNotificationReadApi(row.id);
+                                          patchRead(row.id, true);
+                                        } catch {
+                                          /* ignore */
+                                        }
+                                      }
+                                    }}
+                                  >
+                                    {primary}
+                                  </Link>
+                                ) : (
+                                  <span className="font-semibold">{primary}</span>
+                                )
+                              ) : (
+                                <>
+                                  <span className="font-semibold">{name}</span>{' '}
+                                  <span className="font-normal text-neutral-600 dark:text-neutral-400">
+                                    {primary}
+                                  </span>
+                                </>
+                              )}
                               {row.preview?.trim() ? (
                                 <span className="block truncate text-neutral-500 dark:text-neutral-500">
                                   “{row.preview.trim().slice(0, 72)}
@@ -223,6 +257,7 @@ export function NotificationNavBell() {
                             {act ? (
                               <Link
                                 to={act.to}
+                                state={notificationLinkState(row, location)}
                                 role="menuitem"
                                 className="mt-1.5 inline-flex text-xs font-semibold text-accent hover:text-accent-hover"
                                 onClick={async () => {

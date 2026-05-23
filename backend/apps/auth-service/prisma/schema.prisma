@@ -24,6 +24,8 @@ model User {
   googleId        String?
   account_status  String         @default("active")
   block_until     DateTime?
+  violationCount  Int            @default(0)
+  postBlockUntil  DateTime?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -48,4 +50,14 @@ model Otp {
   expiry    DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model AiModerationSetting {
+  id                 String   @id @default("default")
+  enabled            Boolean  @default(true)
+  /** Default score threshold when a category has no override (lower = stricter). */
+  temperature        Float    @default(0.5)
+  /** Per OpenAI category score thresholds — keys match omni-moderation `category_scores`. */
+  categoryThresholds Json     @default("{}")
+  updatedAt          DateTime @updatedAt
 }

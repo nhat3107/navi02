@@ -45,13 +45,40 @@ export class NotificationServiceService {
     preview?: string | null;
   }): Promise<void> {
     try {
-      // Don't notify yourself
+      // Don't notify yourself (likes, comments, follows — not author system notices).
       if (data.recipientId === data.senderId) return;
 
       const doc = await new this.notificationModel(data).save();
       await this.realtimeOutbound.publish(serializeForRealtime(doc));
     } catch (error) {
       console.error('Error creating notification', error);
+    }
+  }
+
+  /** Moderation / lifecycle notices where recipient is the post author. */
+  async createAuthorNotice(data: {
+    recipientId: string;
+    type:
+      | NotificationType.POST_PENDING
+      | NotificationType.POST_APPROVED
+      | NotificationType.POST_DELETED
+      | NotificationType.REPORT_REVIEWED;
+    referenceId: string;
+    referenceType?: NotificationReferenceType;
+    preview?: string | null;
+  }): Promise<void> {
+    try {
+      const doc = await new this.notificationModel({
+        recipientId: data.recipientId,
+        senderId: data.recipientId,
+        type: data.type,
+        referenceId: data.referenceId,
+        referenceType: data.referenceType ?? NotificationReferenceType.POST,
+        preview: data.preview ?? null,
+      }).save();
+      await this.realtimeOutbound.publish(serializeForRealtime(doc));
+    } catch (error) {
+      console.error('Error creating author notification', error);
     }
   }
 
@@ -118,6 +145,25 @@ export class NotificationServiceService {
       if (error instanceof RpcException) throw error;
       console.error('Error marking all notifications as read', error);
       throw new RpcException({ status: 500, message: 'Failed to mark all as read' });
+    }
+  }
+
+  async deleteById(recipientId: string, notificationId: string): Promise<any> {
+    try {
+      const deleted = await this.notificationModel
+        .findOneAndDelete({ _id: notificationId, recipientId })
+        .exec();
+      if (!deleted) {
+        throw new RpcException({ status: 404, message: 'Notification not found' });
+      }
+      return { message: 'Notification deleted' };
+    } catch (error) {
+      if (error instanceof RpcException) throw error;
+      if ((error as { name?: string }).name === 'CastError') {
+        throw new RpcException({ status: 404, message: 'Notification not found' });
+      }
+      console.error('Error deleting notification', error);
+      throw new RpcException({ status: 500, message: 'Failed to delete notification' });
     }
   }
 }

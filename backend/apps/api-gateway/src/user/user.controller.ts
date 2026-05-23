@@ -11,13 +11,17 @@ import {
   Param,
 } from '@nestjs/common';
 import { UserService } from './user.service';
+import { AuthService } from '../auth/auth.service';
 import { OnboardingDto } from './dto/onboarding-dto';
 import { UpdateProfileDto } from './dto/update-profile-dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @Controller('user')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    private readonly userService: UserService,
+    private readonly authService: AuthService,
+  ) {}
 
   // ===== SEARCH =====
   @HttpCode(HttpStatus.OK)
@@ -34,6 +38,12 @@ export class UserController {
   @Get('profile')
   get_profile(@CurrentUser('sub') userId: string) {
     return this.userService.get_profile(userId);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Get('account-status')
+  get_account_status(@CurrentUser('sub') userId: string) {
+    return this.authService.getAccountStatus(userId);
   }
 
   @HttpCode(HttpStatus.OK)

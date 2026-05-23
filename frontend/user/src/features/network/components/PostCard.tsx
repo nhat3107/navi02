@@ -1,14 +1,16 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import type { UserProfile } from '../../user/types/user.types';
 import type { NetworkPost } from '../types/network.types';
 import { UserAvatar } from '../../user/components/UserAvatar';
-import { buildPostPath, buildProfilePath } from '../../../shared/constants/routes';
+import { buildPostPath, buildProfilePath, type PostOverlayNavigationState } from '../../../shared/constants/routes';
 import { likePost, unlikePost, deletePost } from '../api/network.api';
 import { ReportModal } from './ReportModal';
+import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { NetworkMediaStrip } from './NetworkMediaStrip';
 import { isCloudinaryVideoUrl } from '../../../shared/lib/cloudinary';
 import { formatRelativeTime } from '../lib/formatRelativeTime';
+import { ExpandablePlainText } from './ExpandablePlainText';
 
 export function PostCard({
   post,
@@ -35,6 +37,7 @@ export function PostCard({
         post={post}
         firstMediaUrl={post.mediaUrls[0]}
         textPreview={post.content.trim()}
+        isPending={post.visibility === 'pending'}
       />
     );
   }
@@ -55,18 +58,32 @@ function PostGridTile({
   post,
   firstMediaUrl,
   textPreview,
+  isPending = false,
 }: {
   post: NetworkPost;
   firstMediaUrl: string | undefined;
   textPreview: string;
+  isPending?: boolean;
 }) {
+  const location = useLocation();
   const postPath = buildPostPath(post.id);
+  const overlayState: PostOverlayNavigationState = {
+    backgroundLocation: location,
+  };
 
   return (
     <Link
       to={postPath}
-      className="group relative aspect-square overflow-hidden rounded-xl bg-neutral-200 ring-1 ring-black/5 transition-shadow hover:shadow-[0_8px_24px_-12px_rgba(0,0,0,0.25)] dark:bg-neutral-900 dark:ring-white/5 sm:rounded-2xl"
+      state={overlayState}
+      className={`group relative aspect-square overflow-hidden rounded-xl bg-neutral-200 ring-1 ring-black/5 transition-shadow hover:shadow-[0_8px_24px_-12px_rgba(0,0,0,0.25)] dark:bg-neutral-900 dark:ring-white/5 sm:rounded-2xl ${
+        isPending ? 'ring-2 ring-amber-400/80 dark:ring-amber-500/60' : ''
+      }`}
     >
+      {isPending && (
+        <span className="absolute left-1.5 top-1.5 z-10 rounded-md bg-amber-500/95 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
+          Review
+        </span>
+      )}
       {firstMediaUrl ? (
         isCloudinaryVideoUrl(firstMediaUrl) ? (
           <video
@@ -85,8 +102,8 @@ function PostGridTile({
           />
         )
       ) : (
-        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-violet-200/80 via-fuchsia-100/80 to-amber-100/80 p-3 dark:from-violet-950/50 dark:via-fuchsia-950/40 dark:to-amber-950/40">
-          <p className="line-clamp-6 text-center text-xs font-medium leading-snug text-neutral-800 dark:text-neutral-200">
+        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-neutral-100/95 via-accent-bg/30 to-neutral-50/90 p-3 dark:from-neutral-900 dark:via-accent-bg/15 dark:to-neutral-950">
+          <p className="line-clamp-6 text-center text-xs font-medium leading-relaxed text-neutral-700 dark:text-neutral-200">
             {textPreview || '·'}
           </p>
         </div>
@@ -120,13 +137,19 @@ function PostFeedCard({
   onChanged?: () => void;
   onPostDeleted?: () => void;
 }) {
+  const location = useLocation();
   const [liked, setLiked] = useState(Boolean(post.liked));
   const [likeCount, setLikeCount] = useState(post.likeCount);
   const [busy, setBusy] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  const overlayState: PostOverlayNavigationState = {
+    backgroundLocation: location,
+  };
 
   useEffect(() => {
     setLiked(Boolean(post.liked));
@@ -175,6 +198,7 @@ function PostFeedCard({
     setBusy(true);
     try {
       await deletePost(post.id);
+      setDeleteConfirmOpen(false);
       setMenuOpen(false);
       onPostDeleted?.();
       onChanged?.();
@@ -186,6 +210,10 @@ function PostFeedCard({
   const when = formatRelativeTime(post.createdAt);
 
   const hasMedia = post.mediaUrls.length > 0;
+  const bodyText = post.content.trim();
+  const textOnly = !hasMedia && bodyText.length > 0;
+  const pendingReview =
+    post.visibility === 'pending' && isAuthor;
 
   /**
    * Treat the whole card as a single tap target for opening the detail view,
@@ -210,7 +238,7 @@ function PostFeedCard({
     if (typeof window !== 'undefined' && window.getSelection()?.toString()) {
       return;
     }
-    navigate(postPath);
+    navigate(postPath, { state: overlayState });
   }
 
   function handleCardKeyDown(e: React.KeyboardEvent<HTMLElement>) {
@@ -218,7 +246,7 @@ function PostFeedCard({
     if (e.target !== e.currentTarget) return;
     if (e.key !== 'Enter' && e.key !== ' ') return;
     e.preventDefault();
-    navigate(postPath);
+    navigate(postPath, { state: overlayState });
   }
 
   return (
@@ -229,10 +257,15 @@ function PostFeedCard({
         aria-label={`Open post by ${username}`}
         onClick={handleCardClick}
         onKeyDown={handleCardKeyDown}
-        className="cursor-pointer overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_4px_18px_-6px_rgba(0,0,0,0.08)] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 dark:border-neutral-800 dark:bg-neutral-950 dark:shadow-none dark:hover:shadow-none"
+        className="surface-card surface-card--hover cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
       >
-        <header className="flex items-center gap-3 px-5 py-4 sm:gap-4">
-          <Link to={profilePath} className="shrink-0">
+        {pendingReview && (
+          <p className="border-b border-amber-200/80 bg-amber-50 px-5 py-2 text-center text-xs font-semibold text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/50 dark:text-amber-100">
+            Under review — only you can see this post
+          </p>
+        )}
+        <header className="flex items-start gap-3 px-5 py-4 sm:gap-4">
+          <Link to={profilePath} className="shrink-0 pt-0.5">
             <span className="inline-flex rounded-full ring-2 ring-neutral-100 dark:ring-neutral-800">
               <UserAvatar label={displayName} src={author?.avatar_url ?? null} size="md" />
             </span>
@@ -281,7 +314,10 @@ function PostFeedCard({
                   <button
                     type="button"
                     className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
-                    onClick={() => void removePost()}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setDeleteConfirmOpen(true);
+                    }}
                   >
                     Delete
                   </button>
@@ -291,33 +327,57 @@ function PostFeedCard({
           </div>
         </header>
 
+        {textOnly && (
+          <section
+            aria-label="Post text"
+            className="mx-4 mt-1 mb-2 rounded-2xl border border-violet-200/60 bg-gradient-to-br from-white via-violet-50/40 to-sky-50/30 px-6 py-7 shadow-[0_8px_32px_-14px_rgba(124,58,237,0.2)] ring-2 ring-violet-300/20 dark:border-violet-600/25 dark:from-neutral-950 dark:via-violet-950/30 dark:to-slate-950/80 dark:shadow-[0_12px_40px_-18px_rgba(167,139,250,0.25)] dark:ring-violet-500/15 sm:mx-5 sm:rounded-[1.25rem] sm:px-8 sm:py-9"
+          >
+            <ExpandablePlainText
+              text={bodyText}
+              maxCollapsedChars={260}
+              stopCardNavigation
+              paragraphClassName="mx-auto max-w-prose whitespace-pre-wrap text-center text-[1.0625rem] font-semibold leading-relaxed tracking-[-0.01em] text-neutral-900 antialiased sm:text-left sm:text-lg sm:leading-relaxed dark:text-neutral-100"
+              moreClassName="mt-2 text-sm font-semibold text-accent hover:text-accent-hover dark:text-accent"
+            />
+          </section>
+        )}
+
         {hasMedia && (
           <div className="border-y border-neutral-200 dark:border-neutral-800">
             <NetworkMediaStrip
               urls={post.mediaUrls}
               variant="feed"
               linkTo={mediaLinkEnabled ? postPath : undefined}
+              linkState={mediaLinkEnabled ? overlayState : undefined}
             />
           </div>
         )}
 
         <div className="space-y-1.5 px-5 pb-4 pt-3">
-          <div className="-ml-1.5 flex items-center gap-1 pt-0.5">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void toggleLike()}
-              className={`rounded-full p-2 transition hover:bg-neutral-100 disabled:opacity-50 dark:hover:bg-neutral-900 ${
-                liked
-                  ? 'text-[#ff3040]'
-                  : 'text-neutral-900 dark:text-neutral-100'
-              }`}
-              aria-label={liked ? 'Unlike' : 'Like'}
-            >
-              <HeartIcon filled={liked} large />
-            </button>
+          <div className="-ml-1.5 flex items-center gap-5 pt-0.5">
+            <div className="flex min-h-[44px] min-w-0 items-center gap-1.5">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void toggleLike()}
+                className={`rounded-full p-2 transition hover:bg-neutral-100 disabled:opacity-50 dark:hover:bg-neutral-900 ${
+                  liked
+                    ? 'text-[#ff3040]'
+                    : 'text-neutral-900 dark:text-neutral-100'
+                }`}
+                aria-label={liked ? 'Unlike' : 'Like'}
+              >
+                <HeartIcon filled={liked} large />
+              </button>
+              {likeCount > 0 ? (
+                <span className="text-base font-semibold tabular-nums text-neutral-900 dark:text-neutral-100">
+                  {likeCount.toLocaleString()}
+                </span>
+              ) : null}
+            </div>
             <Link
               to={postPath}
+              state={overlayState}
               className="rounded-full p-2 text-neutral-900 transition hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-900"
               aria-label="Comment"
             >
@@ -325,14 +385,7 @@ function PostFeedCard({
             </Link>
           </div>
 
-          {likeCount > 0 && (
-            <p className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
-              {likeCount.toLocaleString()}{' '}
-              {likeCount === 1 ? 'like' : 'likes'}
-            </p>
-          )}
-
-          {post.content.trim().length > 0 && (
+          {!textOnly && bodyText.length > 0 && (
             <p className="text-base leading-relaxed text-neutral-900 dark:text-neutral-100">
               <Link
                 to={profilePath}
@@ -347,19 +400,13 @@ function PostFeedCard({
           {post.commentCount > 0 && (
             <Link
               to={postPath}
+              state={overlayState}
               className="inline-block text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
             >
               View all {post.commentCount}{' '}
               {post.commentCount === 1 ? 'comment' : 'comments'}
             </Link>
           )}
-
-          <Link
-            to={postPath}
-            className="block pt-1 text-[0.7rem] uppercase tracking-wide text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200"
-          >
-            {when}
-          </Link>
         </div>
       </article>
 
@@ -368,6 +415,15 @@ function PostFeedCard({
         onClose={() => setReportOpen(false)}
         targetType="post"
         targetId={post.id}
+      />
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onClose={() => !busy && setDeleteConfirmOpen(false)}
+        onConfirm={() => void removePost()}
+        title="Delete post?"
+        message="This will permanently remove the post. You can't undo this."
+        confirmLabel="Delete"
+        confirming={busy}
       />
     </>
   );

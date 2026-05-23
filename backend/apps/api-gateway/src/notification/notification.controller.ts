@@ -1,5 +1,6 @@
 import {
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -44,5 +45,14 @@ export class NotificationController {
   @Patch('read-all')
   mark_all_as_read(@CurrentUser('sub') userId: string) {
     return this.notificationService.markAllAsRead(userId);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Delete(':id')
+  delete_notification(
+    @Param('id') notificationId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.notificationService.deleteNotification(userId, notificationId);
   }
 }

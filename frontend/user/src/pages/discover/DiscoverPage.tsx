@@ -5,7 +5,10 @@ import { searchUsers, type UserSearchHit } from '../../features/user/api/userDir
 import { fetchMyFollowing } from '../../features/user/api/userProfile.api';
 import { useProfileCache } from '../../features/user/store/profileCache.store';
 import { useAuthStore } from '../../features/auth/store/auth.store';
-import { AppNavBar } from '../../features/user/components/AppNavBar';
+import { AppPage } from '../../shared/layout/AppPage';
+import { PageHeader } from '../../shared/components/PageHeader';
+import { EmptyState } from '../../shared/components/EmptyState';
+import { LoadingState } from '../../shared/components/LoadingState';
 import { UserAvatar } from '../../features/user/components/UserAvatar';
 import { FollowButton } from '../../features/user/components/FollowButton';
 
@@ -93,18 +96,12 @@ export function DiscoverPage() {
   );
 
   return (
-    <div className="min-h-screen bg-neutral-200 dark:bg-slate-950">
-      <AppNavBar />
-
-      <main className="mx-auto w-full max-w-3xl px-4 py-6">
-        <header className="mb-5">
-          <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
-            Discover
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Find people, follow them, and start a conversation.
-          </p>
-        </header>
+    <AppPage mainClassName="max-w-3xl">
+        <PageHeader
+          eyebrow="People"
+          title="Discover"
+          description="Find people, follow them, and start a conversation."
+        />
 
         <div className="mb-5">
           <label className="relative block">
@@ -123,7 +120,7 @@ export function DiscoverPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by name or @username"
-              className="w-full rounded-full border border-slate-200 bg-white py-3 pl-11 pr-4 text-base text-slate-900 outline-none shadow-sm transition focus:border-accent focus:ring-2 focus:ring-accent-bg dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+              className="search-input"
               autoFocus
             />
           </label>
@@ -144,8 +141,7 @@ export function DiscoverPage() {
         ) : (
           <SuggestionsCard viewerUserId={viewerUserId} />
         )}
-      </main>
-    </div>
+    </AppPage>
   );
 }
 
@@ -161,7 +157,7 @@ function ResultsCard({
   viewerUserId: string | null;
 }) {
   return (
-    <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <section className="surface-card">
       <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
           Results
@@ -172,20 +168,17 @@ function ResultsCard({
           </span>
         )}
       </header>
-      {loading && (
-        <div className="p-8 text-center text-sm text-slate-500 dark:text-slate-400">
-          Searching…
-        </div>
-      )}
+      {loading && <LoadingState label="Searching…" />}
       {!loading && error && (
         <div className="p-6 text-center text-sm text-red-600 dark:text-red-300">
           {error}
         </div>
       )}
       {!loading && !error && hits.length === 0 && (
-        <div className="p-8 text-center text-sm text-slate-500 dark:text-slate-400">
-          No people match that search.
-        </div>
+        <EmptyState
+          title="No matches"
+          description="No people match that search. Try a different name or username."
+        />
       )}
       {!loading && !error && hits.length > 0 && (
         <ul className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -209,7 +202,7 @@ function ResultsCard({
 function SuggestionsCard({ viewerUserId }: { viewerUserId: string | null }) {
   const followingIds = useProfileCache((s) => s.followingIds);
   return (
-    <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <section className="surface-card">
       <header className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
           Why not start here?

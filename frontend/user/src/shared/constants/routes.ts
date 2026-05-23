@@ -14,6 +14,8 @@ export const ROUTES = {
   PROFILE_ME_FOLLOWING: '/profile/following',
   /** Edit profile (avatar / bio / display name / dob / gender / username) */
   SETTINGS_PROFILE: '/settings/profile',
+  /** Hash anchor on profile page for account / penalty status */
+  PROFILE_ACCOUNT_STATUS_HASH: 'account-status',
   /**
    * Other user profile by userId. Backend exposes /user/profile/:userId, so
    * we route by id; when usernames-as-routes are needed later we resolve via
@@ -36,6 +38,19 @@ export const ROUTES = {
 /** Path to a post detail screen. */
 export const buildPostPath = (postId: string): string =>
   `/post/${encodeURIComponent(postId)}`;
+
+/**
+ * Pass on `navigate(to, { state })` or `<Link state />` so the post opens as an
+ * overlay while the previous screen stays mounted underneath (see `AppRouter`).
+ */
+export type PostOverlayNavigationState = {
+  backgroundLocation: import('react-router-dom').Location;
+};
+
+/** Build profile path with account-status section focused. */
+export const PROFILE_ACCOUNT_STATUS_HASH = ROUTES.PROFILE_ACCOUNT_STATUS_HASH;
+export const buildProfileAccountStatusPath = (): string =>
+  `${ROUTES.PROFILE_ME}#${PROFILE_ACCOUNT_STATUS_HASH}`;
 
 /** Build a profile path for someone else by userId. */
 export const buildProfilePath = (userId: string): string =>
@@ -66,6 +81,7 @@ export const API_ROUTES = {
   FORGET_PASSWORD: 'auth/forget-passwd',
   RESET_PASSWORD: 'auth/reset-passwd',
   USER_PROFILE: 'user/profile',
+  USER_ACCOUNT_STATUS: 'user/account-status',
   USER_ONBOARDING: 'user/onboarding',
   USER_CLOUDINARY_SIGNATURE: 'user/cloudinary-upload-signature',
   USER_SEARCH: 'user/search',

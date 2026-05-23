@@ -6,6 +6,7 @@ const NOTIFICATION_KAFKA_RPC = [
   'notification.unread_count',
   'notification.mark_read',
   'notification.mark_all_read',
+  'notification.delete',
 ] as const;
 
 @Injectable()
@@ -34,5 +35,12 @@ export class NotificationService implements OnModuleInit {
 
   markAllAsRead(recipientId: string) {
     return this.kafkaclient.send('notification.mark_all_read', { recipientId });
+  }
+
+  deleteNotification(recipientId: string, notificationId: string) {
+    return this.kafkaclient.send('notification.delete', {
+      recipientId,
+      notificationId,
+    });
   }
 }

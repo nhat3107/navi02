@@ -12,7 +12,10 @@ import {
 } from '../../features/user/api/userProfile.api';
 import type { FollowEdge, UserProfile } from '../../features/user/types/user.types';
 import { useProfileCache } from '../../features/user/store/profileCache.store';
-import { AppNavBar } from '../../features/user/components/AppNavBar';
+import { AppPage } from '../../shared/layout/AppPage';
+import { PageHeader } from '../../shared/components/PageHeader';
+import { LoadingState } from '../../shared/components/LoadingState';
+import { EmptyState } from '../../shared/components/EmptyState';
 import { UserAvatar } from '../../features/user/components/UserAvatar';
 import { FollowButton } from '../../features/user/components/FollowButton';
 import { extractApiMessage } from '../../shared/utils/api-error';
@@ -155,32 +158,20 @@ export function FollowEdgesPage({ mode }: FollowEdgesPageProps) {
       : ROUTES.PROFILE_ME;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      <AppNavBar />
-
-      <main className="mx-auto w-full max-w-2xl px-4 py-6">
-        <div className="mb-4 flex items-center gap-3">
-          <Link
-            to={backLink}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-            aria-label="Back to profile"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="19" y1="12" x2="5" y2="12" />
-              <polyline points="12 19 5 12 12 5" />
-            </svg>
-          </Link>
-          <div className="min-w-0">
-            <h1 className="truncate text-xl font-semibold text-slate-900 dark:text-slate-100">
-              {heading}
-            </h1>
-            {edges && (
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                {edges.length} {edges.length === 1 ? 'person' : 'people'}
-              </p>
-            )}
-          </div>
-        </div>
+    <AppPage mainClassName="max-w-2xl">
+        <PageHeader
+          title={heading}
+          description={
+            edges
+              ? `${edges.length} ${edges.length === 1 ? 'person' : 'people'}`
+              : undefined
+          }
+          actions={
+            <Link to={backLink} className="chip-btn" aria-label="Back to profile">
+              ← Profile
+            </Link>
+          }
+        />
 
         <div className="mb-3">
           <label className="relative block">
@@ -199,31 +190,30 @@ export function FollowEdgesPage({ mode }: FollowEdgesPageProps) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Filter by name or @username"
-              className="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent-bg dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+              className="search-input py-2.5 pl-9 text-sm"
             />
           </label>
         </div>
 
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          {phase === 'loading' && (
-            <div className="p-8 text-center text-sm text-slate-500 dark:text-slate-400">Loading…</div>
-          )}
+        <div className="surface-card">
+          {phase === 'loading' && <LoadingState />}
           {phase === 'error' && (
             <div className="p-6 text-center text-sm text-red-600 dark:text-red-300">
               {error ?? 'Something went wrong.'}
             </div>
           )}
           {phase === 'not-found' && (
-            <div className="p-8 text-center text-sm text-slate-500 dark:text-slate-400">
-              We couldn't find that user.
-            </div>
+            <EmptyState title="User not found" description="We couldn't find that user." />
           )}
           {phase === 'ready' && filteredEdges.length === 0 && (
-            <div className="p-8 text-center text-sm text-slate-500 dark:text-slate-400">
-              {edges && edges.length > 0
-                ? 'No people match that filter.'
-                : EMPTY_COPY[mode]}
-            </div>
+            <EmptyState
+              title={edges && edges.length > 0 ? 'No matches' : 'Nothing here yet'}
+              description={
+                edges && edges.length > 0
+                  ? 'No people match that filter.'
+                  : EMPTY_COPY[mode]
+              }
+            />
           )}
           {phase === 'ready' && filteredEdges.length > 0 && (
             <ul className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -235,8 +225,7 @@ export function FollowEdgesPage({ mode }: FollowEdgesPageProps) {
             </ul>
           )}
         </div>
-      </main>
-    </div>
+    </AppPage>
   );
 }
 

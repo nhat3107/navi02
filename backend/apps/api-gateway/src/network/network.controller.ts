@@ -72,10 +72,16 @@ export class NetworkController {
   @Get('posts/author/:authorId')
   find_posts_by_author(
     @Param('authorId') authorId: string,
+    @CurrentUser('sub') viewerId: string,
     @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
     @Query('skip', new ParseIntPipe({ optional: true })) skip?: number,
   ) {
-    return this.networkService.findPostsByAuthor(authorId, limit, skip);
+    return this.networkService.findPostsByAuthor(
+      authorId,
+      viewerId,
+      limit,
+      skip,
+    );
   }
 
   @HttpCode(HttpStatus.OK)

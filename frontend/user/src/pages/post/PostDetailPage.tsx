@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import type { AxiosError } from 'axios';
 import { AppNavBar } from '../../features/user/components/AppNavBar';
 import { UserAvatar } from '../../features/user/components/UserAvatar';
-import { ROUTES, buildProfilePath } from '../../shared/constants/routes';
+import { ROUTES, buildProfilePath, type PostOverlayNavigationState } from '../../shared/constants/routes';
 import { useAuthStore } from '../../features/auth/store/auth.store';
 import type { UserProfile } from '../../features/user/types/user.types';
 import { useAuthorProfiles } from '../../features/network/hooks/useAuthorProfiles';
@@ -21,24 +21,32 @@ import {
   unlikePost,
 } from '../../features/network/api/network.api';
 import { ReportModal } from '../../features/network/components/ReportModal';
+import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { NetworkMediaPicker } from '../../features/network/components/NetworkMediaPicker';
 import { NetworkMediaStrip } from '../../features/network/components/NetworkMediaStrip';
 import { formatRelativeTime } from '../../features/network/lib/formatRelativeTime';
+import { ExpandablePlainText } from '../../features/network/components/ExpandablePlainText';
 import { isCloudinaryVideoUrl } from '../../shared/lib/cloudinary';
 
 const MAX_COMMENT_MEDIA = 4;
 
-export function PostDetailPage() {
+export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
   const { postId } = useParams<{ postId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuthStore();
   const viewerId = user?.id ?? null;
 
   const [post, setPost] = useState<NetworkPost | null>(null);
   const [comments, setComments] = useState<NetworkComment[]>([]);
-  const [phase, setPhase] = useState<'loading' | 'ready' | 'not-found' | 'error'>(
-    'loading',
-  );
+  const [phase, setPhase] = useState<
+    | 'loading'
+    | 'ready'
+    | 'not-found'
+    | 'removed'
+    | 'under-review'
+    | 'error'
+  >('loading');
   const [commentDraft, setCommentDraft] = useState('');
   const [commentMediaUrls, setCommentMediaUrls] = useState<string[]>([]);
   const [submittingComment, setSubmittingComment] = useState(false);
@@ -49,6 +57,8 @@ export function PostDetailPage() {
   const [likeBusy, setLikeBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteBusy] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   /** Active media inside the in-pane carousel (first item by default). */
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
@@ -60,6 +70,23 @@ export function PostDetailPage() {
   const [composerOpen, setComposerOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const commentInputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const dismissOverlay = useCallback(() => {
+    const bg = (location.state as PostOverlayNavigationState | null | undefined)
+      ?.backgroundLocation;
+    if (bg && typeof bg.pathname === 'string') {
+      navigate(
+        {
+          pathname: bg.pathname,
+          search: bg.search,
+          hash: bg.hash,
+        },
+        { replace: true, state: bg.state },
+      );
+    } else {
+      navigate(-1);
+    }
+  }, [navigate, location.state]);
 
   useEffect(() => {
     setExtraAuthorIds([]);
@@ -73,6 +100,15 @@ export function PostDetailPage() {
     const t = window.setTimeout(() => commentInputRef.current?.focus(), 0);
     return () => window.clearTimeout(t);
   }, [composerOpen]);
+
+  useEffect(() => {
+    if (!overlay) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [overlay]);
 
   const load = useCallback(async () => {
     const id = postId?.trim();
@@ -90,8 +126,13 @@ export function PostDetailPage() {
       setComments(list);
       setPhase('ready');
     } catch (e) {
-      const status = (e as AxiosError).response?.status;
-      if (status === 404) setPhase('not-found');
+      const ax = e as AxiosError<{ message?: string }>;
+      const status = ax.response?.status;
+      const msg = ax.response?.data?.message;
+      if (status === 410 || msg === 'POST_REMOVED') setPhase('removed');
+      else if (status === 403 && msg === 'POST_UNDER_REVIEW') {
+        setPhase('under-review');
+      } else if (status === 404) setPhase('not-found');
       else setPhase('error');
     }
   }, [postId]);
@@ -116,10 +157,9 @@ export function PostDetailPage() {
     setActiveMediaIndex((i) => (i + 1) % mediaCount);
   }, [mediaCount]);
 
-  // Esc closes the floating detail and returns to the prior page.
-  // The lightbox owns its own Esc handler, so we ignore Esc while it is open.
-  // Arrow keys step through the in-pane carousel, but never when the user is
-  // typing in a form control so the comment box still receives caret moves.
+  // Esc: overlay → previous screen (see `PostOverlayNavigationState`); full page → back.
+  // Lightbox uses capture-phase Esc.
+  // Arrow keys step carousel when not typing in a form control.
   useEffect(() => {
     function isTypingTarget(t: EventTarget | null): boolean {
       if (!(t instanceof HTMLElement)) return false;
@@ -130,7 +170,8 @@ export function PostDetailPage() {
     function onKey(e: KeyboardEvent) {
       const anyLightboxOpen = lightboxIndex !== null || commentLightbox !== null;
       if (e.key === 'Escape' && !anyLightboxOpen) {
-        navigate(-1);
+        if (overlay) dismissOverlay();
+        else navigate(-1);
         return;
       }
       if (anyLightboxOpen) return;
@@ -145,7 +186,16 @@ export function PostDetailPage() {
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [navigate, lightboxIndex, commentLightbox, mediaCount, showNext, showPrev]);
+  }, [
+    navigate,
+    overlay,
+    dismissOverlay,
+    lightboxIndex,
+    commentLightbox,
+    mediaCount,
+    showNext,
+    showPrev,
+  ]);
 
   // Click-outside dismiss for the post options menu.
   useEffect(() => {
@@ -238,36 +288,19 @@ export function PostDetailPage() {
   const isAuthor = Boolean(viewerId && post && viewerId === post.authorId);
   const when = post ? formatRelativeTime(post.createdAt) : '';
   const hasMedia = (post?.mediaUrls.length ?? 0) > 0;
+  const textOnly = Boolean(
+    post && !hasMedia && post.content.trim().length > 0,
+  );
+  const detailTwoColumn = Boolean(post && (hasMedia || textOnly));
 
-  return (
-    <div className="relative min-h-screen overflow-hidden bg-neutral-200 dark:bg-black">
-      <AppNavBar />
-
-      {/* Soft floating backdrop, evokes the "lifted" feel of a modal. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-0 h-[520px] bg-gradient-to-br from-violet-200/45 via-fuchsia-100/30 to-amber-100/30 blur-3xl dark:from-violet-950/40 dark:via-fuchsia-950/30 dark:to-amber-950/30"
-      />
-
-      <main className="relative mx-auto w-full max-w-[min(1120px,100%)] px-3 pb-12 pt-4 sm:px-6 sm:pt-6">
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <Link
-            to={ROUTES.HOME}
-            className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200/70 bg-white/80 px-3.5 py-1.5 text-sm font-semibold text-neutral-700 shadow-sm backdrop-blur transition hover:bg-white hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900/70 dark:text-neutral-300 dark:hover:bg-neutral-900 dark:hover:text-neutral-100"
-          >
-            <BackArrowIcon />
-            Back to feed
-          </Link>
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            aria-label="Close post"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200/70 bg-white/80 text-neutral-700 shadow-sm backdrop-blur transition hover:bg-white hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900/70 dark:text-neutral-300 dark:hover:bg-neutral-900 dark:hover:text-neutral-100"
-          >
-            <CloseIcon />
-          </button>
-        </div>
-
+  const pageMain = (
+    <main
+      className={`relative mx-auto w-full max-w-[min(1120px,100%)] scroll-mt-4 px-3 pb-12 sm:px-6 ${
+        overlay
+          ? 'pt-2 sm:pt-3'
+          : 'pt-[max(1rem,env(safe-area-inset-top,0px))] sm:pt-6'
+      }`}
+    >
         {phase === 'loading' && (
           <div className="rounded-3xl border border-neutral-200/70 bg-white/80 p-12 text-center text-sm font-medium text-neutral-700 shadow-[0_25px_60px_-25px_rgba(15,23,42,0.25)] backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/80 dark:text-neutral-200">
             Loading post…
@@ -276,6 +309,26 @@ export function PostDetailPage() {
         {phase === 'not-found' && (
           <div className="rounded-3xl border border-neutral-200/70 bg-white/80 p-12 text-center text-sm font-medium text-neutral-800 shadow-[0_25px_60px_-25px_rgba(15,23,42,0.25)] backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/80 dark:text-neutral-100">
             This post is not available.
+          </div>
+        )}
+        {phase === 'removed' && (
+          <div className="rounded-3xl border border-neutral-200/70 bg-white/80 p-12 text-center shadow-[0_25px_60px_-25px_rgba(15,23,42,0.25)] backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/80">
+            <p className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
+              This post has been removed
+            </p>
+            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+              It was removed because it did not meet our community guidelines.
+            </p>
+          </div>
+        )}
+        {phase === 'under-review' && (
+          <div className="rounded-3xl border border-amber-200/70 bg-amber-50/90 p-12 text-center shadow-[0_25px_60px_-25px_rgba(245,158,11,0.2)] backdrop-blur dark:border-amber-900/40 dark:bg-amber-950/40">
+            <p className="text-base font-semibold text-amber-950 dark:text-amber-100">
+              This post is under review
+            </p>
+            <p className="mt-2 text-sm text-amber-900/80 dark:text-amber-200/90">
+              Only the author can view it while moderation is in progress.
+            </p>
           </div>
         )}
         {phase === 'error' && (
@@ -287,12 +340,22 @@ export function PostDetailPage() {
         {phase === 'ready' && post && (
           <article
             aria-label="Post detail"
-            className={`relative overflow-hidden rounded-3xl border border-neutral-200/70 bg-white shadow-[0_30px_80px_-25px_rgba(15,23,42,0.35)] ring-1 ring-black/5 dark:border-neutral-800/80 dark:bg-neutral-950 dark:shadow-[0_30px_80px_-25px_rgba(0,0,0,0.7)] dark:ring-white/5 ${
-              hasMedia
+            className={`relative overflow-hidden rounded-3xl border shadow-[0_24px_64px_-28px_rgba(15,23,42,0.2)] ring-1 transition-shadow duration-300 dark:shadow-[0_28px_72px_-32px_rgba(0,0,0,0.65)] ${
+              textOnly
+                ? 'border-violet-200/70 bg-gradient-to-br from-white via-violet-50/50 to-sky-50/40 ring-violet-200/30 dark:border-violet-500/20 dark:from-neutral-950 dark:via-violet-950/35 dark:to-slate-950/80 dark:ring-violet-500/10'
+                : 'border-neutral-200/60 bg-white ring-black/[0.04] dark:border-neutral-800/70 dark:bg-neutral-950 dark:ring-white/[0.06]'
+            } ${
+              detailTwoColumn
                 ? 'lg:grid lg:grid-cols-[minmax(0,1.55fr)_minmax(360px,1fr)]'
                 : 'mx-auto lg:max-w-[700px]'
             }`}
           >
+            {post.visibility === 'pending' && isAuthor && (
+              <p className="border-b border-amber-200/80 bg-amber-50 px-5 py-2.5 text-center text-sm font-semibold text-amber-900 lg:col-span-2 dark:border-amber-900/50 dark:bg-amber-950/50 dark:text-amber-100">
+                Under review — this post is hidden from everyone else until moderation
+                finishes.
+              </p>
+            )}
             {hasMedia && (
               <MediaCarousel
                 urls={post.mediaUrls}
@@ -304,14 +367,46 @@ export function PostDetailPage() {
               />
             )}
 
+            {textOnly && (
+              <section
+                aria-label="Post text"
+                className="relative flex min-h-[280px] flex-col border-b border-violet-200/50 bg-gradient-to-b from-violet-50/60 via-white/80 to-fuchsia-50/35 dark:border-violet-800/40 dark:from-violet-950/50 dark:via-neutral-950/90 dark:to-fuchsia-950/25 lg:h-[min(82vh,820px)] lg:max-h-[min(82vh,820px)] lg:min-h-[560px] lg:border-b-0 lg:border-r lg:border-violet-200/40 dark:lg:border-violet-800/30"
+              >
+                <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto p-5 sm:p-8">
+                  <div className="relative overflow-hidden rounded-2xl border border-violet-200/70 bg-white/95 px-7 py-9 shadow-[0_12px_48px_-16px_rgba(124,58,237,0.28)] ring-2 ring-violet-400/25 dark:border-violet-500/30 dark:bg-neutral-900/90 dark:shadow-[0_16px_56px_-20px_rgba(167,139,250,0.35)] dark:ring-violet-400/20 sm:rounded-3xl sm:px-10 sm:py-11">
+                    <div
+                      className="pointer-events-none absolute -left-8 -top-10 h-36 w-36 rounded-full bg-gradient-to-br from-violet-400/25 to-fuchsia-400/15 blur-2xl dark:from-violet-500/20 dark:to-fuchsia-600/10"
+                      aria-hidden
+                    />
+                    <div
+                      className="pointer-events-none absolute -bottom-8 -right-6 h-32 w-32 rounded-full bg-gradient-to-tl from-sky-400/20 to-violet-400/10 blur-2xl dark:from-sky-500/15 dark:to-violet-500/10"
+                      aria-hidden
+                    />
+                    <ExpandablePlainText
+                      text={post.content.trim()}
+                      maxCollapsedChars={720}
+                      paragraphClassName="relative mx-auto max-w-prose whitespace-pre-wrap text-[1.0625rem] font-semibold leading-[1.7] tracking-[-0.01em] text-neutral-900 antialiased sm:text-lg dark:text-neutral-100"
+                      moreClassName="relative mt-3 text-sm font-semibold text-violet-600 hover:text-violet-700 dark:text-violet-300 dark:hover:text-violet-200"
+                    />
+                  </div>
+                </div>
+              </section>
+            )}
+
             <div
-              className={`flex flex-col bg-white dark:bg-neutral-950 ${
-                hasMedia
+              className={`flex flex-col ${
+                textOnly
+                  ? 'bg-gradient-to-b from-white/95 via-violet-50/30 to-white/90 dark:from-neutral-950 dark:via-violet-950/20 dark:to-neutral-950'
+                  : 'bg-white dark:bg-neutral-950'
+              } ${
+                detailTwoColumn
                   ? 'lg:h-[min(82vh,820px)] lg:max-h-[min(82vh,820px)] lg:min-h-[560px]'
                   : ''
               }`}
             >
-              <header className="flex items-start gap-3 border-b border-neutral-200 px-5 py-4 dark:border-neutral-800">
+              <header
+                className="flex items-start gap-3 border-b border-neutral-200 px-5 py-4 dark:border-neutral-800"
+              >
                 <Link to={profilePath} className="mt-0.5 shrink-0">
                   <span className="inline-flex rounded-full ring-2 ring-neutral-100 dark:ring-neutral-800">
                     <UserAvatar
@@ -340,8 +435,8 @@ export function PostDetailPage() {
                       </span>
                     )}
                   </div>
-                  {post.content.trim().length > 0 && (
-                    <p className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-relaxed text-neutral-900 dark:text-neutral-100">
+                  {hasMedia && post.content.trim().length > 0 && (
+                    <p className="mt-2 whitespace-pre-wrap break-words text-[1.0625rem] font-medium leading-[1.65] text-neutral-900 antialiased dark:text-neutral-100 sm:text-lg sm:leading-relaxed">
                       {post.content}
                     </p>
                   )}
@@ -372,7 +467,10 @@ export function PostDetailPage() {
                         <button
                           type="button"
                           className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
-                          onClick={() => void removePost()}
+                          onClick={() => {
+                            setMenuOpen(false);
+                            setDeleteConfirmOpen(true);
+                          }}
                         >
                           Delete
                         </button>
@@ -397,7 +495,7 @@ export function PostDetailPage() {
                   ))}
                 </ul>
 
-                {comments.length === 0 && (
+                {comments.length === 0 && !composerOpen && (
                   <div className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 px-5 py-8 text-center dark:border-neutral-700 dark:bg-neutral-900/60">
                     <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                       No comments yet
@@ -410,20 +508,27 @@ export function PostDetailPage() {
               </div>
 
               <div className="border-t border-neutral-200 px-5 py-3 dark:border-neutral-800">
-                <div className="-ml-1.5 flex items-center gap-1">
-                  <button
-                    type="button"
-                    disabled={likeBusy}
-                    onClick={() => void togglePostLike()}
-                    className={`rounded-full p-2 transition hover:bg-neutral-100 disabled:opacity-50 dark:hover:bg-neutral-900 ${
-                      liked
-                        ? 'text-[#ff3040]'
-                        : 'text-neutral-900 dark:text-neutral-100'
-                    }`}
-                    aria-label={liked ? 'Unlike' : 'Like'}
-                  >
-                    <HeartIcon filled={liked} />
-                  </button>
+                <div className="-ml-1.5 flex flex-wrap items-center gap-x-5 gap-y-2">
+                  <div className="flex min-h-[40px] items-center gap-1.5">
+                    <button
+                      type="button"
+                      disabled={likeBusy}
+                      onClick={() => void togglePostLike()}
+                      className={`rounded-full p-2 transition hover:bg-neutral-100 disabled:opacity-50 dark:hover:bg-neutral-900 ${
+                        liked
+                          ? 'text-[#ff3040]'
+                          : 'text-neutral-900 dark:text-neutral-100'
+                      }`}
+                      aria-label={liked ? 'Unlike' : 'Like'}
+                    >
+                      <HeartIcon filled={liked} />
+                    </button>
+                    {likeCount > 0 ? (
+                      <span className="text-sm font-semibold tabular-nums text-neutral-900 dark:text-neutral-100">
+                        {likeCount.toLocaleString()}
+                      </span>
+                    ) : null}
+                  </div>
                   <button
                     type="button"
                     onClick={toggleComposer}
@@ -441,17 +546,6 @@ export function PostDetailPage() {
                     <CommentIcon />
                   </button>
                 </div>
-                {likeCount > 0 && (
-                  <p className="mt-0.5 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                    {likeCount.toLocaleString()}{' '}
-                    {likeCount === 1 ? 'like' : 'likes'}
-                  </p>
-                )}
-                {when && (
-                  <p className="mt-0.5 text-[0.7rem] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                    {when}
-                  </p>
-                )}
               </div>
 
               {composerOpen && (
@@ -528,6 +622,15 @@ export function PostDetailPage() {
               targetType="post"
               targetId={post.id}
             />
+            <ConfirmDialog
+              open={deleteConfirmOpen}
+              onClose={() => !deleteBusy && setDeleteConfirmOpen(false)}
+              onConfirm={() => void removePost()}
+              title="Delete post?"
+              message="This will permanently remove the post. You can't undo this."
+              confirmLabel="Delete"
+              confirming={deleteBusy}
+            />
           </article>
         )}
 
@@ -548,6 +651,40 @@ export function PostDetailPage() {
           />
         )}
       </main>
+  );
+
+  if (overlay) {
+    return (
+      <div
+        className="fixed inset-0 z-[95] flex min-h-full items-center justify-center overflow-y-auto overscroll-y-contain px-4 pb-[max(2rem,env(safe-area-inset-bottom,0px))] pt-[calc(1rem+env(safe-area-inset-top,0px))] sm:px-6 sm:pb-10 sm:pt-[calc(1.25rem+env(safe-area-inset-top,0px))]"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Post"
+      >
+        <button
+          type="button"
+          className="fixed inset-0 z-0 cursor-default bg-black/60 backdrop-blur-[3px]"
+          aria-label="Close and return"
+          onClick={() => dismissOverlay()}
+        />
+        <div className="relative z-10 my-8 w-full max-w-[min(1120px,100%)] sm:my-10">
+          {pageMain}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative min-h-screen overflow-hidden bg-neutral-200 dark:bg-black">
+      <AppNavBar />
+
+      {/* Soft floating backdrop, evokes the "lifted" feel of a modal. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 -z-0 h-[520px] bg-gradient-to-br from-neutral-200/55 via-accent-bg/25 to-neutral-100/40 blur-3xl dark:from-neutral-950 dark:via-accent-bg/20 dark:to-black"
+      />
+
+      {pageMain}
     </div>
   );
 }
@@ -726,7 +863,7 @@ function ImageLightbox({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/95 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/95 p-4 backdrop-blur-sm"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -907,25 +1044,6 @@ function CloseIcon() {
     >
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
-}
-
-function BackArrowIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.25}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <line x1="19" y1="12" x2="5" y2="12" />
-      <polyline points="12 19 5 12 12 5" />
     </svg>
   );
 }

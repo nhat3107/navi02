@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import type { PostOverlayNavigationState } from '../../../shared/constants/routes';
 import { isCloudinaryVideoUrl } from '../../../shared/lib/cloudinary';
 
 type Variant = 'default' | 'feed';
@@ -16,6 +17,7 @@ export function NetworkMediaStrip({
   className = '',
   variant = 'default',
   linkTo,
+  linkState,
   onImageClick,
 }: {
   urls: string[];
@@ -23,6 +25,8 @@ export function NetworkMediaStrip({
   variant?: Variant;
   /** When set (and `onImageClick` is not), images in the `feed` variant link to this route. */
   linkTo?: string;
+  /** Optional navigation state (e.g. modal overlay). */
+  linkState?: PostOverlayNavigationState;
   /** Receives the index of the image clicked. Use this to open a fullscreen viewer. */
   onImageClick?: (index: number) => void;
 }) {
@@ -67,6 +71,7 @@ export function NetworkMediaStrip({
         return (
           <Link
             to={linkTo}
+            state={linkState}
             aria-label="Open post"
             className="block w-auto max-w-full"
           >

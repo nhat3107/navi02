@@ -30,7 +30,7 @@ export class NotificationFanoutService implements OnModuleInit {
     visibility?: string;
   }): Promise<void> {
     const vis = (payload.visibility ?? 'public').trim().toLowerCase();
-    if (vis === 'private') return;
+    if (vis === 'private' || vis === 'pending') return;
 
     type FollowersRpc = { data?: Array<{ id?: string }> };
     let list: Array<{ id?: string }> = [];
