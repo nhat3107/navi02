@@ -14,6 +14,7 @@ const USER_KAFKA_RPC = [
   'user.search_profiles',
   'user.lookup_profiles',
   'user.cloudinary_upload_signature',
+  'user.suggest_people',
 ] as const;
 
 @Injectable()
@@ -79,5 +80,9 @@ export class UserService implements OnModuleInit {
       context: opts?.context,
       resourceType: opts?.resourceType,
     });
+  }
+
+  suggest_people(userId: string, limit?: number) {
+    return this.kafka.send('user.suggest_people', { userId, limit });
   }
 }

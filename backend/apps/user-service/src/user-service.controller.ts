@@ -51,6 +51,11 @@ export class UserServiceController {
     return this.userServiceService.lookup_profiles(data);
   }
 
+  @MessagePattern('user.suggest_people', Transport.KAFKA)
+  suggest_people(data: { userId: string; limit?: number }): Promise<any> {
+    return this.userServiceService.suggest_people(data);
+  }
+
   @MessagePattern('user.cloudinary_upload_signature', Transport.KAFKA)
   cloudinary_upload_signature(data: {
     userId: string;
