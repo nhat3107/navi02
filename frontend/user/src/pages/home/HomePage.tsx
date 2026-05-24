@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../features/auth/store/auth.store';
 import { useProfileCache } from '../../features/user/store/profileCache.store';
 import { fetchFeed } from '../../features/network/api/network.api';
 import type { NetworkPost } from '../../features/network/types/network.types';
 import { useAuthorProfiles } from '../../features/network/hooks/useAuthorProfiles';
-import { Button } from '../../shared/components/Button';
 import { EmptyState } from '../../shared/components/EmptyState';
-import { ThemeToggleCorner } from '../../shared/components/ThemeToggle';
 import { AppPage } from '../../shared/layout/AppPage';
 import { ROUTES } from '../../shared/constants/routes';
 import { FeedComposer } from '../../features/network/components/FeedComposer';
@@ -17,12 +15,11 @@ import { SuggestedPeoplePanel } from '../../features/user/components/SuggestedPe
 const PAGE = 15;
 
 /**
- * `/` — Home / feed. Guests see marketing; signed-in users see composer + feed.
+ * `/` — Home / feed for signed-in users.
  */
 export function HomePage() {
-  const { user, isAuthenticated } = useAuthStore();
+  const { user } = useAuthStore();
   const myProfile = useProfileCache((s) => s.myProfile);
-  const navigate = useNavigate();
 
   const [posts, setPosts] = useState<NetworkPost[]>([]);
   const [skip, setSkip] = useState(0);
@@ -44,9 +41,8 @@ export function HomePage() {
   }, []);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
     void refreshFeed();
-  }, [isAuthenticated, refreshFeed]);
+  }, [refreshFeed]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore || loading) return;
@@ -69,7 +65,6 @@ export function HomePage() {
   }, [hasMore, loading, loadingMore, skip]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
     const el = sentinelRef.current;
     if (!el) return;
     const obs = new IntersectionObserver(
@@ -80,41 +75,12 @@ export function HomePage() {
     );
     obs.observe(el);
     return () => obs.disconnect();
-  }, [isAuthenticated, loadMore]);
+  }, [loadMore]);
 
   const authorIds = posts.flatMap((p) =>
     [p.authorId, p.originalPost?.authorId].filter(Boolean) as string[],
   );
   const { byId: authorById } = useAuthorProfiles(authorIds);
-
-  if (!isAuthenticated) {
-    return (
-      <div className="auth-page relative">
-        <ThemeToggleCorner />
-        <div className="w-full max-w-lg px-4 text-center">
-          <div className="auth-card__badge mx-auto mb-6">N</div>
-          <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl">
-            Welcome to Navi
-          </h1>
-          <p className="mx-auto mt-4 max-w-md text-lg text-slate-300">
-            Connect, follow, and chat with the people you care about.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Button onClick={() => navigate(ROUTES.LOGIN)} className="w-auto min-w-[140px]">
-              Sign in
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => navigate(ROUTES.REGISTER)}
-              className="w-auto min-w-[140px]"
-            >
-              Create account
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   const displayName =
     (myProfile?.username ? `@${myProfile.username}` : user?.email) || 'You';
