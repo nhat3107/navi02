@@ -1,26 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, NavLink, useLocation } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import {
   fetchNotificationsListApi,
+  markAllNotificationsReadApi,
   markNotificationReadApi,
 } from '../api/notifications.api';
-import { isAuthorSystemNotice } from '../lib/isAuthorSystemNotice';
-import {
-  notificationRowClasses,
-  notificationUnreadDotClass,
-} from '../lib/notificationVisual';
 import { useNotificationsStore } from '../store/notifications.store';
-import { useAuthorProfiles } from '../../network/hooks/useAuthorProfiles';
-import { formatRelativeTime } from '../../network/lib/formatRelativeTime';
 import { ROUTES } from '../../../shared/constants/routes';
-import { UserAvatar } from '../../user/components/UserAvatar';
 import type { NotificationRow } from '../types/notification.types';
-import {
-  notificationAction,
-  notificationLinkState,
-  summarizeNotificationType,
-} from '../lib/notificationLabels';
-import { NotificationTypeBadge } from './NotificationTypeBadge';
+import { NotificationPanel } from './NotificationPanel';
 
 function BellGlyph({ className }: { className?: string }) {
   return (
@@ -40,7 +28,7 @@ function BellGlyph({ className }: { className?: string }) {
   );
 }
 
-const PEEK_LIMIT = 7;
+const PANEL_LIMIT = 20;
 
 function bellTriggerClass(active: boolean) {
   return `app-top-nav__utility group relative h-10 w-10 motion-safe:hover:-translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
@@ -54,7 +42,7 @@ function BellBadge({ badge }: { badge: string | null }) {
   if (!badge) return null;
   return (
     <span
-      className="absolute -right-0.5 -top-0.5 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold tabular-nums leading-none text-white shadow-sm ring-[3px] ring-white dark:ring-neutral-950"
+      className="absolute -right-0.5 -top-0.5 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold tabular-nums leading-none text-white shadow-sm ring-[3px] ring-white dark:ring-slate-950"
       aria-hidden
     >
       {badge}
@@ -71,14 +59,15 @@ function BellTriggerContent({ badge }: { badge: string | null }) {
   );
 }
 
-export function NotificationNavBell() {
+export function NotificationNavBell({ layout = 'default' }: { layout?: 'default' | 'sidebar' }) {
   const location = useLocation();
   const unreadCount = useNotificationsStore((s) => s.unreadCount);
   const patchRead = useNotificationsStore((s) => s.patchRead);
+  const markAllReadLocal = useNotificationsStore((s) => s.markAllReadLocal);
 
   const [open, setOpen] = useState(false);
-  const [peek, setPeek] = useState<NotificationRow[]>([]);
-  const [peekLoading, setPeekLoading] = useState(false);
+  const [items, setItems] = useState<NotificationRow[]>([]);
+  const [loading, setLoading] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const onNotificationsRoute = location.pathname.startsWith('/notifications');
@@ -89,33 +78,17 @@ export function NotificationNavBell() {
       : 'Notifications';
 
   useEffect(() => {
-    function onPointerDown(ev: MouseEvent | TouchEvent) {
-      const el = wrapRef.current;
-      if (!el || !(ev.target instanceof Node)) return;
-      if (!el.contains(ev.target)) setOpen(false);
-    }
-    if (open) {
-      document.addEventListener('mousedown', onPointerDown);
-      document.addEventListener('touchstart', onPointerDown);
-    }
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('touchstart', onPointerDown);
-    };
-  }, [open]);
-
-  useEffect(() => {
     if (!open) return;
     let cancelled = false;
     void (async () => {
-      setPeekLoading(true);
+      setLoading(true);
       try {
-        const list = await fetchNotificationsListApi({ limit: PEEK_LIMIT });
-        if (!cancelled) setPeek(list);
+        const list = await fetchNotificationsListApi({ limit: PANEL_LIMIT });
+        if (!cancelled) setItems(list);
       } catch {
-        if (!cancelled) setPeek([]);
+        if (!cancelled) setItems([]);
       } finally {
-        if (!cancelled) setPeekLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {
@@ -127,207 +100,83 @@ export function NotificationNavBell() {
     setOpen(false);
   }, [location.pathname]);
 
-  const senderIds = useMemo(
-    () => [...new Set(peek.map((p) => p.senderId).filter(Boolean))],
-    [peek],
-  );
-  const { byId: profiles } = useAuthorProfiles(senderIds);
-
   const badge =
     unreadCount > 99 ? '99+' : unreadCount > 0 ? String(unreadCount) : null;
 
+  const handleMarkRead = async (row: NotificationRow) => {
+    if (row.isRead) return;
+    try {
+      await markNotificationReadApi(row.id);
+      patchRead(row.id, true);
+      setItems((prev) =>
+        prev.map((item) => (item.id === row.id ? { ...item, isRead: true } : item)),
+      );
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllNotificationsReadApi();
+      markAllReadLocal();
+      setItems((prev) => prev.map((item) => ({ ...item, isRead: true })));
+    } catch {
+      /* ignore */
+    }
+  };
+
   return (
-    <div className="relative shrink-0" ref={wrapRef}>
-      <Link
-        to={ROUTES.NOTIFICATIONS}
-        className={`${bellTriggerClass(onNotificationsRoute)} md:hidden`}
-        aria-label={ariaLabel}
-        aria-current={onNotificationsRoute ? 'page' : undefined}
+    <>
+      <div
+        className={`relative shrink-0${layout === 'sidebar' ? ' w-full' : ''}`}
+        ref={wrapRef}
       >
-        <BellTriggerContent badge={badge} />
-      </Link>
-
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={`${bellTriggerClass(onNotificationsRoute || open)} hidden md:flex`}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-label={ariaLabel}
-      >
-        <BellTriggerContent badge={badge} />
-      </button>
-
-      {open ? (
-        <div
-          className="absolute right-0 z-50 mt-2 hidden w-[min(calc(100vw-2rem),20.5rem)] origin-top-right md:block"
-          role="menu"
-          aria-label="Recent notifications"
+        <Link
+          to={ROUTES.NOTIFICATIONS}
+          className={`${bellTriggerClass(onNotificationsRoute)} md:hidden`}
+          aria-label={ariaLabel}
+          aria-current={onNotificationsRoute ? 'page' : undefined}
         >
-          <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,0.08)] backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-950 dark:shadow-black/40">
-            <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3 dark:border-neutral-800">
-              <p className="text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">
-                Notifications
-              </p>
-              {unreadCount > 0 ? (
-                <span className="rounded-full bg-accent-bg px-2 py-0.5 text-[11px] font-semibold text-accent dark:bg-accent-bg">
-                  {unreadCount} new
-                </span>
-              ) : null}
-            </div>
+          <BellTriggerContent badge={badge} />
+        </Link>
 
-            <div className="max-h-[min(70vh,24rem)] overflow-y-auto overscroll-y-contain">
-              {peekLoading ? (
-                <ul className="divide-y divide-neutral-100 p-2 dark:divide-neutral-800">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <li
-                      key={i}
-                      className="flex gap-3 rounded-xl px-2 py-2.5"
-                    >
-                      <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-neutral-200 dark:bg-neutral-800" />
-                      <div className="min-w-0 flex-1 space-y-2 pt-0.5">
-                        <div className="h-3 w-full max-w-[12rem] animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
-                        <div className="h-2.5 w-1/2 animate-pulse rounded bg-neutral-100 dark:bg-neutral-900" />
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : peek.length === 0 ? (
-                <div className="px-4 py-10 text-center">
-                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500">
-                    <BellGlyph className="h-6 w-6" />
-                  </div>
-                  <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                    You&apos;re all caught up
-                  </p>
-                  <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-500">
-                    New activity will appear here
-                  </p>
-                </div>
-              ) : (
-                <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
-                  {peek.map((row) => {
-                    const prof = profiles[row.senderId];
-                    const name =
-                      prof?.full_name?.trim() ||
-                      (prof?.username ? `@${prof.username}` : null) ||
-                      row.senderId.slice(0, 8);
-                    const when = row.createdAt
-                      ? formatRelativeTime(row.createdAt)
-                      : '';
-                    const act = notificationAction(row);
-                    const primary = summarizeNotificationType(row);
-                    const systemNotice = isAuthorSystemNotice(row);
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className={
+            layout === 'sidebar'
+              ? `app-sidebar__link${onNotificationsRoute || open ? ' app-sidebar__link--active' : ''} hidden md:flex`
+              : `${bellTriggerClass(onNotificationsRoute || open)} hidden md:flex`
+          }
+          aria-expanded={open}
+          aria-haspopup="dialog"
+          aria-label={ariaLabel}
+          title="Notifications"
+        >
+          {layout === 'sidebar' ? (
+            <>
+              <span className="app-sidebar__icon relative">
+                <BellGlyph className="h-[1.125rem] w-[1.125rem]" />
+                <BellBadge badge={badge} />
+              </span>
+              <span className="app-sidebar__label">Notifications</span>
+            </>
+          ) : (
+            <BellTriggerContent badge={badge} />
+          )}
+        </button>
+      </div>
 
-                    return (
-                      <li key={row.id}>
-                        <div
-                          className={`flex gap-3 px-3 py-2.5 transition-colors ${notificationRowClasses(row, row.isRead)}`}
-                        >
-                          <div className="relative shrink-0">
-                            <UserAvatar
-                              label={systemNotice ? 'You' : name}
-                              src={systemNotice ? null : prof?.avatar_url ?? null}
-                              size="sm"
-                            />
-                            {!row.isRead ? (
-                              <span
-                                className={`absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full shadow ring-2 ring-white dark:ring-neutral-950 ${notificationUnreadDotClass(row)}`}
-                                aria-hidden
-                              />
-                            ) : null}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="mb-1">
-                              <NotificationTypeBadge row={row} />
-                            </div>
-                            <p className="text-[13px] leading-snug text-neutral-800 dark:text-neutral-200">
-                              {systemNotice ? (
-                                act ? (
-                                  <Link
-                                    to={act.to}
-                                    state={notificationLinkState(row, location)}
-                                    className="font-semibold text-accent hover:text-accent-hover"
-                                    onClick={async () => {
-                                      setOpen(false);
-                                      if (!row.isRead) {
-                                        try {
-                                          await markNotificationReadApi(row.id);
-                                          patchRead(row.id, true);
-                                        } catch {
-                                          /* ignore */
-                                        }
-                                      }
-                                    }}
-                                  >
-                                    {primary}
-                                  </Link>
-                                ) : (
-                                  <span className="font-semibold">{primary}</span>
-                                )
-                              ) : (
-                                <>
-                                  <span className="font-semibold">{name}</span>{' '}
-                                  <span className="font-normal text-neutral-600 dark:text-neutral-400">
-                                    {primary}
-                                  </span>
-                                </>
-                              )}
-                              {row.preview?.trim() ? (
-                                <span className="block truncate text-neutral-500 dark:text-neutral-500">
-                                  “{row.preview.trim().slice(0, 72)}
-                                  {row.preview.length > 72 ? '…' : ''}”
-                                </span>
-                              ) : null}
-                            </p>
-                            {when ? (
-                              <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-500">
-                                {when}
-                              </p>
-                            ) : null}
-                            {act ? (
-                              <Link
-                                to={act.to}
-                                state={notificationLinkState(row, location)}
-                                role="menuitem"
-                                className="mt-1.5 inline-flex text-xs font-semibold text-accent hover:text-accent-hover"
-                                onClick={async () => {
-                                  setOpen(false);
-                                  if (!row.isRead) {
-                                    try {
-                                      await markNotificationReadApi(row.id);
-                                      patchRead(row.id, true);
-                                    } catch {
-                                      /* ignore */
-                                    }
-                                  }
-                                }}
-                              >
-                                {act.label}
-                              </Link>
-                            ) : null}
-                          </div>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-
-            <div className="border-t border-neutral-100 bg-neutral-50/90 p-2 dark:border-neutral-800 dark:bg-neutral-950/80">
-              <NavLink
-                to={ROUTES.NOTIFICATIONS}
-                role="menuitem"
-                className="flex w-full items-center justify-center rounded-xl border border-neutral-200 bg-white py-2.5 text-sm font-semibold text-accent shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-accent-hover dark:border-neutral-700 dark:bg-neutral-950 dark:hover:border-neutral-600 dark:hover:bg-neutral-900"
-                onClick={() => setOpen(false)}
-              >
-                View all activity
-              </NavLink>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </div>
+      <NotificationPanel
+        open={open}
+        onClose={() => setOpen(false)}
+        items={items}
+        loading={loading}
+        unreadCount={unreadCount}
+        onMarkRead={(row) => void handleMarkRead(row)}
+        onMarkAllRead={() => void handleMarkAllRead()}
+      />
+    </>
   );
 }

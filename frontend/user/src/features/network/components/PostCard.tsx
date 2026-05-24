@@ -83,7 +83,7 @@ function PostGridTile({
     <Link
       to={postPath}
       state={overlayState}
-      className={`group relative aspect-square overflow-hidden rounded-xl bg-neutral-200 ring-1 ring-black/5 transition-shadow hover:shadow-[0_8px_24px_-12px_rgba(0,0,0,0.25)] dark:bg-neutral-900 dark:ring-white/5 sm:rounded-2xl ${
+      className={`group relative aspect-square overflow-hidden rounded-xl bg-slate-200 ring-1 ring-black/5 transition-shadow hover:shadow-[0_8px_24px_-12px_rgba(0,0,0,0.25)] dark:bg-slate-900 dark:ring-white/5 sm:rounded-2xl ${
         isPending ? 'ring-2 ring-amber-400/80 dark:ring-amber-500/60' : ''
       }`}
     >
@@ -154,7 +154,7 @@ function PostFeedCard({
   const [likeCount, setLikeCount] = useState(post.likeCount);
   const [busy, setBusy] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
+  const [shareModal, setShareModal] = useState<'repost' | 'message' | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -225,6 +225,11 @@ function PostFeedCard({
   const originalPost = post.originalPost ?? null;
   const isRepost = Boolean(post.originalPostId);
   const displayPost = isRepost && originalPost ? originalPost : post;
+  const shareTarget = isRepost && originalPost ? originalPost : post;
+  const shareAuthor = isRepost && originalAuthor ? originalAuthor : author;
+  const canRepost = Boolean(
+    viewerUserId && shareTarget.authorId !== viewerUserId,
+  );
   const hasMedia = displayPost.mediaUrls.length > 0;
   const bodyText = isRepost ? post.content.trim() : post.content.trim();
   const originalBodyText = isRepost ? displayPost.content.trim() : '';
@@ -277,7 +282,7 @@ function PostFeedCard({
         className="surface-card surface-card--hover cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
       >
         {isRepost ? (
-          <p className="border-b border-neutral-200 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+          <p className="border-b border-slate-200 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-400">
             Reposted
           </p>
         ) : null}
@@ -288,22 +293,22 @@ function PostFeedCard({
         )}
         <header className="flex items-start gap-3 px-4 py-4 sm:gap-4 sm:px-5">
           <Link to={profilePath} className="shrink-0 pt-0.5">
-            <span className="inline-flex rounded-full ring-2 ring-neutral-100 dark:ring-neutral-800">
+            <span className="inline-flex rounded-full ring-2 ring-slate-100 dark:ring-slate-800">
               <UserAvatar label={displayName} src={author?.avatar_url ?? null} size="md" />
             </span>
           </Link>
           <div className="min-w-0 flex-1">
             <Link
               to={profilePath}
-              className="block truncate text-base font-semibold text-neutral-900 hover:opacity-70 dark:text-neutral-100"
+              className="block truncate text-base font-semibold text-slate-900 hover:opacity-70 dark:text-slate-100"
             >
               {username}
             </Link>
             {when && (
-              <p className="mt-0.5 truncate text-xs text-neutral-600 dark:text-neutral-400">
+              <p className="mt-0.5 truncate text-xs text-slate-600 dark:text-slate-400">
                 {when}
                 {post.visibility !== 'public' && (
-                  <span className="ml-1 text-neutral-500 dark:text-neutral-500">
+                  <span className="ml-1 text-slate-500 dark:text-slate-500">
                     · {post.visibility}
                   </span>
                 )}
@@ -314,17 +319,17 @@ function PostFeedCard({
             <button
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
-              className="rounded-full p-2 text-neutral-800 transition hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-900"
+              className="rounded-full p-2 text-slate-800 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
               aria-expanded={menuOpen}
               aria-label="Post options"
             >
               <MoreIcon />
             </button>
             {menuOpen && (
-              <div className="absolute bottom-full right-0 z-30 mb-1 min-w-[10rem] overflow-hidden rounded-xl border border-neutral-200 bg-white py-1 shadow-xl md:bottom-auto md:top-10 md:mb-0 dark:border-neutral-700 dark:bg-neutral-950">
+              <div className="absolute bottom-full right-0 z-30 mb-1 min-w-[10rem] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-xl md:bottom-auto md:top-10 md:mb-0 dark:border-slate-700 dark:bg-slate-950">
                 <button
                   type="button"
-                  className="w-full px-4 py-2.5 text-left text-sm text-neutral-800 hover:bg-neutral-50 dark:text-neutral-100 dark:hover:bg-neutral-900"
+                  className="w-full px-4 py-2.5 text-left text-sm text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-900"
                   onClick={() => {
                     setMenuOpen(false);
                     setReportOpen(true);
@@ -388,7 +393,7 @@ function PostFeedCard({
         )}
 
         {!isRepost && hasMedia && (
-          <div className="border-y border-neutral-200 dark:border-neutral-800">
+          <div className="border-y border-slate-200 dark:border-slate-800">
             <NetworkMediaStrip
               urls={displayPost.mediaUrls}
               variant="feed"
@@ -405,17 +410,17 @@ function PostFeedCard({
                 type="button"
                 disabled={busy}
                 onClick={() => void toggleLike()}
-                className={`rounded-full p-2 transition hover:bg-neutral-100 disabled:opacity-50 dark:hover:bg-neutral-900 ${
+                className={`rounded-full p-2 transition hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-slate-900 ${
                   liked
                     ? 'text-[#ff3040]'
-                    : 'text-neutral-900 dark:text-neutral-100'
+                    : 'text-slate-900 dark:text-slate-100'
                 }`}
                 aria-label={liked ? 'Unlike' : 'Like'}
               >
                 <HeartIcon filled={liked} large />
               </button>
               {likeCount > 0 ? (
-                <span className="text-base font-semibold tabular-nums text-neutral-900 dark:text-neutral-100">
+                <span className="text-base font-semibold tabular-nums text-slate-900 dark:text-slate-100">
                   {likeCount.toLocaleString()}
                 </span>
               ) : null}
@@ -423,28 +428,43 @@ function PostFeedCard({
             <Link
               to={postPath}
               state={overlayState}
-              className="rounded-full p-2 text-neutral-900 transition hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-900"
+              className="rounded-full p-2 text-slate-900 transition hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-900"
               aria-label="Comment"
             >
               <CommentIcon large />
             </Link>
             {viewerUserId ? (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShareOpen(true);
-                }}
-                className="rounded-full p-2 text-neutral-900 transition hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-900"
-                aria-label="Share post"
-              >
-                <ShareIcon large />
-              </button>
+              <>
+                {canRepost ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShareModal('repost');
+                    }}
+                    className="rounded-full p-2 text-slate-900 transition hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-900"
+                    aria-label="Repost"
+                  >
+                    <RepostIcon large />
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShareModal('message');
+                  }}
+                  className="rounded-full p-2 text-slate-900 transition hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-900"
+                  aria-label="Send post in message"
+                >
+                  <MessageShareIcon large />
+                </button>
+              </>
             ) : null}
           </div>
 
           {!isRepost && !textOnly && bodyText.length > 0 && (
-            <p className="text-base leading-relaxed text-neutral-900 dark:text-neutral-100">
+            <p className="text-base leading-relaxed text-slate-900 dark:text-slate-100">
               <Link
                 to={profilePath}
                 className="mr-1.5 font-semibold hover:opacity-70"
@@ -459,7 +479,7 @@ function PostFeedCard({
             <Link
               to={postPath}
               state={overlayState}
-              className="inline-block text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+              className="inline-block text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
             >
               View all {post.commentCount}{' '}
               {post.commentCount === 1 ? 'comment' : 'comments'}
@@ -468,13 +488,17 @@ function PostFeedCard({
         </div>
       </article>
 
-      <SharePostModal
-        open={shareOpen}
-        onClose={() => setShareOpen(false)}
-        post={isRepost && originalPost ? originalPost : post}
-        viewerUserId={viewerUserId ?? ''}
-        onReposted={onReposted}
-      />
+      {shareModal ? (
+        <SharePostModal
+          open
+          variant={shareModal}
+          onClose={() => setShareModal(null)}
+          post={shareTarget}
+          author={shareAuthor}
+          viewerUserId={viewerUserId ?? ''}
+          onReposted={onReposted}
+        />
+      ) : null}
       <ReportModal
         open={reportOpen}
         onClose={() => setReportOpen(false)}
@@ -494,13 +518,24 @@ function PostFeedCard({
   );
 }
 
-function ShareIcon({ large }: { large?: boolean }) {
+function RepostIcon({ large }: { large?: boolean }) {
   const sz = large ? 28 : 18;
   return (
-    <svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-      <polyline points="16 6 12 2 8 6" />
-      <line x1="12" y1="2" x2="12" y2="15" />
+    <svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M17 1l4 4-4 4" />
+      <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+      <path d="M7 23l-4-4 4-4" />
+      <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+    </svg>
+  );
+}
+
+function MessageShareIcon({ large }: { large?: boolean }) {
+  const sz = large ? 28 : 18;
+  return (
+    <svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="m22 2-7 20-4-9-9-4Z" />
+      <path d="M22 2 11 13" />
     </svg>
   );
 }

@@ -10,10 +10,17 @@ import {
   type AdminUser,
 } from '../../features/users/types/users.types';
 import { Button } from '../../shared/components/Button';
+import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { EmptyState } from '../../shared/components/EmptyState';
+import { InputDialog } from '../../shared/components/InputDialog';
 import { LoadingState } from '../../shared/components/LoadingState';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { formatRelativeTime } from '../../shared/utils/format';
+
+type UserDialog =
+  | { type: 'block'; user: AdminUser }
+  | { type: 'reset'; user: AdminUser }
+  | null;
 
 export function UsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -21,6 +28,9 @@ export function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<UserDialog>(null);
+  const [blockDays, setBlockDays] = useState('7');
+  const [blockError, setBlockError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -40,17 +50,34 @@ export function UsersPage() {
     void load();
   }, [load]);
 
-  const handleBlock = async (user: AdminUser) => {
-    const daysStr = window.prompt('Block for how many days?', '7');
-    if (daysStr === null) return;
-    const blockDays = Number.parseInt(daysStr, 10);
-    if (!Number.isFinite(blockDays) || blockDays < 1) {
-      setError('Enter a valid number of days.');
+  const openBlockDialog = (user: AdminUser) => {
+    setBlockDays('7');
+    setBlockError(null);
+    setDialog({ type: 'block', user });
+  };
+
+  const openResetDialog = (user: AdminUser) => {
+    setDialog({ type: 'reset', user });
+  };
+
+  const closeDialog = () => {
+    if (actionId) return;
+    setDialog(null);
+    setBlockError(null);
+  };
+
+  const handleBlockConfirm = async () => {
+    if (dialog?.type !== 'block') return;
+    const blockDaysNum = Number.parseInt(blockDays, 10);
+    if (!Number.isFinite(blockDaysNum) || blockDaysNum < 1) {
+      setBlockError('Enter a valid number of days (1 or more).');
       return;
     }
-    setActionId(user.id);
+    setBlockError(null);
+    setActionId(dialog.user.id);
     try {
-      await blockUserApi(user.id, blockDays);
+      await blockUserApi(dialog.user.id, blockDaysNum);
+      setDialog(null);
       await load();
     } catch {
       setError('Failed to block user.');
@@ -71,14 +98,12 @@ export function UsersPage() {
     }
   };
 
-  const handleResetPenalty = async (user: AdminUser) => {
-    const confirmed = window.confirm(
-      `Reset violation count and posting restrictions for ${user.email}? Account blocks are not changed — use Unblock if needed.`,
-    );
-    if (!confirmed) return;
-    setActionId(user.id);
+  const handleResetConfirm = async () => {
+    if (dialog?.type !== 'reset') return;
+    setActionId(dialog.user.id);
     try {
-      await resetViolationPenaltyApi(user.id);
+      await resetViolationPenaltyApi(dialog.user.id);
+      setDialog(null);
       await load();
     } catch {
       setError('Failed to reset penalty.');
@@ -155,7 +180,7 @@ export function UsersPage() {
                         <Button
                           variant="secondary"
                           disabled={actionId === user.id}
-                          onClick={() => handleResetPenalty(user)}
+                          onClick={() => openResetDialog(user)}
                         >
                           Reset penalty
                         </Button>
@@ -172,7 +197,7 @@ export function UsersPage() {
                         <Button
                           variant="secondary"
                           disabled={actionId === user.id}
-                          onClick={() => handleBlock(user)}
+                          onClick={() => openBlockDialog(user)}
                         >
                           Block
                         </Button>
@@ -185,6 +210,43 @@ export function UsersPage() {
           </table>
         </div>
       ) : null}
+
+      <InputDialog
+        open={dialog?.type === 'block'}
+        title="Block user"
+        message={
+          dialog?.type === 'block'
+            ? `Block ${dialog.user.email} from signing in for a set number of days.`
+            : undefined
+        }
+        label="Block duration (days)"
+        value={blockDays}
+        onChange={setBlockDays}
+        inputType="number"
+        placeholder="7"
+        confirmLabel="Block user"
+        confirmVariant="danger"
+        error={blockError}
+        confirming={actionId !== null}
+        onClose={closeDialog}
+        onConfirm={() => void handleBlockConfirm()}
+        inputProps={{ min: 1, step: 1, inputMode: 'numeric' }}
+      />
+
+      <ConfirmDialog
+        open={dialog?.type === 'reset'}
+        title="Reset penalty?"
+        message={
+          dialog?.type === 'reset'
+            ? `Reset violation count and posting restrictions for ${dialog.user.email}. Account blocks are not changed — use Unblock if needed.`
+            : ''
+        }
+        confirmLabel="Reset penalty"
+        confirmVariant="primary"
+        confirming={actionId !== null}
+        onClose={closeDialog}
+        onConfirm={() => void handleResetConfirm()}
+      />
     </div>
   );
 }

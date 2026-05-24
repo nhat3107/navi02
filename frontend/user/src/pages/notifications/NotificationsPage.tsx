@@ -179,12 +179,12 @@ export function NotificationsPage() {
             {Array.from({ length: 6 }).map((_, i) => (
               <li
                 key={i}
-                className="flex gap-4 rounded-2xl border border-neutral-200 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-neutral-800 dark:bg-neutral-950 dark:shadow-none"
+                className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-slate-800 dark:bg-slate-950 dark:shadow-none"
               >
-                <div className="h-12 w-12 shrink-0 animate-pulse rounded-2xl bg-neutral-200 dark:bg-neutral-800" />
+                <div className="h-12 w-12 shrink-0 animate-pulse rounded-2xl bg-slate-200 dark:bg-slate-800" />
                 <div className="flex-1 space-y-2 pt-1">
-                  <div className="h-4 w-2/3 max-w-xs animate-pulse rounded-lg bg-neutral-200 dark:bg-neutral-800" />
-                  <div className="h-3 w-1/3 animate-pulse rounded bg-neutral-100 dark:bg-neutral-900" />
+                  <div className="h-4 w-2/3 max-w-xs animate-pulse rounded-lg bg-slate-200 dark:bg-slate-800" />
+                  <div className="h-3 w-1/3 animate-pulse rounded bg-slate-100 dark:bg-slate-900" />
                 </div>
               </li>
             ))}
@@ -230,7 +230,7 @@ export function NotificationsPage() {
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
-                          <p className="text-[15px] leading-snug text-neutral-900 dark:text-neutral-100">
+                          <p className="text-[15px] leading-snug text-slate-900 dark:text-slate-100">
                             {systemNotice ? (
                               act ? (
                                 <Link
@@ -253,7 +253,7 @@ export function NotificationsPage() {
                                 >
                                   {name}
                                 </button>{' '}
-                                <span className="font-normal text-neutral-600 dark:text-neutral-400">
+                                <span className="font-normal text-slate-600 dark:text-slate-400">
                                   {headline}
                                 </span>
                               </>
@@ -268,18 +268,18 @@ export function NotificationsPage() {
                             ) : null}
                             <NotificationDismissButton
                               onDismiss={() => setDeleteTarget(row)}
-                              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 sm:h-auto sm:w-auto sm:rounded-lg sm:p-1.5 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+                              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 sm:h-auto sm:w-auto sm:rounded-lg sm:p-1.5 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                             />
                           </div>
                         </div>
                         {preview ? (
-                          <p className="mt-2 line-clamp-2 rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
+                          <p className="mt-2 line-clamp-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
                             {preview}
                           </p>
                         ) : null}
                         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                           {when ? (
-                            <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
                               {when}
                             </span>
                           ) : null}
@@ -293,7 +293,7 @@ export function NotificationsPage() {
                               {act.label} →
                             </Link>
                           ) : row.referenceType === 'comment' ? (
-                            <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
                               Open the post from your feed to see the thread.
                             </span>
                           ) : null}

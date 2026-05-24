@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { fetchUserSuggestions, type UserSuggestion } from '../api/userDirectory.api';
 import { useProfileCache } from '../store/profileCache.store';
 import { DiscoverPersonCard } from './DiscoverPersonCard';
 import { EmptyState } from '../../../shared/components/EmptyState';
+import { ROUTES } from '../../../shared/constants/routes';
 
 function RefreshIcon({ className = '' }: { className?: string }) {
   return (
@@ -29,11 +31,15 @@ export function SuggestedPeoplePanel({
   viewerUserId,
   title = 'People you may know',
   description = 'Suggested from your network',
+  layout = 'grid',
+  hideWhenEmpty = false,
 }: {
   limit?: number;
   viewerUserId: string | null;
   title?: string;
   description?: string;
+  layout?: 'grid' | 'carousel' | 'list';
+  hideWhenEmpty?: boolean;
 }) {
   const followingIds = useProfileCache((s) => s.followingIds);
   const [suggestions, setSuggestions] = useState<UserSuggestion[]>([]);
@@ -68,6 +74,7 @@ export function SuggestedPeoplePanel({
   );
 
   if (!viewerUserId) {
+    if (hideWhenEmpty) return null;
     return (
       <section className="discover-section">
         <header className="discover-section__header">
@@ -80,29 +87,80 @@ export function SuggestedPeoplePanel({
     );
   }
 
+  if (hideWhenEmpty && !loading && !error && visible.length === 0) {
+    return null;
+  }
+
+  const listClass =
+    layout === 'carousel'
+      ? 'home-suggestion-strip'
+      : layout === 'list'
+        ? 'home-suggestions__list'
+        : 'discover-suggestion-grid';
+
+  const sectionClass =
+    layout === 'list' ? 'home-suggestions' : `discover-section${layout === 'carousel' ? ' mb-5' : ''}`;
+
   return (
-    <section className="discover-section">
-      <header className="discover-section__header">
-        <div>
-          <h2 className="discover-section__title">{title}</h2>
-          <p className="discover-section__subtitle">{description}</p>
+    <section className={sectionClass}>
+      <header
+        className={
+          layout === 'list' ? 'home-suggestions__header' : 'discover-section__header'
+        }
+      >
+        <div className="min-w-0">
+          <h2
+            className={
+              layout === 'list' ? 'home-suggestions__title' : 'discover-section__title'
+            }
+          >
+            {title}
+          </h2>
+          {layout !== 'list' ? (
+            <p className="discover-section__subtitle">{description}</p>
+          ) : null}
         </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          disabled={loading}
-          className="discover-refresh-btn"
-          aria-label="Refresh suggestions"
-        >
-          <RefreshIcon className={loading ? 'animate-spin' : ''} />
-          <span>Refresh</span>
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {layout === 'carousel' || layout === 'list' ? (
+            <Link
+              to={ROUTES.DISCOVER}
+              className={
+                layout === 'list' ? 'home-suggestions__see-all' : 'discover-refresh-btn'
+              }
+            >
+              {layout === 'list' ? 'See all' : 'See all'}
+            </Link>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={loading}
+            className={
+              layout === 'list' ? 'home-suggestions__refresh' : 'discover-refresh-btn'
+            }
+            aria-label="Refresh suggestions"
+            title="Refresh"
+          >
+            <RefreshIcon className={loading ? 'animate-spin' : ''} />
+            {layout === 'list' ? null : <span>Refresh</span>}
+          </button>
+        </div>
       </header>
 
       {loading ? (
-        <div className="discover-suggestion-grid">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="discover-person-tile discover-person-tile--skeleton" aria-hidden />
+        <div className={listClass}>
+          {Array.from({ length: layout === 'list' ? 5 : 4 }).map((_, i) => (
+            <div
+              key={i}
+              className={
+                layout === 'carousel'
+                  ? 'home-suggestion-card home-suggestion-card--skeleton'
+                  : layout === 'list'
+                    ? 'discover-person-row discover-person-row--skeleton'
+                    : 'discover-person-tile discover-person-tile--skeleton'
+              }
+              aria-hidden
+            />
           ))}
         </div>
       ) : null}
@@ -111,27 +169,45 @@ export function SuggestedPeoplePanel({
         <div className="discover-section__message discover-section__message--error">{error}</div>
       ) : null}
 
-      {!loading && !error && visible.length === 0 ? (
+      {!loading && !error && visible.length === 0 && layout !== 'list' ? (
         <EmptyState
           title="No suggestions right now"
           description="Follow a few people to unlock friend recommendations."
         />
       ) : null}
 
+      {!loading && !error && visible.length === 0 && layout === 'list' ? (
+        <p className="home-suggestions__empty">No suggestions right now.</p>
+      ) : null}
+
       {!loading && !error && visible.length > 0 ? (
-        <div className="discover-suggestion-grid">
-          {visible.map((hit) => (
-            <DiscoverPersonCard
-              key={hit.id}
-              id={hit.id}
-              username={hit.username}
-              fullName={hit.full_name}
-              avatarUrl={hit.avatar_url}
-              viewerUserId={viewerUserId}
-              mutualCount={hit.mutualCount}
-              variant="tile"
-            />
-          ))}
+        <div className={listClass}>
+          {visible.map((hit) =>
+            layout === 'carousel' ? (
+              <article key={hit.id} className="home-suggestion-card">
+                <DiscoverPersonCard
+                  id={hit.id}
+                  username={hit.username}
+                  fullName={hit.full_name}
+                  avatarUrl={hit.avatar_url}
+                  viewerUserId={viewerUserId}
+                  mutualCount={hit.mutualCount}
+                  variant="tile"
+                />
+              </article>
+            ) : (
+              <DiscoverPersonCard
+                key={hit.id}
+                id={hit.id}
+                username={hit.username}
+                fullName={hit.full_name}
+                avatarUrl={hit.avatar_url}
+                viewerUserId={viewerUserId}
+                mutualCount={hit.mutualCount}
+                variant={layout === 'list' ? 'row' : 'tile'}
+              />
+            ),
+          )}
         </div>
       ) : null}
     </section>

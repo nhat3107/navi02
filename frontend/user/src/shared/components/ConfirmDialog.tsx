@@ -45,14 +45,14 @@ export function ConfirmDialog({
         aria-label="Close dialog"
         onClick={() => !confirming && onClose()}
       />
-      <div className="relative z-10 w-full max-w-sm rounded-3xl border border-neutral-200 bg-white p-5 shadow-2xl dark:border-neutral-700 dark:bg-neutral-950">
+      <div className="relative z-10 w-full max-w-sm rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-950">
         <h2
           id="confirm-dialog-title"
-          className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
+          className="text-lg font-semibold text-slate-900 dark:text-slate-100"
         >
           {title}
         </h2>
-        <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
+        <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
           {message}
         </p>
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">

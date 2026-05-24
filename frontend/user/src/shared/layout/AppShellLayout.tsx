@@ -9,8 +9,12 @@ export function AppShellLayout() {
 
   return (
     <div className={`app-page${isChatRoute ? ' app-page--chat' : ''}`}>
-      <AppNavBar />
-      <Outlet />
+      <div className="app-shell">
+        <AppNavBar />
+        <div className="app-shell__main">
+          <Outlet />
+        </div>
+      </div>
     </div>
   );
 }

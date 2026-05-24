@@ -29,11 +29,11 @@ export function SharedPostPreview({
   if (loading) {
     return (
       <div
-        className={`rounded-xl border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-neutral-900/60 ${
+        className={`rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/60 ${
           compact ? 'text-xs' : 'text-sm'
         }`}
       >
-        <p className="text-neutral-500 dark:text-neutral-400">Loading post…</p>
+        <p className="text-slate-500 dark:text-slate-400">Loading post…</p>
       </div>
     );
   }
@@ -41,11 +41,11 @@ export function SharedPostPreview({
   if (unavailable || !post || post.visibility === 'deleted') {
     return (
       <div
-        className={`rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-3 dark:border-neutral-600 dark:bg-neutral-900/40 ${
+        className={`rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3 dark:border-slate-600 dark:bg-slate-900/40 ${
           compact ? 'text-xs' : 'text-sm'
         }`}
       >
-        <p className="text-neutral-500 dark:text-neutral-400">
+        <p className="text-slate-500 dark:text-slate-400">
           This post is no longer available.
         </p>
       </div>
@@ -67,7 +67,7 @@ export function SharedPostPreview({
 
   return (
     <div
-      className={`overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900/60 ${
+      className={`overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/60 ${
         compact ? '' : 'shadow-sm'
       }`}
     >
@@ -77,7 +77,7 @@ export function SharedPostPreview({
         </Link>
         <Link
           to={profilePath}
-          className="min-w-0 truncate font-semibold text-neutral-900 hover:opacity-70 dark:text-neutral-100"
+          className="min-w-0 truncate font-semibold text-slate-900 hover:opacity-70 dark:text-slate-100"
           {...linkProps}
         >
           {username}
@@ -110,7 +110,7 @@ export function SharedPostPreview({
           {previewText ? (
             <Link to={postPath} className="block hover:opacity-80" {...linkProps}>
               <p
-                className={`whitespace-pre-wrap text-neutral-800 dark:text-neutral-200 ${
+                className={`whitespace-pre-wrap text-slate-800 dark:text-slate-200 ${
                   compact ? 'line-clamp-3 text-xs leading-relaxed' : 'line-clamp-4 text-sm leading-relaxed'
                 }`}
               >

@@ -7,6 +7,7 @@ import {
 } from '../../features/posts/api/posts.api';
 import { PostModerationCard } from '../../features/posts/components/PostModerationCard';
 import type { ReportedPostItem } from '../../features/posts/types/posts.types';
+import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { EmptyState } from '../../shared/components/EmptyState';
 import { LoadingState } from '../../shared/components/LoadingState';
 import { PageHeader } from '../../shared/components/PageHeader';
@@ -19,6 +20,7 @@ export function ReportedPostsPage() {
   const [items, setItems] = useState<ReportedPostItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [rejectPostId, setRejectPostId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -69,14 +71,18 @@ export function ReportedPostsPage() {
     }
   };
 
-  const handleReject = async (postId: string) => {
-    if (!window.confirm('Remove this post and apply a penalty to the author?')) {
-      return;
-    }
+  const handleRejectRequest = (postId: string) => {
+    setRejectPostId(postId);
+  };
+
+  const handleRejectConfirm = async () => {
+    if (!rejectPostId) return;
+    const postId = rejectPostId;
     setActionId(postId);
     try {
       await rejectPostApi(postId);
       setItems((prev) => prev.filter((i) => i.post.id !== postId));
+      setRejectPostId(null);
       if (focusPostId === postId) {
         navigate(ROUTES.REPORTS, { replace: true });
       }
@@ -145,11 +151,21 @@ export function ReportedPostsPage() {
               highlighted={isSingleView}
               loading={actionId === post.id}
               onApprove={handleApprove}
-              onReject={handleReject}
+              onReject={handleRejectRequest}
             />
           ))}
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={rejectPostId !== null}
+        title="Remove post?"
+        message="This will remove the post and apply a penalty to the author. This action cannot be undone."
+        confirmLabel="Remove post"
+        confirming={actionId !== null}
+        onClose={() => !actionId && setRejectPostId(null)}
+        onConfirm={() => void handleRejectConfirm()}
+      />
     </div>
   );
 }

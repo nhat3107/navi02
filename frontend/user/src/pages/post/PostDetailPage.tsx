@@ -59,7 +59,7 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
+  const [shareModal, setShareModal] = useState<'repost' | 'message' | null>(null);
   const [deleteBusy] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   /** Active media inside the in-pane carousel (first item by default). */
@@ -307,6 +307,11 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
         : (post?.content.trim().length ?? 0) > 0),
   );
   const detailTwoColumn = Boolean(post && (hasMedia || textOnly));
+  const shareTarget = isRepost && originalPost ? originalPost : post;
+  const shareAuthor = shareTarget ? authorById[shareTarget.authorId] : undefined;
+  const canRepost = Boolean(
+    viewerId && shareTarget && viewerId !== shareTarget.authorId,
+  );
 
   const pageMain = (
     <main
@@ -317,21 +322,21 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
       }`}
     >
         {phase === 'loading' && (
-          <div className="rounded-3xl border border-neutral-200/70 bg-white/80 p-12 text-center text-sm font-medium text-neutral-700 shadow-[0_25px_60px_-25px_rgba(15,23,42,0.25)] backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/80 dark:text-neutral-200">
+          <div className="rounded-3xl border border-slate-200/70 bg-white/80 p-12 text-center text-sm font-medium text-slate-700 shadow-[0_25px_60px_-25px_rgba(15,23,42,0.25)] backdrop-blur dark:border-slate-800/70 dark:bg-slate-950/80 dark:text-slate-200">
             Loading post…
           </div>
         )}
         {phase === 'not-found' && (
-          <div className="rounded-3xl border border-neutral-200/70 bg-white/80 p-12 text-center text-sm font-medium text-neutral-800 shadow-[0_25px_60px_-25px_rgba(15,23,42,0.25)] backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/80 dark:text-neutral-100">
+          <div className="rounded-3xl border border-slate-200/70 bg-white/80 p-12 text-center text-sm font-medium text-slate-800 shadow-[0_25px_60px_-25px_rgba(15,23,42,0.25)] backdrop-blur dark:border-slate-800/70 dark:bg-slate-950/80 dark:text-slate-100">
             This post is not available.
           </div>
         )}
         {phase === 'removed' && (
-          <div className="rounded-3xl border border-neutral-200/70 bg-white/80 p-12 text-center shadow-[0_25px_60px_-25px_rgba(15,23,42,0.25)] backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/80">
-            <p className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
+          <div className="rounded-3xl border border-slate-200/70 bg-white/80 p-12 text-center shadow-[0_25px_60px_-25px_rgba(15,23,42,0.25)] backdrop-blur dark:border-slate-800/70 dark:bg-slate-950/80">
+            <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
               This post has been removed
             </p>
-            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
               It was removed because it did not meet our community guidelines.
             </p>
           </div>
@@ -355,14 +360,14 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
         {phase === 'ready' && post && (
           <article
             aria-label="Post detail"
-            className={`relative overflow-hidden rounded-3xl border shadow-[0_24px_64px_-28px_rgba(15,23,42,0.2)] ring-1 transition-shadow duration-300 dark:shadow-[0_28px_72px_-32px_rgba(0,0,0,0.65)] border-neutral-200/60 bg-white ring-black/[0.04] dark:border-neutral-800/70 dark:bg-neutral-950 dark:ring-white/[0.06] ${
+            className={`relative overflow-hidden rounded-3xl border shadow-[0_24px_64px_-28px_rgba(15,23,42,0.2)] ring-1 transition-shadow duration-300 dark:shadow-[0_28px_72px_-32px_rgba(0,0,0,0.65)] border-slate-200/60 bg-white ring-black/[0.04] dark:border-slate-800/70 dark:bg-slate-950 dark:ring-white/[0.06] ${
               detailTwoColumn
                 ? 'lg:grid lg:grid-cols-[minmax(0,1.55fr)_minmax(360px,1fr)]'
                 : 'mx-auto lg:max-w-[700px]'
             }`}
           >
             {isRepost && (
-              <p className="border-b border-neutral-200 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-500 lg:col-span-2 dark:border-neutral-800 dark:text-neutral-400">
+              <p className="border-b border-slate-200 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 lg:col-span-2 dark:border-slate-800 dark:text-slate-400">
                 Reposted
               </p>
             )}
@@ -386,7 +391,7 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
             {textOnly && (
               <section
                 aria-label="Post text"
-                className="post-detail-text-only relative flex min-h-[280px] flex-col border-b border-neutral-200 dark:border-neutral-800 lg:h-[min(82vh,820px)] lg:max-h-[min(82vh,820px)] lg:min-h-[560px] lg:border-b-0 lg:border-r"
+                className="post-detail-text-only relative flex min-h-[280px] flex-col border-b border-slate-200 dark:border-slate-800 lg:h-[min(82vh,820px)] lg:max-h-[min(82vh,820px)] lg:min-h-[560px] lg:border-b-0 lg:border-r"
               >
                 <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto p-5 sm:p-8">
                   <div className="post-detail-text-only__highlight">
@@ -402,17 +407,17 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
             )}
 
             <div
-              className={`flex flex-col bg-white dark:bg-neutral-950 ${
+              className={`flex flex-col bg-white dark:bg-slate-950 ${
                 detailTwoColumn
                   ? 'lg:h-[min(82vh,820px)] lg:max-h-[min(82vh,820px)] lg:min-h-[560px]'
                   : ''
               }`}
             >
               <header
-                className="flex items-start gap-3 border-b border-neutral-200 px-5 py-4 dark:border-neutral-800"
+                className="flex items-start gap-3 border-b border-slate-200 px-5 py-4 dark:border-slate-800"
               >
                 <Link to={profilePath} className="mt-0.5 shrink-0">
-                  <span className="inline-flex rounded-full ring-2 ring-neutral-100 dark:ring-neutral-800">
+                  <span className="inline-flex rounded-full ring-2 ring-slate-100 dark:ring-slate-800">
                     <UserAvatar
                       label={displayName}
                       src={author?.avatar_url ?? null}
@@ -424,15 +429,15 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                     <Link
                       to={profilePath}
-                      className="truncate text-base font-semibold text-neutral-900 hover:opacity-70 dark:text-neutral-100"
+                      className="truncate text-base font-semibold text-slate-900 hover:opacity-70 dark:text-slate-100"
                     >
                       {username}
                     </Link>
                     {when && (
-                      <span className="truncate text-xs text-neutral-600 dark:text-neutral-400">
+                      <span className="truncate text-xs text-slate-600 dark:text-slate-400">
                         · {when}
                         {post.visibility !== 'public' && (
-                          <span className="ml-1 text-neutral-500 dark:text-neutral-500">
+                          <span className="ml-1 text-slate-500 dark:text-slate-500">
                             · {post.visibility}
                           </span>
                         )}
@@ -440,12 +445,12 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
                     )}
                   </div>
                   {isRepost && post.content.trim().length > 0 && (
-                    <p className="mt-2 whitespace-pre-wrap break-words text-[1.0625rem] font-medium leading-[1.65] text-neutral-900 antialiased dark:text-neutral-100 sm:text-lg sm:leading-relaxed">
+                    <p className="mt-2 whitespace-pre-wrap break-words text-[1.0625rem] font-medium leading-[1.65] text-slate-900 antialiased dark:text-slate-100 sm:text-lg sm:leading-relaxed">
                       {post.content}
                     </p>
                   )}
                   {!isRepost && hasMedia && post.content.trim().length > 0 && (
-                    <p className="mt-2 whitespace-pre-wrap break-words text-[1.0625rem] font-medium leading-[1.65] text-neutral-900 antialiased dark:text-neutral-100 sm:text-lg sm:leading-relaxed">
+                    <p className="mt-2 whitespace-pre-wrap break-words text-[1.0625rem] font-medium leading-[1.65] text-slate-900 antialiased dark:text-slate-100 sm:text-lg sm:leading-relaxed">
                       {post.content}
                     </p>
                   )}
@@ -454,17 +459,17 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
                   <button
                     type="button"
                     onClick={() => setMenuOpen((v) => !v)}
-                    className="rounded-full p-2 text-neutral-800 transition hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-900"
+                    className="rounded-full p-2 text-slate-800 transition hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-900"
                     aria-expanded={menuOpen}
                     aria-label="Post options"
                   >
                     <MoreIcon />
                   </button>
                   {menuOpen && (
-                    <div className="absolute bottom-full right-0 z-30 mb-1 min-w-[10rem] overflow-hidden rounded-xl border border-neutral-200 bg-white py-1 shadow-xl md:bottom-auto md:top-10 md:mb-0 dark:border-neutral-700 dark:bg-neutral-950">
+                    <div className="absolute bottom-full right-0 z-30 mb-1 min-w-[10rem] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-xl md:bottom-auto md:top-10 md:mb-0 dark:border-slate-700 dark:bg-slate-950">
                       <button
                         type="button"
-                        className="w-full px-4 py-2.5 text-left text-sm text-neutral-800 hover:bg-neutral-50 dark:text-neutral-100 dark:hover:bg-neutral-900"
+                        className="w-full px-4 py-2.5 text-left text-sm text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-900"
                         onClick={() => {
                           setMenuOpen(false);
                           setReportOpen(true);
@@ -505,35 +510,35 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
                 </ul>
 
                 {comments.length === 0 && !composerOpen && (
-                  <div className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 px-5 py-8 text-center dark:border-neutral-700 dark:bg-neutral-900/60">
-                    <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                  <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center dark:border-slate-700 dark:bg-slate-900/60">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                       No comments yet
                     </p>
-                    <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-300">
+                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
                       Be the first to start the conversation.
                     </p>
                   </div>
                 )}
               </div>
 
-              <div className="border-t border-neutral-200 px-5 py-3 dark:border-neutral-800">
+              <div className="border-t border-slate-200 px-5 py-3 dark:border-slate-800">
                 <div className="-ml-1.5 flex flex-wrap items-center gap-x-5 gap-y-2">
                   <div className="flex min-h-[40px] items-center gap-1.5">
                     <button
                       type="button"
                       disabled={likeBusy}
                       onClick={() => void togglePostLike()}
-                      className={`rounded-full p-2 transition hover:bg-neutral-100 disabled:opacity-50 dark:hover:bg-neutral-900 ${
+                      className={`rounded-full p-2 transition hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-slate-900 ${
                         liked
                           ? 'text-[#ff3040]'
-                          : 'text-neutral-900 dark:text-neutral-100'
+                          : 'text-slate-900 dark:text-slate-100'
                       }`}
                       aria-label={liked ? 'Unlike' : 'Like'}
                     >
                       <HeartIcon filled={liked} />
                     </button>
                     {likeCount > 0 ? (
-                      <span className="text-sm font-semibold tabular-nums text-neutral-900 dark:text-neutral-100">
+                      <span className="text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">
                         {likeCount.toLocaleString()}
                       </span>
                     ) : null}
@@ -543,10 +548,10 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
                     onClick={toggleComposer}
                     aria-expanded={composerOpen}
                     aria-controls="comment-composer"
-                    className={`rounded-full p-2 transition hover:bg-neutral-100 dark:hover:bg-neutral-900 ${
+                    className={`rounded-full p-2 transition hover:bg-slate-100 dark:hover:bg-slate-900 ${
                       composerOpen
                         ? 'text-accent'
-                        : 'text-neutral-900 dark:text-neutral-100'
+                        : 'text-slate-900 dark:text-slate-100'
                     }`}
                     aria-label={
                       composerOpen ? 'Close comment box' : 'Add a comment'
@@ -555,14 +560,26 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
                     <CommentIcon />
                   </button>
                   {viewerId ? (
-                    <button
-                      type="button"
-                      onClick={() => setShareOpen(true)}
-                      className="rounded-full p-2 text-neutral-900 transition hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-900"
-                      aria-label="Share post"
-                    >
-                      <ShareIcon />
-                    </button>
+                    <>
+                      {canRepost ? (
+                        <button
+                          type="button"
+                          onClick={() => setShareModal('repost')}
+                          className="rounded-full p-2 text-slate-900 transition hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-900"
+                          aria-label="Repost"
+                        >
+                          <RepostIcon />
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => setShareModal('message')}
+                        className="rounded-full p-2 text-slate-900 transition hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-900"
+                        aria-label="Send post in message"
+                      >
+                        <MessageShareIcon />
+                      </button>
+                    </>
                   ) : null}
                 </div>
               </div>
@@ -570,9 +587,9 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
               {composerOpen && (
                 <div
                   id="comment-composer"
-                  className="border-t border-neutral-200 px-5 py-3 dark:border-neutral-800"
+                  className="border-t border-slate-200 px-5 py-3 dark:border-slate-800"
                 >
-                  <div className="group flex items-center gap-2 rounded-full border border-neutral-300 bg-white pl-4 pr-1.5 transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20 dark:border-neutral-700 dark:bg-neutral-900 dark:focus-within:border-accent dark:focus-within:ring-accent/30">
+                  <div className="group flex items-center gap-2 rounded-full border border-slate-300 bg-white pl-4 pr-1.5 transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20 dark:border-slate-700 dark:bg-slate-900 dark:focus-within:border-accent dark:focus-within:ring-accent/30">
                     <textarea
                       ref={commentInputRef}
                       value={commentDraft}
@@ -593,7 +610,7 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
                       rows={1}
                       maxLength={2000}
                       placeholder="Add a comment…"
-                      className="min-h-[24px] max-h-32 min-w-0 flex-1 resize-none border-0 bg-transparent py-2.5 text-sm font-medium leading-snug text-neutral-900 caret-accent outline-none placeholder:font-normal placeholder:text-neutral-500 dark:text-neutral-50 dark:placeholder:text-neutral-400"
+                      className="min-h-[24px] max-h-32 min-w-0 flex-1 resize-none border-0 bg-transparent py-2.5 text-sm font-medium leading-snug text-slate-900 caret-accent outline-none placeholder:font-normal placeholder:text-slate-500 dark:text-slate-50 dark:placeholder:text-slate-400"
                     />
                     <button
                       type="button"
@@ -602,20 +619,20 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
                         (!commentDraft.trim() && commentMediaUrls.length === 0)
                       }
                       onClick={() => void sendTopLevelComment()}
-                      className="rounded-full px-4 py-1.5 text-sm font-bold tracking-wide text-[#0095f6] transition hover:text-[#1877f2] disabled:cursor-not-allowed disabled:text-neutral-400 dark:disabled:text-neutral-500"
+                      className="rounded-full px-4 py-1.5 text-sm font-bold tracking-wide text-[#0095f6] transition hover:text-[#1877f2] disabled:cursor-not-allowed disabled:text-slate-400 dark:disabled:text-slate-500"
                     >
                       {submittingComment ? 'Posting…' : 'Post'}
                     </button>
                   </div>
                   <div className="mt-2 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                    <p className="text-[0.7rem] font-medium text-neutral-500 dark:text-neutral-400">
+                    <p className="text-[0.7rem] font-medium text-slate-500 dark:text-slate-400">
                       Press Enter to post · Shift + Enter for a new line
                     </p>
                     <p
                       className={`text-[0.7rem] tabular-nums ${
                         commentDraft.length > 1800
                           ? 'font-semibold text-amber-700 dark:text-amber-300'
-                          : 'text-neutral-500 dark:text-neutral-400'
+                          : 'text-slate-500 dark:text-slate-400'
                       }`}
                     >
                       {commentDraft.length}/2000
@@ -635,12 +652,16 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
               )}
             </div>
 
-            <SharePostModal
-              open={shareOpen}
-              onClose={() => setShareOpen(false)}
-              post={isRepost && originalPost ? originalPost : post}
-              viewerUserId={viewerId ?? ''}
-            />
+            {shareModal && shareTarget ? (
+              <SharePostModal
+                open
+                variant={shareModal}
+                onClose={() => setShareModal(null)}
+                post={shareTarget}
+                author={shareAuthor}
+                viewerUserId={viewerId ?? ''}
+              />
+            ) : null}
             <ReportModal
               open={reportOpen}
               onClose={() => setReportOpen(false)}
@@ -711,11 +732,11 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
   }
 
   return (
-    <AppPage mainClassName="relative overflow-hidden bg-neutral-200 p-0 dark:bg-black">
+    <AppPage mainClassName="relative p-0">
       {/* Soft floating backdrop, evokes the "lifted" feel of a modal. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-0 h-[520px] bg-gradient-to-br from-neutral-200/55 via-accent-bg/25 to-neutral-100/40 blur-3xl dark:from-neutral-950 dark:via-accent-bg/20 dark:to-black"
+        className="pointer-events-none absolute inset-x-0 top-0 -z-0 h-[520px] bg-gradient-to-br from-slate-200/55 via-accent-bg/25 to-slate-100/40 blur-3xl dark:from-slate-950 dark:via-accent-bg/20 dark:to-slate-950"
       />
 
       {pageMain}
@@ -1025,12 +1046,22 @@ function HeartIcon({ filled }: { filled: boolean }) {
   );
 }
 
-function ShareIcon() {
+function RepostIcon() {
   return (
-    <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-      <polyline points="16 6 12 2 8 6" />
-      <line x1="12" y1="2" x2="12" y2="15" />
+    <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M17 1l4 4-4 4" />
+      <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+      <path d="M7 23l-4-4 4-4" />
+      <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+    </svg>
+  );
+}
+
+function MessageShareIcon() {
+  return (
+    <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="m22 2-7 20-4-9-9-4Z" />
+      <path d="M22 2 11 13" />
     </svg>
   );
 }
@@ -1198,7 +1229,7 @@ function CommentThread({
 
       {replyOpen && (
         <div className="mb-2 ml-11 mr-1 mt-1 space-y-2 sm:ml-12">
-          <div className="flex items-center gap-2 rounded-full border border-neutral-300 bg-white pl-3.5 pr-1 transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20 dark:border-neutral-700 dark:bg-neutral-900 dark:focus-within:border-accent dark:focus-within:ring-accent/30">
+          <div className="flex items-center gap-2 rounded-full border border-slate-300 bg-white pl-3.5 pr-1 transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20 dark:border-slate-700 dark:bg-slate-900 dark:focus-within:border-accent dark:focus-within:ring-accent/30">
             <textarea
               ref={replyInputRef}
               value={replyText}
@@ -1214,13 +1245,13 @@ function CommentThread({
               rows={1}
               maxLength={2000}
               placeholder="Write a reply…"
-              className="min-h-[22px] max-h-28 min-w-0 flex-1 resize-none border-0 bg-transparent py-2 text-xs font-medium leading-snug text-neutral-900 caret-accent outline-none placeholder:font-normal placeholder:text-neutral-500 dark:text-neutral-50 dark:placeholder:text-neutral-400"
+              className="min-h-[22px] max-h-28 min-w-0 flex-1 resize-none border-0 bg-transparent py-2 text-xs font-medium leading-snug text-slate-900 caret-accent outline-none placeholder:font-normal placeholder:text-slate-500 dark:text-slate-50 dark:placeholder:text-slate-400"
             />
             <button
               type="button"
               disabled={replyDisabled}
               onClick={() => void sendReply()}
-              className="rounded-full px-3 py-1.5 text-xs font-bold tracking-wide text-[#0095f6] transition hover:text-[#1877f2] disabled:cursor-not-allowed disabled:text-neutral-400 dark:disabled:text-neutral-500"
+              className="rounded-full px-3 py-1.5 text-xs font-bold tracking-wide text-[#0095f6] transition hover:text-[#1877f2] disabled:cursor-not-allowed disabled:text-slate-400 dark:disabled:text-slate-500"
             >
               {sendingReply ? 'Posting…' : 'Reply'}
             </button>
@@ -1238,14 +1269,14 @@ function CommentThread({
 
       {showReplies && replies.length > 0 && (
         <ul
-          className="relative ml-5 mt-1 space-y-0.5 border-l-2 border-neutral-200 pl-4 dark:border-neutral-800 sm:ml-7"
+          className="relative ml-5 mt-1 space-y-0.5 border-l-2 border-slate-200 pl-4 dark:border-slate-800 sm:ml-7"
           aria-label={`Replies to ${authorById[root.authorId]?.username ?? 'comment'}`}
         >
           {replies.map((r) => (
             <li key={r.id} className="relative">
               <span
                 aria-hidden
-                className="pointer-events-none absolute -left-4 top-6 h-px w-3 bg-neutral-200 dark:bg-neutral-800"
+                className="pointer-events-none absolute -left-4 top-6 h-px w-3 bg-slate-200 dark:bg-slate-800"
               />
               <CommentItem
                 comment={r}
@@ -1355,7 +1386,7 @@ function CommentItem({
   return (
     <>
       <div
-        className={`group/cmt relative flex gap-3 rounded-2xl transition-colors hover:bg-neutral-100/70 focus-within:bg-neutral-100/70 dark:hover:bg-neutral-900/50 dark:focus-within:bg-neutral-900/50 ${
+        className={`group/cmt relative flex gap-3 rounded-2xl transition-colors hover:bg-slate-100/70 focus-within:bg-slate-100/70 dark:hover:bg-slate-900/50 dark:focus-within:bg-slate-900/50 ${
           nested ? 'px-2 py-2' : 'px-2.5 py-2.5'
         }`}
       >
@@ -1375,19 +1406,19 @@ function CommentItem({
           <div className="flex items-baseline gap-1.5 pr-7 text-sm leading-snug">
             <Link
               to={profilePath}
-              className="truncate font-semibold text-neutral-900 hover:underline dark:text-neutral-100"
+              className="truncate font-semibold text-slate-900 hover:underline dark:text-slate-100"
             >
               {handle}
             </Link>
             {relTime && (
-              <span className="shrink-0 text-[0.7rem] font-medium text-neutral-500 dark:text-neutral-400">
+              <span className="shrink-0 text-[0.7rem] font-medium text-slate-500 dark:text-slate-400">
                 · {relTime}
               </span>
             )}
           </div>
 
           {comment.content.trim().length > 0 && (
-            <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-relaxed text-neutral-900 dark:text-neutral-100">
+            <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-900 dark:text-slate-100">
               {comment.content}
             </p>
           )}
@@ -1416,7 +1447,7 @@ function CommentItem({
               className={`inline-flex items-center gap-1 transition disabled:opacity-60 ${
                 liked
                   ? 'text-rose-600 dark:text-rose-400'
-                  : 'text-neutral-600 hover:text-rose-600 dark:text-neutral-300 dark:hover:text-rose-400'
+                  : 'text-slate-600 hover:text-rose-600 dark:text-slate-300 dark:hover:text-rose-400'
               }`}
             >
               <CommentHeartGlyph filled={liked} />
@@ -1434,7 +1465,7 @@ function CommentItem({
                 className={`transition ${
                   replyOpen
                     ? 'text-accent'
-                    : 'text-neutral-600 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-neutral-100'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100'
                 }`}
               >
                 {replyOpen ? 'Cancel' : 'Reply'}
@@ -1445,7 +1476,7 @@ function CommentItem({
               <button
                 type="button"
                 onClick={onToggleReplies}
-                className="inline-flex items-center gap-1.5 text-neutral-600 transition hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-neutral-100"
+                className="inline-flex items-center gap-1.5 text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
               >
                 <span
                   aria-hidden
@@ -1471,9 +1502,9 @@ function CommentItem({
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             aria-label="Comment options"
-            className={`rounded-full p-1.5 text-neutral-500 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 hover:bg-neutral-200/70 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 ${
+            className={`rounded-full p-1.5 text-slate-500 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 hover:bg-slate-200/70 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100 ${
               menuOpen
-                ? 'bg-neutral-200/70 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100'
+                ? 'bg-slate-200/70 text-slate-900 dark:bg-slate-800 dark:text-slate-100'
                 : 'opacity-0 group-hover/cmt:opacity-100 group-focus-within/cmt:opacity-100'
             }`}
           >
@@ -1482,7 +1513,7 @@ function CommentItem({
           {menuOpen && (
             <div
               role="menu"
-              className="absolute bottom-full right-0 z-20 mb-1 min-w-[9.5rem] overflow-hidden rounded-xl border border-neutral-200 bg-white py-1 shadow-xl md:bottom-auto md:top-9 md:mb-0 dark:border-neutral-700 dark:bg-neutral-950"
+              className="absolute bottom-full right-0 z-20 mb-1 min-w-[9.5rem] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-xl md:bottom-auto md:top-9 md:mb-0 dark:border-slate-700 dark:bg-slate-950"
             >
               <button
                 type="button"
@@ -1491,7 +1522,7 @@ function CommentItem({
                   setMenuOpen(false);
                   setReportOpen(true);
                 }}
-                className="w-full px-4 py-2 text-left text-sm text-neutral-800 hover:bg-neutral-50 dark:text-neutral-100 dark:hover:bg-neutral-900"
+                className="w-full px-4 py-2 text-left text-sm text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-900"
               >
                 Report
               </button>

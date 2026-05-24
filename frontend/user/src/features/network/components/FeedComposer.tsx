@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '../../../shared/components/Button';
 import { UserAvatar } from '../../user/components/UserAvatar';
 import type { PostVisibility } from '../types/network.types';
@@ -20,6 +21,7 @@ export function FeedComposer({
   avatarUrl: string | null;
   onPosted: () => void;
 }) {
+  const [open, setOpen] = useState(false);
   const [content, setContent] = useState('');
   const [visibility, setVisibility] = useState<PostVisibility>('public');
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
@@ -32,16 +34,43 @@ export function FeedComposer({
 
   const hasDraft = content.trim().length > 0 || mediaUrls.length > 0;
   const canSubmit = !submitting && !uploadBusy && hasDraft;
+  const canClose = !submitting && !uploadBusy;
   const firstName = displayName.split(' ')[0] || 'friend';
 
-  // Autosize the textarea up to a comfortable max height.
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = '0px';
     const next = Math.min(Math.max(el.scrollHeight, 56), 280);
     el.style.height = `${next}px`;
-  }, [content]);
+  }, [content, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const timer = window.setTimeout(() => textareaRef.current?.focus(), 50);
+    return () => {
+      window.clearTimeout(timer);
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onKeyDown(ev: KeyboardEvent) {
+      if (ev.key === 'Escape' && canClose) setOpen(false);
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open, canClose]);
+
+  function requestClose() {
+    if (!canClose) return;
+    setOpen(false);
+    setFocused(false);
+    setError(null);
+  }
 
   async function submit() {
     if (uploadBusy) {
@@ -65,6 +94,7 @@ export function FeedComposer({
       setMediaUrls([]);
       setVisibility('public');
       setFocused(false);
+      setOpen(false);
       onPosted();
     } catch {
       setError('Could not publish. Please try again.');
@@ -74,100 +104,143 @@ export function FeedComposer({
   }
 
   return (
-    <section
-      aria-label="Create post"
-      className={`surface-card mb-5 transition-all ${
-        focused
-          ? 'border-violet-300 shadow-[0_8px_28px_-8px_rgba(139,92,246,0.15)] dark:border-violet-700'
-          : ''
-      }`}
-    >
-      <header className="flex items-start justify-between gap-3 px-5 pt-4 sm:px-6 sm:pt-5">
-        <div className="flex min-w-0 items-center gap-3">
-          <UserAvatar label={displayName} src={avatarUrl} size="lg" />
-          <div className="min-w-0">
-            <p className="truncate text-base font-semibold text-neutral-900 dark:text-neutral-100">
-              {displayName}
-            </p>
-            <AudiencePicker value={visibility} onChange={setVisibility} />
-          </div>
-        </div>
-      </header>
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="feed-composer-widget surface-card mb-4 w-full text-left transition hover:border-violet-200 hover:shadow-[0_4px_20px_-8px_rgba(139,92,246,0.12)] dark:hover:border-violet-800/60"
+        aria-label="Create a post"
+      >
+        <UserAvatar label={displayName} src={avatarUrl} size="md" />
+        <span className="feed-composer-widget__prompt">
+          {hasDraft ? 'Continue your post…' : `What's on your mind, ${firstName}?`}
+        </span>
+        <span className="feed-composer-widget__actions" aria-hidden>
+          <PhotoIcon />
+        </span>
+      </button>
 
-      <div className="px-5 pt-4 sm:px-6">
-        <textarea
-          ref={textareaRef}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          rows={2}
-          maxLength={MAX_LENGTH}
-          placeholder={`What's on your mind, ${firstName}?`}
-          className="block w-full resize-none bg-transparent text-lg leading-relaxed text-neutral-900 outline-none placeholder:text-neutral-500 dark:text-neutral-100 dark:placeholder:text-neutral-400 sm:text-xl"
-          aria-label="Post content"
-        />
-      </div>
-
-      <div className="px-5 pb-4 pt-2 sm:px-6">
-        <NetworkMediaPicker
-          ref={pickerRef}
-          urls={mediaUrls}
-          onUrlsChange={setMediaUrls}
-          onBusyChange={setUploadBusy}
-          maxFiles={MAX_POST_MEDIA}
-          disabled={submitting}
-          variant="compact"
-          toolbarOnly
-        />
-
-        {error && (
-          <p
-            role="alert"
-            className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300"
-          >
-            {error}
-          </p>
-        )}
-      </div>
-
-      <div className="border-t border-neutral-100 bg-neutral-50/60 px-5 py-3 dark:border-neutral-800 dark:bg-neutral-900/60 sm:px-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <ToolbarButton
-              onClick={() => pickerRef.current?.openFilePicker()}
-              disabled={submitting}
-              title="Add photos or videos"
+      {open
+        ? createPortal(
+            <div
+              className="feed-composer-modal"
+              role="dialog"
+              aria-modal
+              aria-label="Create post"
             >
-              <PhotoIcon />
-              <span className="hidden sm:inline">Photo / Video</span>
-            </ToolbarButton>
-          </div>
+              <button
+                type="button"
+                className="feed-composer-modal__backdrop"
+                aria-label="Close composer"
+                onClick={requestClose}
+              />
+              <div
+                className={`feed-composer-modal__panel surface-card ${
+                  focused
+                    ? 'border-violet-300 shadow-[0_8px_28px_-8px_rgba(139,92,246,0.15)] dark:border-violet-700'
+                    : ''
+                }`}
+              >
+                <header className="feed-composer-modal__header">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <UserAvatar label={displayName} src={avatarUrl} size="lg" />
+                    <div className="min-w-0">
+                      <p className="truncate text-base font-semibold text-slate-900 dark:text-slate-100">
+                        {displayName}
+                      </p>
+                      <AudiencePicker value={visibility} onChange={setVisibility} />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={requestClose}
+                    disabled={!canClose}
+                    className="feed-composer-modal__close"
+                    aria-label="Close"
+                  >
+                    <CloseIcon />
+                  </button>
+                </header>
 
-          <div className="flex flex-1 items-center justify-end gap-3">
-            <span
-              className={`text-[0.7rem] tabular-nums ${
-                content.length > MAX_LENGTH * 0.9
-                  ? 'text-amber-700 dark:text-amber-300'
-                  : 'text-neutral-500 dark:text-neutral-400'
-              }`}
-              aria-live="polite"
-            >
-              {content.length} / {MAX_LENGTH}
-            </span>
-            <Button
-              type="button"
-              disabled={!canSubmit}
-              loading={submitting}
-              onClick={() => void submit()}
-              className="w-auto min-w-[112px] rounded-full px-6 py-2.5 text-sm font-semibold"
-            >
-              {uploadBusy ? 'Uploading…' : 'Share'}
-            </Button>
-          </div>
-        </div>
-      </div>
-    </section>
+                <div className="px-5 pt-4 sm:px-6">
+                  <textarea
+                    ref={textareaRef}
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    onFocus={() => setFocused(true)}
+                    onBlur={() => setFocused(false)}
+                    rows={2}
+                    maxLength={MAX_LENGTH}
+                    placeholder={`What's on your mind, ${firstName}?`}
+                    className="block w-full resize-none bg-transparent text-lg leading-relaxed text-slate-900 outline-none placeholder:text-slate-500 dark:text-slate-100 dark:placeholder:text-slate-400 sm:text-xl"
+                    aria-label="Post content"
+                  />
+                </div>
+
+                <div className="px-5 pb-4 pt-2 sm:px-6">
+                  <NetworkMediaPicker
+                    ref={pickerRef}
+                    urls={mediaUrls}
+                    onUrlsChange={setMediaUrls}
+                    onBusyChange={setUploadBusy}
+                    maxFiles={MAX_POST_MEDIA}
+                    disabled={submitting}
+                    variant="compact"
+                    toolbarOnly
+                  />
+
+                  {error ? (
+                    <p
+                      role="alert"
+                      className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300"
+                    >
+                      {error}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="border-t border-slate-100 bg-slate-50/60 px-5 py-3 dark:border-slate-800 dark:bg-slate-900/60 sm:px-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <ToolbarButton
+                        onClick={() => pickerRef.current?.openFilePicker()}
+                        disabled={submitting}
+                        title="Add photos or videos"
+                      >
+                        <PhotoIcon />
+                        <span className="hidden sm:inline">Photo / Video</span>
+                      </ToolbarButton>
+                    </div>
+
+                    <div className="flex flex-1 items-center justify-end gap-3">
+                      <span
+                        className={`text-[0.7rem] tabular-nums ${
+                          content.length > MAX_LENGTH * 0.9
+                            ? 'text-amber-700 dark:text-amber-300'
+                            : 'text-slate-500 dark:text-slate-400'
+                        }`}
+                        aria-live="polite"
+                      >
+                        {content.length} / {MAX_LENGTH}
+                      </span>
+                      <Button
+                        type="button"
+                        disabled={!canSubmit}
+                        loading={submitting}
+                        onClick={() => void submit()}
+                        className="w-auto min-w-[112px] rounded-full px-6 py-2.5 text-sm font-semibold"
+                      >
+                        {uploadBusy ? 'Uploading…' : 'Share'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }
 
@@ -188,7 +261,7 @@ function ToolbarButton({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 shadow-sm transition hover:border-neutral-300 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
     >
       {children}
     </button>
@@ -223,10 +296,6 @@ const AUDIENCE_OPTIONS: AudienceOption[] = [
   },
 ];
 
-/**
- * Custom dropdown so the privacy chooser is touch-friendly, theme-aware, and
- * shows a description for each audience (native `<select>` cannot do that).
- */
 function AudiencePicker({
   value,
   onChange,
@@ -267,11 +336,11 @@ function AudiencePicker({
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-100 px-2.5 py-1 text-[0.72rem] font-semibold text-neutral-800 shadow-sm transition hover:bg-neutral-200/70 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
+        className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[0.72rem] font-semibold text-slate-800 shadow-sm transition hover:bg-slate-200/70 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
       >
         <span
           aria-hidden
-          className="inline-flex h-4 w-4 items-center justify-center text-neutral-700 dark:text-neutral-200"
+          className="inline-flex h-4 w-4 items-center justify-center text-slate-700 dark:text-slate-200"
         >
           <current.Icon size={13} />
         </span>
@@ -279,13 +348,13 @@ function AudiencePicker({
         <ChevronDown open={open} />
       </button>
 
-      {open && (
+      {open ? (
         <div
           role="listbox"
           aria-label="Choose who can see this post"
-          className="absolute left-0 top-full z-30 mt-2 w-[min(18rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-[0_18px_45px_-15px_rgba(15,23,42,0.35)] ring-1 ring-black/5 dark:border-neutral-700 dark:bg-neutral-900 dark:shadow-[0_18px_45px_-15px_rgba(0,0,0,0.7)] dark:ring-white/5"
+          className="absolute left-0 top-full z-30 mt-2 w-[min(18rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-[0_18px_45px_-15px_rgba(15,23,42,0.35)] ring-1 ring-black/5 dark:border-slate-700 dark:bg-slate-900 dark:shadow-[0_18px_45px_-15px_rgba(0,0,0,0.7)] dark:ring-white/5"
         >
-          <p className="px-3 pb-1.5 pt-2 text-[0.68rem] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+          <p className="px-3 pb-1.5 pt-2 text-[0.68rem] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Who can see this post?
           </p>
           {AUDIENCE_OPTIONS.map((opt) => {
@@ -302,8 +371,8 @@ function AudiencePicker({
                 }}
                 className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${
                   selected
-                    ? 'bg-accent-bg text-neutral-900 dark:text-neutral-100'
-                    : 'text-neutral-800 hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-800'
+                    ? 'bg-accent-bg text-slate-900 dark:text-slate-100'
+                    : 'text-slate-800 hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
                 <span
@@ -311,7 +380,7 @@ function AudiencePicker({
                   className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
                     selected
                       ? 'bg-accent text-white'
-                      : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200'
+                      : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
                   }`}
                 >
                   <opt.Icon size={17} />
@@ -320,21 +389,38 @@ function AudiencePicker({
                   <span className="block text-sm font-semibold leading-tight">
                     {opt.label}
                   </span>
-                  <span className="mt-0.5 block text-xs leading-snug text-neutral-600 dark:text-neutral-300">
+                  <span className="mt-0.5 block text-xs leading-snug text-slate-600 dark:text-slate-300">
                     {opt.description}
                   </span>
                 </span>
-                {selected && (
+                {selected ? (
                   <span aria-hidden className="text-accent">
                     <CheckIcon />
                   </span>
-                )}
+                ) : null}
               </button>
             );
           })}
         </div>
-      )}
+      ) : null}
     </div>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden
+    >
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
   );
 }
 

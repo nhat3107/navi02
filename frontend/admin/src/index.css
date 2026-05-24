@@ -494,6 +494,14 @@ h1 {
   line-height: 1.5;
 }
 
+.confirm-dialog__field {
+  margin-top: 1rem;
+}
+
+.confirm-dialog__field .field {
+  margin: 0;
+}
+
 .confirm-dialog__actions {
   display: flex;
   justify-content: flex-end;

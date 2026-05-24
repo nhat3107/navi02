@@ -87,7 +87,8 @@ export function DiscoverPage() {
   }
 
   return (
-    <AppPage mainClassName="max-w-3xl">
+    <AppPage>
+      <div className="discover-page">
       <section className="discover-hero">
         <div className="discover-hero__glow" aria-hidden />
         <div className="discover-hero__content">
@@ -151,6 +152,7 @@ export function DiscoverPage() {
           <QuickLinksSection viewerUserId={viewerUserId} />
         </div>
       )}
+      </div>
     </AppPage>
   );
 }

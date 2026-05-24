@@ -1353,7 +1353,7 @@ export function ChatPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-8 bg-neutral-200 dark:bg-slate-950">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-8 bg-slate-200 dark:bg-slate-950">
         <p className="text-slate-600 dark:text-slate-400">Sign in to use chat.</p>
         <Link to={ROUTES.LOGIN} className="text-accent font-medium">
           Go to login

@@ -26,7 +26,8 @@ import { useAuthorProfiles } from '../../features/network/hooks/useAuthorProfile
 import { PostCard } from '../../features/network/components/PostCard';
 import { fetchAccountStatusApi } from '../../features/user/api/accountStatus.api';
 import type { AccountStatus } from '../../features/user/types/accountStatus.types';
-import { PenaltyStatusCard } from '../../features/user/components/PenaltyStatusCard';
+import { scrollAppMainToElement } from '../../shared/lib/scrollAppMainTo';
+import { PenaltyStatusIndicator } from '../../features/user/components/PenaltyStatusIndicator';
 
 /**
  * `/profile` — own profile (uses cached `myProfile` first, refreshes in
@@ -189,17 +190,16 @@ export function ProfilePage({ mode }: ProfilePageProps) {
     if (location.hash !== `#${PROFILE_ACCOUNT_STATUS_HASH}`) return;
     setHighlightPenalty(true);
     requestAnimationFrame(() => {
-      document.getElementById(PROFILE_ACCOUNT_STATUS_HASH)?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
+      const target = document.getElementById(PROFILE_ACCOUNT_STATUS_HASH);
+      if (target) scrollAppMainToElement(target);
     });
     const timer = window.setTimeout(() => setHighlightPenalty(false), 2500);
     return () => window.clearTimeout(timer);
   }, [mode, location.hash, accountStatus]);
 
   return (
-    <AppPage mainClassName="max-w-4xl">
+    <AppPage>
+      <div className="profile-page">
         {phase === 'loading' && (
           <LoadingState label="Loading profile…" />
         )}
@@ -238,13 +238,9 @@ export function ProfilePage({ mode }: ProfilePageProps) {
               profile={profile}
               isSelf={isSelf}
               viewerUserId={user?.id ?? null}
+              accountStatus={mode === 'me' ? accountStatus : null}
+              highlightPenalty={highlightPenalty}
             />
-            {mode === 'me' && accountStatus && (
-              <PenaltyStatusCard
-                status={accountStatus}
-                highlight={highlightPenalty}
-              />
-            )}
             <ProfilePostsSection
               profileUserId={profile.id}
               viewerUserId={user?.id ?? null}
@@ -252,6 +248,7 @@ export function ProfilePage({ mode }: ProfilePageProps) {
             />
           </>
         )}
+      </div>
     </AppPage>
   );
 }
@@ -260,10 +257,14 @@ function ProfileHero({
   profile,
   isSelf,
   viewerUserId,
+  accountStatus,
+  highlightPenalty = false,
 }: {
   profile: UserProfile;
   isSelf: boolean;
   viewerUserId: string | null;
+  accountStatus?: AccountStatus | null;
+  highlightPenalty?: boolean;
 }) {
   const hasMeta =
     Boolean(profile.gender) ||
@@ -272,7 +273,7 @@ function ProfileHero({
 
   return (
     <article className="surface-card mb-5">
-      <div className="h-24 bg-gradient-to-br from-violet-500/90 via-fuchsia-500/85 to-orange-400/80 sm:h-28" />
+      <div className="h-24 bg-gradient-to-br from-violet-600 via-indigo-600 to-violet-700 sm:h-28" />
       <div className="px-4 pb-5 sm:px-6">
         <div className="-mt-10 flex flex-wrap items-end gap-4 sm:-mt-12">
           <UserAvatar
@@ -282,10 +283,18 @@ function ProfileHero({
             className="!ring-4"
           />
           <div className="min-w-0 flex-1 pt-2">
-            <h1 className="truncate text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-neutral-100">
-              {profile.full_name?.trim() || `@${profile.username}`}
-            </h1>
-            <p className="truncate text-sm text-neutral-500 dark:text-neutral-400">
+            <div className="flex min-w-0 items-center gap-2">
+              <h1 className="truncate text-xl font-semibold text-slate-900 sm:text-2xl dark:text-slate-100">
+                {profile.full_name?.trim() || `@${profile.username}`}
+              </h1>
+              {isSelf && accountStatus ? (
+                <PenaltyStatusIndicator
+                  status={accountStatus}
+                  highlight={highlightPenalty}
+                />
+              ) : null}
+            </div>
+            <p className="truncate text-sm text-slate-500 dark:text-slate-400">
               @{profile.username}
             </p>
           </div>
@@ -293,7 +302,7 @@ function ProfileHero({
             {isSelf ? (
               <Link
                 to={ROUTES.SETTINGS_PROFILE}
-                className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-neutral-300 bg-white px-5 py-2 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-50 sm:min-w-[140px] sm:w-auto dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+                className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-5 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 sm:min-w-[140px] sm:w-auto dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
               >
                 Edit profile
               </Link>
@@ -308,7 +317,7 @@ function ProfileHero({
                 <Link
                   to={ROUTES.CHAT}
                   state={{ openWith: profile.id }}
-                  className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-50 sm:min-w-[120px] sm:w-auto dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+                  className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 sm:min-w-[120px] sm:w-auto dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
                 >
                   Message
                 </Link>
@@ -319,7 +328,7 @@ function ProfileHero({
       </div>
 
       {(profile.bio?.trim() || hasMeta) && (
-        <div className="border-t border-neutral-200 bg-neutral-50/90 px-4 py-5 sm:px-6 dark:border-neutral-800 dark:bg-neutral-900/50">
+        <div className="border-t border-slate-200 bg-slate-50/90 px-4 py-5 sm:px-6 dark:border-slate-800 dark:bg-slate-900/50">
           {profile.bio?.trim() && (
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-200">
               {profile.bio}
@@ -362,8 +371,8 @@ function ProfileHero({
         </div>
       )}
 
-      <nav className="border-t border-neutral-200 bg-neutral-100/80 dark:border-neutral-800 dark:bg-neutral-900/60">
-        <div className="flex divide-x divide-neutral-200 overflow-hidden dark:divide-neutral-800">
+      <nav className="border-t border-slate-200 bg-slate-100/80 dark:border-slate-800 dark:bg-slate-900/60">
+        <div className="flex divide-x divide-slate-200 overflow-hidden dark:divide-slate-800">
           <FollowStat
             to={
               isSelf
@@ -488,26 +497,26 @@ function ProfilePostsSection({
       )}
 
     <section
-      className="mt-5 rounded-2xl border border-neutral-200 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] sm:p-5 dark:border-neutral-800 dark:bg-neutral-950 dark:shadow-none"
+      className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] sm:p-5 dark:border-slate-800 dark:bg-slate-950 dark:shadow-none"
       aria-label="Posts"
     >
-      <div className="mb-4 flex items-center gap-2 border-b border-neutral-200 pb-3 dark:border-neutral-800">
-        <span className="text-xs font-semibold uppercase tracking-wider text-neutral-900 dark:text-neutral-100">
+      <div className="mb-4 flex items-center gap-2 border-b border-slate-200 pb-3 dark:border-slate-800">
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-900 dark:text-slate-100">
           Posts
         </span>
       </div>
       {loading && (
-        <p className="py-6 text-center text-sm font-medium text-neutral-600 dark:text-neutral-300">
+        <p className="py-6 text-center text-sm font-medium text-slate-600 dark:text-slate-300">
           Loading…
         </p>
       )}
       {!loading && publishedPosts.length === 0 && pendingPosts.length === 0 && (
-        <p className="py-10 text-center text-sm font-medium text-neutral-600 dark:text-neutral-300">
+        <p className="py-10 text-center text-sm font-medium text-slate-600 dark:text-slate-300">
           No posts yet.
         </p>
       )}
       {!loading && publishedPosts.length === 0 && pendingPosts.length > 0 && (
-        <p className="py-6 text-center text-sm font-medium text-neutral-600 dark:text-neutral-300">
+        <p className="py-6 text-center text-sm font-medium text-slate-600 dark:text-slate-300">
           No published posts yet.
         </p>
       )}
@@ -529,7 +538,7 @@ function ProfilePostsSection({
             type="button"
             disabled={loadingMore}
             onClick={() => void load(skip, true)}
-            className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-50 disabled:opacity-60 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
           >
             {loadingMore ? 'Loading…' : 'Load more'}
           </button>
@@ -552,12 +561,12 @@ function FollowStat({
   return (
     <Link
       to={to}
-      className="flex flex-1 flex-col items-center gap-0.5 px-4 py-3 text-center transition hover:bg-neutral-50 dark:hover:bg-neutral-900/80"
+      className="flex flex-1 flex-col items-center gap-0.5 px-4 py-3 text-center transition hover:bg-slate-50 dark:hover:bg-slate-900/80"
     >
-      <span className="text-lg font-semibold tabular-nums text-neutral-900 dark:text-neutral-100">
+      <span className="text-lg font-semibold tabular-nums text-slate-900 dark:text-slate-100">
         {count}
       </span>
-      <span className="text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+      <span className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
         {label}
       </span>
     </Link>
