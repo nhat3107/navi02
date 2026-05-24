@@ -185,7 +185,7 @@ export function EditProfilePage() {
   const previewSrc = pendingPreview ?? avatarUrl;
 
   return (
-    <AppPage mainClassName="max-w-2xl">
+    <AppPage innerClassName="max-w-2xl">
         <PageHeader
           eyebrow="Settings"
           title="Edit profile"

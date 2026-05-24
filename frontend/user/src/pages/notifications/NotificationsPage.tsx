@@ -125,8 +125,8 @@ export function NotificationsPage() {
   };
 
   return (
-    <AppPage mainClassName="max-w-[min(100%,640px)] app-main--stack">
-        <div className="shrink-0">
+    <AppPage mainClassName="app-main--stack">
+        <div className="app-main__inner app-main__inner--narrow shrink-0">
           <PageHeader
             eyebrow="Activity"
             title="Notifications"
@@ -174,6 +174,7 @@ export function NotificationsPage() {
         </div>
 
         <div className="app-main__scroll">
+        <div className="app-main__inner app-main__inner--narrow">
         {loading && storeItems.length === 0 ? (
           <ul className="flex flex-col gap-3 py-6">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -306,6 +307,7 @@ export function NotificationsPage() {
             })}
           </ul>
         )}
+        </div>
         </div>
       <ConfirmDialog
         open={deleteTarget !== null}

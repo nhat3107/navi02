@@ -1363,7 +1363,7 @@ export function ChatPage() {
   }
 
   return (
-    <AppPage fill mainClassName="max-w-7xl">
+    <AppPage fill>
       <div className="chat-page">
       <div className={`chat-page__layout${hasActiveThread ? ' chat-page__layout--thread' : ''}`}>
         <aside
@@ -1680,6 +1680,7 @@ export function ChatPage() {
               className="chat-panel__messages"
               onScroll={onMessagesScroll}
             >
+              <div className="chat-panel__messages-inner">
               {loadingMessages ? (
                 <p className="py-12 text-center text-sm text-slate-500">
                   Loading messages…
@@ -1780,6 +1781,7 @@ export function ChatPage() {
                   </span>
                 </div>
               ) : null}
+              </div>
             </div>
           ) : null}
 

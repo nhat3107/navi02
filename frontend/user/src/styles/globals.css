@@ -53,11 +53,23 @@
   }
 
   .app-main.home-page {
-    @apply max-w-none px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 sm:px-4 sm:pt-4 md:px-5 md:pb-8 md:pt-5;
+    @apply max-w-none;
   }
 
   .app-main {
-    @apply mx-auto w-full min-h-0 flex-1 overscroll-y-contain px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 sm:px-4 sm:pt-6 md:pb-8;
+    @apply w-full min-h-0 flex-1 overscroll-y-contain;
+  }
+
+  .app-main__inner {
+    @apply mx-auto w-full px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 sm:px-4 sm:pt-6 md:pb-8;
+  }
+
+  .app-main.home-page > .app-main__inner {
+    @apply pt-3 sm:pt-4 md:pt-5;
+  }
+
+  .app-main__inner--narrow {
+    @apply max-w-[min(100%,640px)];
   }
 
   .app-main--fill {
@@ -73,7 +85,9 @@
   }
 
   .app-main:not(.app-main--fill):not(.app-main--stack),
-  .app-main__scroll {
+  .app-main__scroll,
+  .chat-sidebar__list,
+  .chat-panel__messages {
     overflow-y: scroll;
     scrollbar-gutter: stable;
     scrollbar-width: thin;
@@ -81,45 +95,61 @@
   }
 
   .dark .app-main:not(.app-main--fill):not(.app-main--stack),
-  .dark .app-main__scroll {
+  .dark .app-main__scroll,
+  .dark .chat-sidebar__list,
+  .dark .chat-panel__messages {
     scrollbar-color: rgb(100 116 139) rgb(15 23 42);
   }
 
   .app-main:not(.app-main--fill):not(.app-main--stack)::-webkit-scrollbar,
-  .app-main__scroll::-webkit-scrollbar {
+  .app-main__scroll::-webkit-scrollbar,
+  .chat-sidebar__list::-webkit-scrollbar,
+  .chat-panel__messages::-webkit-scrollbar {
     width: 10px;
   }
 
   .app-main:not(.app-main--fill):not(.app-main--stack)::-webkit-scrollbar-track,
-  .app-main__scroll::-webkit-scrollbar-track {
+  .app-main__scroll::-webkit-scrollbar-track,
+  .chat-sidebar__list::-webkit-scrollbar-track,
+  .chat-panel__messages::-webkit-scrollbar-track {
     background: rgb(241 245 249);
   }
 
   .dark .app-main:not(.app-main--fill):not(.app-main--stack)::-webkit-scrollbar-track,
-  .dark .app-main__scroll::-webkit-scrollbar-track {
+  .dark .app-main__scroll::-webkit-scrollbar-track,
+  .dark .chat-sidebar__list::-webkit-scrollbar-track,
+  .dark .chat-panel__messages::-webkit-scrollbar-track {
     background: rgb(15 23 42);
   }
 
   .app-main:not(.app-main--fill):not(.app-main--stack)::-webkit-scrollbar-thumb,
-  .app-main__scroll::-webkit-scrollbar-thumb {
+  .app-main__scroll::-webkit-scrollbar-thumb,
+  .chat-sidebar__list::-webkit-scrollbar-thumb,
+  .chat-panel__messages::-webkit-scrollbar-thumb {
     background: rgb(203 213 225);
     border-radius: 9999px;
     border: 2px solid rgb(241 245 249);
   }
 
   .dark .app-main:not(.app-main--fill):not(.app-main--stack)::-webkit-scrollbar-thumb,
-  .dark .app-main__scroll::-webkit-scrollbar-thumb {
+  .dark .app-main__scroll::-webkit-scrollbar-thumb,
+  .dark .chat-sidebar__list::-webkit-scrollbar-thumb,
+  .dark .chat-panel__messages::-webkit-scrollbar-thumb {
     background: rgb(100 116 139);
     border-color: rgb(15 23 42);
   }
 
   .app-main:not(.app-main--fill):not(.app-main--stack)::-webkit-scrollbar-thumb:hover,
-  .app-main__scroll::-webkit-scrollbar-thumb:hover {
+  .app-main__scroll::-webkit-scrollbar-thumb:hover,
+  .chat-sidebar__list::-webkit-scrollbar-thumb:hover,
+  .chat-panel__messages::-webkit-scrollbar-thumb:hover {
     background: rgb(148 163 184);
   }
 
   .dark .app-main:not(.app-main--fill):not(.app-main--stack)::-webkit-scrollbar-thumb:hover,
-  .dark .app-main__scroll::-webkit-scrollbar-thumb:hover {
+  .dark .app-main__scroll::-webkit-scrollbar-thumb:hover,
+  .dark .chat-sidebar__list::-webkit-scrollbar-thumb:hover,
+  .dark .chat-panel__messages::-webkit-scrollbar-thumb:hover {
     background: rgb(100 116 139);
   }
 
@@ -875,7 +905,7 @@
   }
 
   .chat-sidebar__list {
-    @apply min-h-0 flex-1 overflow-y-auto overscroll-y-contain scroll-smooth;
+    @apply min-h-0 flex-1 overscroll-y-contain scroll-smooth;
   }
 
   .chat-sidebar__head {
@@ -1051,10 +1081,14 @@
   }
 
   .chat-panel__messages {
-    @apply min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain scroll-smooth px-3 py-4 sm:px-5 sm:py-5;
+    @apply min-h-0 flex-1 overscroll-contain scroll-smooth;
     background-image:
       radial-gradient(circle at 20% 10%, rgba(139, 92, 246, 0.04) 0%, transparent 45%),
       radial-gradient(circle at 80% 90%, rgba(99, 102, 241, 0.03) 0%, transparent 40%);
+  }
+
+  .chat-panel__messages-inner {
+    @apply space-y-1 px-3 py-4 sm:px-5 sm:py-5;
   }
 
   .dark .chat-panel__messages {
