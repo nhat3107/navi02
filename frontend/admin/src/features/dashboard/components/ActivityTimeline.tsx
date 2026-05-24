@@ -3,8 +3,11 @@ import type { DashboardActivity } from '../../users/types/users.types';
 import { ROUTES } from '../../../shared/constants/routes';
 import { formatRelativeTime } from '../../../shared/utils/format';
 
+export const DASHBOARD_RECENT_ACTIVITY_LIMIT = 4;
+
 interface ActivityTimelineProps {
   items: DashboardActivity[];
+  limit?: number;
 }
 
 function activityLink(item: DashboardActivity): string | null {
@@ -30,24 +33,31 @@ function ActivityIcon({ type }: { type: string }) {
   );
 }
 
-export function ActivityTimeline({ items }: ActivityTimelineProps) {
+export function ActivityTimeline({
+  items,
+  limit = DASHBOARD_RECENT_ACTIVITY_LIMIT,
+}: ActivityTimelineProps) {
+  const visible = items.slice(0, limit);
+
   return (
     <section className="dash-panel dash-panel--timeline">
       <div className="dash-panel__header">
         <div>
           <h2 className="dash-panel__title">Recent activity</h2>
-          <p className="dash-panel__subtitle">Latest posts and reports</p>
+          <p className="dash-panel__subtitle">
+            Latest posts and reports · showing {limit}
+          </p>
         </div>
         <Link to={ROUTES.REPORTS} className="dash-panel__link">
           View reports
         </Link>
       </div>
 
-      {items.length === 0 ? (
+      {visible.length === 0 ? (
         <p className="page-muted dash-panel__empty">No recent activity.</p>
       ) : (
         <ul className="dash-activity">
-          {items.map((item) => {
+          {visible.map((item) => {
             const href = activityLink(item);
             const content = (
               <>

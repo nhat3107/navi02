@@ -42,6 +42,35 @@ function BellGlyph({ className }: { className?: string }) {
 
 const PEEK_LIMIT = 7;
 
+function bellTriggerClass(active: boolean) {
+  return `app-top-nav__utility group relative h-10 w-10 motion-safe:hover:-translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+    active
+      ? 'border-violet-300 bg-violet-100 text-violet-700 dark:border-violet-500/40 dark:bg-violet-500/20 dark:text-violet-300'
+      : ''
+  }`;
+}
+
+function BellBadge({ badge }: { badge: string | null }) {
+  if (!badge) return null;
+  return (
+    <span
+      className="absolute -right-0.5 -top-0.5 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold tabular-nums leading-none text-white shadow-sm ring-[3px] ring-white dark:ring-neutral-950"
+      aria-hidden
+    >
+      {badge}
+    </span>
+  );
+}
+
+function BellTriggerContent({ badge }: { badge: string | null }) {
+  return (
+    <>
+      <BellGlyph className="h-5 w-5 transition-transform duration-200 group-hover:scale-105" />
+      <BellBadge badge={badge} />
+    </>
+  );
+}
+
 export function NotificationNavBell() {
   const location = useLocation();
   const unreadCount = useNotificationsStore((s) => s.unreadCount);
@@ -53,6 +82,11 @@ export function NotificationNavBell() {
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const onNotificationsRoute = location.pathname.startsWith('/notifications');
+
+  const ariaLabel =
+    unreadCount > 0
+      ? `Notifications, ${unreadCount} unread`
+      : 'Notifications';
 
   useEffect(() => {
     function onPointerDown(ev: MouseEvent | TouchEvent) {
@@ -89,6 +123,10 @@ export function NotificationNavBell() {
     };
   }, [open]);
 
+  useEffect(() => {
+    setOpen(false);
+  }, [location.pathname]);
+
   const senderIds = useMemo(
     () => [...new Set(peek.map((p) => p.senderId).filter(Boolean))],
     [peek],
@@ -100,36 +138,29 @@ export function NotificationNavBell() {
 
   return (
     <div className="relative shrink-0" ref={wrapRef}>
+      <Link
+        to={ROUTES.NOTIFICATIONS}
+        className={`${bellTriggerClass(onNotificationsRoute)} md:hidden`}
+        aria-label={ariaLabel}
+        aria-current={onNotificationsRoute ? 'page' : undefined}
+      >
+        <BellTriggerContent badge={badge} />
+      </Link>
+
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`group relative flex h-10 w-10 items-center justify-center rounded-2xl border transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent motion-safe:hover:-translate-y-px ${
-          onNotificationsRoute || open
-            ? 'border-neutral-300 bg-accent-bg text-accent shadow-sm dark:border-neutral-600 dark:bg-accent-bg dark:text-accent'
-            : 'border-neutral-200/80 bg-white text-neutral-600 hover:border-neutral-300 hover:bg-white hover:text-accent hover:shadow-[0_1px_2px_rgba(0,0,0,0.06)] dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-300 dark:hover:border-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-accent'
-        }`}
+        className={`${bellTriggerClass(onNotificationsRoute || open)} hidden md:flex`}
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label={
-          unreadCount > 0
-            ? `Notifications, ${unreadCount} unread`
-            : 'Notifications'
-        }
+        aria-label={ariaLabel}
       >
-        <BellGlyph className="h-5 w-5 transition-transform duration-200 group-hover:scale-105" />
-        {badge ? (
-          <span
-            className="absolute -right-0.5 -top-0.5 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold tabular-nums leading-none text-white shadow-sm ring-[3px] ring-white dark:ring-neutral-950"
-            aria-hidden
-          >
-            {badge}
-          </span>
-        ) : null}
+        <BellTriggerContent badge={badge} />
       </button>
 
       {open ? (
         <div
-          className="absolute right-0 z-50 mt-2 w-[min(calc(100vw-2rem),20.5rem)] origin-top-right"
+          className="absolute right-0 z-50 mt-2 hidden w-[min(calc(100vw-2rem),20.5rem)] origin-top-right md:block"
           role="menu"
           aria-label="Recent notifications"
         >
@@ -145,7 +176,7 @@ export function NotificationNavBell() {
               ) : null}
             </div>
 
-            <div className="max-h-[min(70vh,22rem)] overflow-y-auto overscroll-contain">
+            <div className="max-h-[min(70vh,24rem)] overflow-y-auto overscroll-y-contain">
               {peekLoading ? (
                 <ul className="divide-y divide-neutral-100 p-2 dark:divide-neutral-800">
                   {Array.from({ length: 4 }).map((_, i) => (

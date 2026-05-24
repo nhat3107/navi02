@@ -283,7 +283,7 @@ function AudiencePicker({
         <div
           role="listbox"
           aria-label="Choose who can see this post"
-          className="absolute left-0 top-full z-30 mt-2 w-[18rem] overflow-hidden rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-[0_18px_45px_-15px_rgba(15,23,42,0.35)] ring-1 ring-black/5 dark:border-neutral-700 dark:bg-neutral-900 dark:shadow-[0_18px_45px_-15px_rgba(0,0,0,0.7)] dark:ring-white/5"
+          className="absolute left-0 top-full z-30 mt-2 w-[min(18rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-[0_18px_45px_-15px_rgba(15,23,42,0.35)] ring-1 ring-black/5 dark:border-neutral-700 dark:bg-neutral-900 dark:shadow-[0_18px_45px_-15px_rgba(0,0,0,0.7)] dark:ring-white/5"
         >
           <p className="px-3 pb-1.5 pt-2 text-[0.68rem] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
             Who can see this post?

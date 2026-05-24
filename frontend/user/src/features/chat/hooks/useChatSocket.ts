@@ -7,9 +7,17 @@ export type ChatTypingPayload = {
   conversationId?: string;
 };
 
+export type ChatGroupUpdatedPayload = {
+  conversationId: string;
+  action: 'leave' | 'members_added';
+  userId?: string;
+  conversation?: import('../types').ConversationListItem;
+};
+
 type Handlers = {
   onReceive?: (message: ChatMessage) => void;
   onTyping?: (payload: ChatTypingPayload) => void;
+  onGroupUpdated?: (payload: ChatGroupUpdatedPayload) => void;
 };
 
 export function useChatSocket(handlers: Handlers = {}) {
@@ -32,11 +40,15 @@ export function useChatSocket(handlers: Handlers = {}) {
     const onTyping = (payload: ChatTypingPayload) => {
       handlersRef.current.onTyping?.(payload);
     };
+    const onGroupUpdated = (payload: ChatGroupUpdatedPayload) => {
+      handlersRef.current.onGroupUpdated?.(payload);
+    };
 
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
     socket.on('receive_message', onReceive);
     socket.on('typing', onTyping);
+    socket.on('group_updated', onGroupUpdated);
     setConnected(socket.connected);
 
     return () => {
@@ -44,6 +56,7 @@ export function useChatSocket(handlers: Handlers = {}) {
       socket.off('disconnect', onDisconnect);
       socket.off('receive_message', onReceive);
       socket.off('typing', onTyping);
+      socket.off('group_updated', onGroupUpdated);
     };
   }, [socket]);
 

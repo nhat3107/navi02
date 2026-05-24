@@ -15,16 +15,25 @@ export function DashboardSkeleton() {
         ))}
       </div>
       <div className="dashboard-panels">
-        <div className="dash-panel dash-panel--skeleton">
-          <div className="dash-skeleton dash-skeleton--title" />
-          <div className="dash-skeleton dash-skeleton--chart" />
-        </div>
-        <div className="dash-panel dash-panel--skeleton">
-          <div className="dash-skeleton dash-skeleton--title" />
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="dash-skeleton dash-skeleton--row" />
-          ))}
-        </div>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="dash-dashboard-cell">
+            <div className="dash-dashboard-cell__body">
+              <div className="dash-panel dash-panel--skeleton">
+                <div className="dash-skeleton dash-skeleton--title" />
+                {i === 1 ? (
+                  Array.from({ length: 4 }).map((__, j) => (
+                    <div key={j} className="dash-skeleton dash-skeleton--row" />
+                  ))
+                ) : (
+                  <div className="dash-skeleton dash-skeleton--chart" />
+                )}
+              </div>
+            </div>
+            <div className="dash-dashboard-cell__footer">
+              <span className="dash-dashboard-cell__spacer" aria-hidden />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

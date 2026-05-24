@@ -135,9 +135,9 @@ export class UserController {
     @Query('limit') limit?: string,
   ) {
     const parsedLimit = limit ? parseInt(limit, 10) : undefined;
-    return this.userService.suggest_people(
-      userId,
-      Number.isFinite(parsedLimit) ? parsedLimit : undefined,
-    );
+    const safeLimit = Number.isFinite(parsedLimit)
+      ? Math.min(Math.max(parsedLimit!, 1), 50)
+      : undefined;
+    return this.userService.suggest_people(userId, safeLimit);
   }
 }

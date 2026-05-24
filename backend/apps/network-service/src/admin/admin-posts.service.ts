@@ -10,6 +10,7 @@ import {
   ReportStatus,
   ReportTargetType,
 } from '../reports/schemas/report.schema';
+import { AdminProfilesService } from './admin-profiles.service';
 
 const APPLY_PENALTY_RPC = 'auth.apply_violation_penalty';
 
@@ -20,6 +21,7 @@ export class AdminPostsService {
     @InjectModel(Report.name)
     private readonly reportModel: Model<ReportDocument>,
     @Inject('KAFKA_SERVICE') private readonly kafkaClient: ClientKafka,
+    private readonly adminProfilesService: AdminProfilesService,
   ) {}
 
   async getPostStats(): Promise<{
@@ -53,7 +55,21 @@ export class AdminPostsService {
       .limit(limit)
       .lean()
       .exec();
-    return { data: posts };
+
+    const authorIds = [
+      ...new Set(posts.map((p) => String(p.authorId)).filter(Boolean)),
+    ];
+    const profiles = await this.adminProfilesService.lookup(authorIds);
+
+    const data = posts.map((post) => {
+      const authorProfile = profiles.get(String(post.authorId));
+      return {
+        ...post,
+        authorUsername: authorProfile?.username ?? null,
+      };
+    });
+
+    return { data };
   }
 
   async findReported(limit = 20, skip = 0): Promise<any> {
@@ -79,12 +95,34 @@ export class AdminPostsService {
       .exec();
 
     const postMap = new Map(posts.map((p) => [String(p._id), p]));
+    const userIds = new Set<string>();
+    for (const post of posts) {
+      if (post.authorId) userIds.add(String(post.authorId));
+    }
+    for (const report of pendingReports) {
+      if (report.reporterId) userIds.add(String(report.reporterId));
+    }
+    const profiles = await this.adminProfilesService.lookup([...userIds]);
+
     const data = pageIds
       .map((id) => {
         const post = postMap.get(id);
         if (!post) return null;
         const reports = pendingReports.filter((r) => r.targetId === id);
-        return { post, reports };
+        const authorProfile = profiles.get(String(post.authorId));
+        return {
+          post: {
+            ...post,
+            authorUsername: authorProfile?.username ?? null,
+          },
+          reports: reports.map((r) => {
+            const reporterProfile = profiles.get(String(r.reporterId));
+            return {
+              ...r,
+              reporterUsername: reporterProfile?.username ?? null,
+            };
+          }),
+        };
       })
       .filter(Boolean);
 
@@ -165,6 +203,7 @@ export class AdminPostsService {
 
   async getDashboardAnalytics(): Promise<{
     postsOverTime: { date: string; count: number }[];
+    reportsOverTime: { date: string; count: number }[];
     recentActivity: {
       type: string;
       message: string;
@@ -204,17 +243,43 @@ export class AdminPostsService {
       postsOverTime.push({ date: key, count: countByDate.get(key) ?? 0 });
     }
 
+    const reportsGrouped = await this.reportModel.aggregate<
+      { _id: string; count: number }
+    >([
+      { $match: { createdAt: { $gte: start } } },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-%d', date: '$createdAt' },
+          },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    const reportsByDate = new Map(
+      reportsGrouped.map((g) => [g._id, g.count]),
+    );
+    const reportsOverTime: { date: string; count: number }[] = [];
+    for (let i = 0; i < dayCount; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const key = d.toISOString().slice(0, 10);
+      reportsOverTime.push({ date: key, count: reportsByDate.get(key) ?? 0 });
+    }
+
     const [recentPosts, recentReports] = await Promise.all([
       this.postModel
         .find({ visibility: { $ne: PostVisibility.DELETED } })
         .sort({ createdAt: -1 })
-        .limit(6)
+        .limit(4)
         .lean()
         .exec(),
       this.reportModel
         .find()
         .sort({ createdAt: -1 })
-        .limit(6)
+        .limit(4)
         .lean()
         .exec(),
     ]);
@@ -241,8 +306,8 @@ export class AdminPostsService {
       })),
     ]
       .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
-      .slice(0, 10);
+      .slice(0, 4);
 
-    return { postsOverTime, recentActivity };
+    return { postsOverTime, reportsOverTime, recentActivity };
   }
 }

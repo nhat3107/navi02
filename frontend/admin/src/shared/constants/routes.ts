@@ -30,6 +30,9 @@ export const apiAdminPostDelete = (postId: string): string =>
 export const apiAdminReportReview = (reportId: string): string =>
   `admin/reports/${encodeURIComponent(reportId)}/review`;
 
+export const reportedPostRoute = (postId: string): string =>
+  `${ROUTES.POSTS_REPORTED}?post=${encodeURIComponent(postId)}`;
+
 export const apiAdminUserBlock = (userId: string): string =>
   `admin/users/${encodeURIComponent(userId)}/block`;
 

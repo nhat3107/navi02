@@ -34,7 +34,7 @@ export function ConfirmDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm sm:p-6"
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-sm sm:p-6"
       role="dialog"
       aria-modal
       aria-labelledby="confirm-dialog-title"
@@ -55,7 +55,7 @@ export function ConfirmDialog({
         <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
           {message}
         </p>
-        <div className="mt-5 flex flex-wrap justify-end gap-2">
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
           <Button
             type="button"
             variant="secondary"

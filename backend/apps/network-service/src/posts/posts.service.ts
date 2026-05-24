@@ -6,7 +6,6 @@ import { firstValueFrom, timeout } from 'rxjs';
 import { Post, PostDocument, PostVisibility } from './schemas/post.schema';
 import { Like, LikeDocument } from '../likes/schemas/like.schema';
 import { Share, ShareDocument } from './schemas/share.schema';
-import { PostVisibility } from './schemas/post.schema';
 
 const MODERATION_RPC = 'ai.moderate_content';
 const MODERATION_TIMEOUT_MS = 45_000;
@@ -207,7 +206,10 @@ export class PostsService {
         liked = !!likeRecord;
       }
 
-      return { data: { ...post, liked } };
+      const [enriched] = await this.attachOriginalPosts([
+        { ...post, liked },
+      ]);
+      return { data: enriched };
     } catch (error) {
       if (error instanceof RpcException) throw error;
       if ((error as { name?: string }).name === 'CastError') {
@@ -235,8 +237,13 @@ export class PostsService {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
+        .lean()
         .exec();
-      return { data: posts };
+      return {
+        data: await this.attachOriginalPosts(
+          posts as unknown as Record<string, unknown>[],
+        ),
+      };
     } catch (error) {
       if (error instanceof RpcException) throw error;
       console.error('Error finding posts by author', error);
@@ -270,10 +277,12 @@ export class PostsService {
         .exec();
       const likedSet = new Set(likedRecords.map((l) => l.postId.toString()));
 
-      const data = posts.map((post) => ({
-        ...post,
-        liked: likedSet.has(post._id.toString()),
-      }));
+      const data = await this.attachOriginalPosts(
+        posts.map((post) => ({
+          ...post,
+          liked: likedSet.has(post._id.toString()),
+        })),
+      );
 
       return { data };
     } catch (error) {
@@ -337,6 +346,20 @@ export class PostsService {
         });
       }
 
+      if (original.visibility === PostVisibility.PENDING) {
+        throw new RpcException({
+          status: 403,
+          message: 'Cannot share a post under review',
+        });
+      }
+
+      if (original.visibility === PostVisibility.DELETED) {
+        throw new RpcException({
+          status: 410,
+          message: 'Post was removed',
+        });
+      }
+
       const existingShare = await this.shareModel
         .findOne({
           userId,
@@ -393,9 +416,13 @@ export class PostsService {
         preview,
       });
 
+      const [enriched] = await this.attachOriginalPosts([
+        repost.toObject() as unknown as Record<string, unknown>,
+      ]);
+
       return {
         message: 'Post shared successfully',
-        data: repost,
+        data: enriched,
       };
     } catch (error) {
       if (error instanceof RpcException) throw error;
@@ -476,6 +503,61 @@ export class PostsService {
       return PostVisibility.PUBLIC;
     }
     return PostVisibility.PUBLIC;
+  }
+
+  private readObjectId(value: unknown): string | null {
+    if (value == null) return null;
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'object' && value !== null) {
+      if ('$oid' in value) {
+        return String((value as { $oid: string }).$oid);
+      }
+      if ('_id' in value) {
+        return String((value as { _id: unknown })._id);
+      }
+      if (
+        'toString' in value &&
+        typeof (value as { toString: () => string }).toString === 'function'
+      ) {
+        const s = (value as { toString: () => string }).toString();
+        if (s && s !== '[object Object]') return s;
+      }
+    }
+    return String(value);
+  }
+
+  private async attachOriginalPosts<T extends Record<string, unknown>>(
+    posts: T[],
+  ): Promise<Array<T & { originalPost: Record<string, unknown> | null }>> {
+    const originalIds = [
+      ...new Set(
+        posts
+          .map((p) => this.readObjectId(p.originalPostId))
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+
+    if (originalIds.length === 0) {
+      return posts.map((post) => ({ ...post, originalPost: null }));
+    }
+
+    const originals = await this.postModel
+      .find({ _id: { $in: originalIds } })
+      .lean()
+      .exec();
+    const byId = new Map(originals.map((p) => [String(p._id), p]));
+
+    return posts.map((post) => {
+      const originalId = this.readObjectId(post.originalPostId);
+      if (!originalId) {
+        return { ...post, originalPost: null };
+      }
+      const original = byId.get(originalId);
+      return {
+        ...post,
+        originalPost: (original as Record<string, unknown> | undefined) ?? null,
+      };
+    });
   }
 
   private assertPostViewable(

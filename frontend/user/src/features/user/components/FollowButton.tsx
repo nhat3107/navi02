@@ -70,7 +70,7 @@ export function FollowButton({
     'inline-flex items-center justify-center gap-2 font-medium rounded-full transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-accent/30';
   const sizeCls =
     variant === 'wide'
-      ? 'min-w-[140px] px-5 py-2 text-sm'
+      ? 'min-h-[44px] w-full px-5 py-2 text-sm sm:min-w-[140px] sm:w-auto'
       : 'px-4 py-1.5 text-xs';
   const stateCls = isFollowing
     ? 'border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700'

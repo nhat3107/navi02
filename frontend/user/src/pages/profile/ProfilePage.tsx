@@ -289,11 +289,11 @@ function ProfileHero({
               @{profile.username}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2 pt-2">
+          <div className="flex w-full flex-col gap-2 pt-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
             {isSelf ? (
               <Link
                 to={ROUTES.SETTINGS_PROFILE}
-                className="inline-flex min-w-[140px] items-center justify-center gap-2 rounded-lg border border-neutral-300 bg-white px-5 py-2 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+                className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-neutral-300 bg-white px-5 py-2 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-50 sm:min-w-[140px] sm:w-auto dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
               >
                 Edit profile
               </Link>
@@ -308,7 +308,7 @@ function ProfileHero({
                 <Link
                   to={ROUTES.CHAT}
                   state={{ openWith: profile.id }}
-                  className="inline-flex min-w-[120px] items-center justify-center rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+                  className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-50 sm:min-w-[120px] sm:w-auto dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
                 >
                   Message
                 </Link>
@@ -511,7 +511,7 @@ function ProfilePostsSection({
           No published posts yet.
         </p>
       )}
-      <div className="grid grid-cols-3 gap-1.5 sm:gap-2.5">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5">
         {publishedPosts.map((post) => (
           <PostCard
             key={post.id}

@@ -145,6 +145,24 @@ export class NotificationServiceController {
     });
   }
 
+  @EventPattern('notification.share_post', Transport.KAFKA)
+  async onSharePost(data: {
+    senderId: string;
+    recipientId: string;
+    postId: string;
+    repostPostId?: string;
+    preview?: string;
+  }) {
+    await this.notificationService.create({
+      recipientId: data.recipientId,
+      senderId: data.senderId,
+      type: NotificationType.SHARE_POST,
+      referenceId: data.repostPostId ?? data.postId,
+      referenceType: NotificationReferenceType.POST,
+      preview: data.preview ?? null,
+    });
+  }
+
   // --- RPC handlers (request-reply from api-gateway) ---
 
   @MessagePattern('notification.get', Transport.KAFKA)

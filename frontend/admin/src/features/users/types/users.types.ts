@@ -33,6 +33,10 @@ export interface PostsOverTimePoint {
   count: number;
 }
 
+export type ReportsOverTimePoint = PostsOverTimePoint;
+
+export type UsersOverTimePoint = PostsOverTimePoint;
+
 export interface DashboardStats {
   totalUsers: number;
   totalPosts: number;
@@ -40,6 +44,8 @@ export interface DashboardStats {
   reportedPosts: number;
   blockedUsers: number;
   postsOverTime: PostsOverTimePoint[];
+  reportsOverTime: ReportsOverTimePoint[];
+  usersOverTime: UsersOverTimePoint[];
   recentActivity: DashboardActivity[];
 }
 

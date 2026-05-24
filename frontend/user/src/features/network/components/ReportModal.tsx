@@ -43,7 +43,7 @@ export function ReportModal({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-4 sm:items-center"
+      className="modal-sheet-backdrop"
       role="dialog"
       aria-modal
       aria-labelledby="report-modal-title"
@@ -54,7 +54,7 @@ export function ReportModal({
         aria-label="Close report dialog"
         onClick={() => !submitting && onClose()}
       />
-      <div className="relative z-10 w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+      <div className="modal-sheet-panel p-5">
         <h2
           id="report-modal-title"
           className="text-lg font-semibold text-slate-900 dark:text-slate-100"
@@ -75,7 +75,7 @@ export function ReportModal({
         {error && (
           <p className="mt-2 text-sm text-red-700 dark:text-red-300">{error}</p>
         )}
-        <div className="mt-4 flex justify-end gap-2">
+        <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button
             type="button"
             variant="secondary"

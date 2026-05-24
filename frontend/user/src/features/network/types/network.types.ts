@@ -16,6 +16,8 @@ export interface NetworkPost {
   likeCount: number;
   commentCount: number;
   shareCount: number;
+  originalPostId?: string | null;
+  originalPost?: NetworkPost | null;
   createdAt: string;
   updatedAt?: string;
   liked?: boolean;
@@ -41,8 +43,21 @@ function readId(raw: Record<string, unknown>): string {
   return String(v ?? '');
 }
 
-export function normalizeNetworkPost(raw: Record<string, unknown>): NetworkPost {
+export function normalizeNetworkPost(
+  raw: Record<string, unknown>,
+  options: { shallow?: boolean } = {},
+): NetworkPost {
   const media = raw.mediaUrls;
+  const originalPostRaw = raw.originalPost;
+  const originalPostIdRaw = raw.originalPostId;
+  let originalPostId: string | null = null;
+  if (originalPostIdRaw != null && originalPostIdRaw !== '') {
+    originalPostId =
+      typeof originalPostIdRaw === 'object' && originalPostIdRaw !== null
+        ? readId(originalPostIdRaw as Record<string, unknown>)
+        : String(originalPostIdRaw);
+  }
+
   return {
     id: readId(raw),
     authorId: String(raw.authorId ?? ''),
@@ -54,6 +69,15 @@ export function normalizeNetworkPost(raw: Record<string, unknown>): NetworkPost 
     likeCount: Number(raw.likeCount ?? 0),
     commentCount: Number(raw.commentCount ?? 0),
     shareCount: Number(raw.shareCount ?? 0),
+    originalPostId,
+    originalPost:
+      !options.shallow &&
+      originalPostRaw &&
+      typeof originalPostRaw === 'object'
+        ? normalizeNetworkPost(originalPostRaw as Record<string, unknown>, {
+            shallow: true,
+          })
+        : null,
     createdAt:
       typeof raw.createdAt === 'string'
         ? raw.createdAt

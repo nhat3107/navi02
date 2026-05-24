@@ -1,30 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ROUTES, buildProfilePath } from '../../shared/constants/routes';
+import { ROUTES } from '../../shared/constants/routes';
 import { searchUsers, type UserSearchHit } from '../../features/user/api/userDirectory.api';
 import { fetchMyFollowing } from '../../features/user/api/userProfile.api';
 import { useProfileCache } from '../../features/user/store/profileCache.store';
 import { useAuthStore } from '../../features/auth/store/auth.store';
 import { AppPage } from '../../shared/layout/AppPage';
-import { PageHeader } from '../../shared/components/PageHeader';
 import { EmptyState } from '../../shared/components/EmptyState';
-import { LoadingState } from '../../shared/components/LoadingState';
-import { UserAvatar } from '../../features/user/components/UserAvatar';
-import { FollowButton } from '../../features/user/components/FollowButton';
+import { DiscoverPersonCard } from '../../features/user/components/DiscoverPersonCard';
+import { SuggestedPeoplePanel } from '../../features/user/components/SuggestedPeoplePanel';
 
 const MIN_QUERY = 2;
 const DEBOUNCE_MS = 220;
 
-/**
- * `/discover` — search for people by name or @username (`GET /user/search`).
- *
- * - Below 2 chars we show a "Suggested" panel of accounts the viewer is NOT
- *   yet following. Suggestions are derived from the cached follow-set on the
- *   server's "people we follow" endpoint, then filtered to the not-yet-
- *   followed; this keeps Discover useful even before the user types.
- * - When typing, we debounce the API call so we don't spam the gateway.
- * - Each row has a follow button driven by the same cache.
- */
 export function DiscoverPage() {
   const viewerUserId = useAuthStore((s) => s.user?.id ?? null);
   const followingIds = useProfileCache((s) => s.followingIds);
@@ -35,9 +23,8 @@ export function DiscoverPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Hydrate the follow-set so suggestions filter correctly even on a fresh
-  // mount where the navbar effect hasn't completed yet.
   useEffect(() => {
     if (!viewerUserId) return;
     if (followingIds.size > 0) return;
@@ -55,7 +42,6 @@ export function DiscoverPage() {
     };
   }, [viewerUserId, followingIds.size, setFollowingIds]);
 
-  // Debounced search.
   useEffect(() => {
     const trimmed = query.trim();
     if (trimmed.length < MIN_QUERY) {
@@ -95,198 +81,246 @@ export function DiscoverPage() {
     [hits, viewerUserId],
   );
 
+  function clearSearch() {
+    setQuery('');
+    inputRef.current?.focus();
+  }
+
   return (
     <AppPage mainClassName="max-w-3xl">
-        <PageHeader
-          eyebrow="People"
-          title="Discover"
-          description="Find people, follow them, and start a conversation."
-        />
-
-        <div className="mb-5">
-          <label className="relative block">
-            <span className="sr-only">Search people</span>
-            <span
-              aria-hidden
-              className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-            </span>
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by name or @username"
-              className="search-input"
-              autoFocus
-            />
-          </label>
-          {!showResults && (
-            <p className="mt-2 px-1 text-xs text-slate-500 dark:text-slate-400">
-              Type at least {MIN_QUERY} characters to search.
-            </p>
-          )}
+      <section className="discover-hero">
+        <div className="discover-hero__glow" aria-hidden />
+        <div className="discover-hero__content">
+          <p className="discover-hero__eyebrow">Explore</p>
+          <h1 className="discover-hero__title">Discover people</h1>
+          <p className="discover-hero__desc">
+            Search by name or username, follow interesting profiles, and grow your network.
+          </p>
+          {viewerUserId ? (
+            <div className="discover-hero__stats">
+              <span className="discover-stat-pill">
+                Following {followingIds.size}
+              </span>
+            </div>
+          ) : null}
         </div>
 
-        {showResults ? (
-          <ResultsCard
-            loading={loading}
-            error={error}
-            hits={filteredHits}
-            viewerUserId={viewerUserId}
+        <label className="discover-search">
+          <span className="sr-only">Search people</span>
+          <span className="discover-search__icon" aria-hidden>
+            <SearchIcon />
+          </span>
+          <input
+            ref={inputRef}
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search name or @username"
+            className="discover-search__input"
+            autoFocus
           />
-        ) : (
-          <SuggestionsCard viewerUserId={viewerUserId} />
-        )}
+          {query.length > 0 ? (
+            <button
+              type="button"
+              onClick={clearSearch}
+              className="discover-search__clear"
+              aria-label="Clear search"
+            >
+              <CloseIcon />
+            </button>
+          ) : null}
+        </label>
+        {!showResults ? (
+          <p className="discover-search__hint">
+            Type at least {MIN_QUERY} characters to search the directory.
+          </p>
+        ) : null}
+      </section>
+
+      {showResults ? (
+        <ResultsSection
+          loading={loading}
+          error={error}
+          hits={filteredHits}
+          viewerUserId={viewerUserId}
+          query={query.trim()}
+        />
+      ) : (
+        <div className="discover-stack">
+          <SuggestedPeoplePanel viewerUserId={viewerUserId} limit={10} />
+          <QuickLinksSection viewerUserId={viewerUserId} />
+        </div>
+      )}
     </AppPage>
   );
 }
 
-function ResultsCard({
+function ResultsSection({
   loading,
   error,
   hits,
   viewerUserId,
+  query,
 }: {
   loading: boolean;
   error: string | null;
   hits: UserSearchHit[];
   viewerUserId: string | null;
+  query: string;
 }) {
   return (
-    <section className="surface-card">
-      <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-          Results
-        </h2>
-        {!loading && (
-          <span className="text-xs text-slate-500 dark:text-slate-400">
-            {hits.length} {hits.length === 1 ? 'match' : 'matches'}
-          </span>
-        )}
-      </header>
-      {loading && <LoadingState label="Searching…" />}
-      {!loading && error && (
-        <div className="p-6 text-center text-sm text-red-600 dark:text-red-300">
-          {error}
+    <section className="discover-section">
+      <header className="discover-section__header">
+        <div>
+          <h2 className="discover-section__title">Search results</h2>
+          <p className="discover-section__subtitle">
+            {loading ? `Searching for “${query}”…` : `Matches for “${query}”`}
+          </p>
         </div>
-      )}
-      {!loading && !error && hits.length === 0 && (
+        {!loading ? (
+          <span className="discover-count-badge">
+            {hits.length} {hits.length === 1 ? 'person' : 'people'}
+          </span>
+        ) : null}
+      </header>
+
+      {loading ? (
+        <div className="discover-results-list">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="discover-person-row discover-person-row--skeleton" aria-hidden />
+          ))}
+        </div>
+      ) : null}
+
+      {!loading && error ? (
+        <div className="discover-section__message discover-section__message--error">{error}</div>
+      ) : null}
+
+      {!loading && !error && hits.length === 0 ? (
         <EmptyState
           title="No matches"
-          description="No people match that search. Try a different name or username."
+          description="Try a different spelling, display name, or username."
         />
-      )}
-      {!loading && !error && hits.length > 0 && (
-        <ul className="divide-y divide-slate-200 dark:divide-slate-800">
+      ) : null}
+
+      {!loading && !error && hits.length > 0 ? (
+        <div className="discover-results-list">
           {hits.map((hit) => (
-            <li key={hit.id}>
-              <PersonRow
-                id={hit.id}
-                username={hit.username}
-                fullName={hit.full_name}
-                avatarUrl={hit.avatar_url}
-                viewerUserId={viewerUserId}
-              />
-            </li>
+            <DiscoverPersonCard
+              key={hit.id}
+              id={hit.id}
+              username={hit.username}
+              fullName={hit.full_name}
+              avatarUrl={hit.avatar_url}
+              viewerUserId={viewerUserId}
+              variant="row"
+            />
           ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-function SuggestionsCard({ viewerUserId }: { viewerUserId: string | null }) {
-  const followingIds = useProfileCache((s) => s.followingIds);
-  return (
-    <section className="surface-card">
-      <header className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-          Why not start here?
-        </h2>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          Search above to find someone, or jump straight into the app.
-        </p>
-      </header>
-      <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
-        <Link
-          to={ROUTES.PROFILE_ME}
-          className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 transition hover:border-accent hover:bg-accent-bg dark:border-slate-800 dark:bg-slate-800/40"
-        >
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-            Your profile
-          </p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Polish your bio &amp; photo so people recognize you.
-          </p>
-        </Link>
-        <Link
-          to={ROUTES.CHAT}
-          className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 transition hover:border-accent hover:bg-accent-bg dark:border-slate-800 dark:bg-slate-800/40"
-        >
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-            Open messages
-          </p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Start a chat or jump back into a recent conversation.
-          </p>
-        </Link>
-        <Link
-          to={ROUTES.PROFILE_ME_FOLLOWING}
-          className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 transition hover:border-accent hover:bg-accent-bg dark:border-slate-800 dark:bg-slate-800/40"
-        >
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-            Manage follows
-          </p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            You're following {followingIds.size}{' '}
-            {followingIds.size === 1 ? 'person' : 'people'}.
-          </p>
-        </Link>
-      </div>
-      {!viewerUserId && (
-        <div className="border-t border-slate-200 px-4 py-3 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
-          Sign in to follow people and start chatting.
         </div>
-      )}
+      ) : null}
     </section>
   );
 }
 
-function PersonRow({
-  id,
-  username,
-  fullName,
-  avatarUrl,
-  viewerUserId,
-}: {
-  id: string;
-  username: string;
-  fullName: string;
-  avatarUrl: string;
-  viewerUserId: string | null;
-}) {
+function QuickLinksSection({ viewerUserId }: { viewerUserId: string | null }) {
+  const followingIds = useProfileCache((s) => s.followingIds);
+
+  const links = [
+    {
+      to: ROUTES.PROFILE_ME,
+      title: 'Your profile',
+      desc: 'Update bio, photo, and username',
+      icon: <ProfileIcon />,
+      tone: 'violet' as const,
+    },
+    {
+      to: ROUTES.CHAT,
+      title: 'Messages',
+      desc: 'Pick up a chat or start a new one',
+      icon: <ChatIcon />,
+      tone: 'fuchsia' as const,
+    },
+    {
+      to: ROUTES.PROFILE_ME_FOLLOWING,
+      title: 'Following',
+      desc: `${followingIds.size} ${followingIds.size === 1 ? 'person' : 'people'} in your network`,
+      icon: <NetworkIcon />,
+      tone: 'indigo' as const,
+    },
+  ];
+
   return (
-    <div className="flex items-center gap-3 px-4 py-3">
-      <Link to={buildProfilePath(id)} className="shrink-0">
-        <UserAvatar label={fullName || username} src={avatarUrl} size="md" />
-      </Link>
-      <Link to={buildProfilePath(id)} className="min-w-0 flex-1 group">
-        <p className="truncate text-sm font-semibold text-slate-900 group-hover:text-accent dark:text-slate-100">
-          {fullName?.trim() || `@${username}`}
+    <section className="discover-section">
+      <header className="discover-section__header">
+        <div>
+          <h2 className="discover-section__title">Quick links</h2>
+          <p className="discover-section__subtitle">Shortcuts while you explore</p>
+        </div>
+      </header>
+      <div className="discover-quick-grid">
+        {links.map((link) => (
+          <Link
+            key={link.to}
+            to={link.to}
+            className={`discover-quick-tile discover-quick-tile--${link.tone}`}
+          >
+            <span className="discover-quick-tile__icon">{link.icon}</span>
+            <span className="discover-quick-tile__title">{link.title}</span>
+            <span className="discover-quick-tile__desc">{link.desc}</span>
+          </Link>
+        ))}
+      </div>
+      {!viewerUserId ? (
+        <p className="discover-section__footnote">
+          Sign in to follow people and start chatting.
         </p>
-        <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-          @{username}
-        </p>
-      </Link>
-      <FollowButton
-        targetUserId={id}
-        viewerUserId={viewerUserId}
-        targetLabel={`@${username}`}
-      />
-    </div>
+      ) : null}
+    </section>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+
+function ProfileIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21a8 8 0 0 0-16 0" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
+function ChatIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function NetworkIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <path d="m8.59 13.51 6.83 3.98M15.41 6.51l-6.82 3.98" />
+    </svg>
   );
 }

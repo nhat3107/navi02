@@ -5,6 +5,7 @@ import { HydratedDocument } from 'mongoose';
 export enum MessageType {
   TEXT = 'text',
   POST_SHARE = 'post_share',
+  SYSTEM = 'system',
 }
 
 export type MessageDocument = HydratedDocument<Message>;

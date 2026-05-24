@@ -1,13 +1,9 @@
 import { memo, useEffect, useRef } from 'react';
 import { useParticipant } from '@videosdk.live/react-sdk';
+import { ScreenShareIcon } from '../../features/call/components/CallIcons';
 
 /**
  * Renders the active presenter's screen share + optional share-audio.
- *
- * Why native `<video>` instead of the SDK's VideoPlayer: the SDK component
- * re-attempts `play()` on every parent re-render, which fires AbortError under
- * Vite HMR and StrictMode (we already hit this with webcam tiles). Reusing the
- * same MediaStream-attach pattern keeps screen share solid.
  */
 export const ScreenShareTile = memo(function ScreenShareTile({
   participantId,
@@ -70,13 +66,11 @@ export const ScreenShareTile = memo(function ScreenShareTile({
   if (!screenShareOn) return null;
 
   return (
-    <div className="relative flex h-full min-h-[240px] flex-col overflow-hidden rounded-2xl bg-black ring-1 ring-emerald-500/30">
+    <div className="relative flex h-full min-h-[240px] flex-col overflow-hidden rounded-[1.25rem] bg-black shadow-[0_12px_40px_-12px_rgba(0,0,0,0.65)] ring-1 ring-emerald-400/25">
       <video
         ref={videoRef}
         autoPlay
         playsInline
-        // Local presenter must be muted: the same audio is already coming
-        // out of their speakers, so unmuting here causes a feedback loop.
         muted={isLocal}
         className="h-full w-full bg-black object-contain"
       />
@@ -87,22 +81,8 @@ export const ScreenShareTile = memo(function ScreenShareTile({
         muted={isLocal}
         className="hidden"
       />
-      <div className="absolute left-3 top-3 flex items-center gap-2 rounded-full bg-emerald-600/90 px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-wider text-white shadow-lg">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="h-3.5 w-3.5"
-          aria-hidden="true"
-        >
-          <rect width="20" height="14" x="2" y="3" rx="2" />
-          <line x1="8" x2="16" y1="21" y2="21" />
-          <line x1="12" x2="12" y1="17" y2="21" />
-        </svg>
+      <div className="absolute left-3 top-3 flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/90 px-3 py-1.5 text-[0.68rem] font-semibold uppercase tracking-wider text-white shadow-lg backdrop-blur-sm">
+        <ScreenShareIcon className="h-3.5 w-3.5" />
         <span>
           {isLocal ? 'You are sharing' : `${displayName || 'Participant'} is sharing`}
         </span>

@@ -30,6 +30,8 @@ export function summarizeNotificationType(row: NotificationRow): string {
       return 'Your post was removed due to policy violations';
     case 'follow':
       return 'started following you';
+    case 'share_post':
+      return 'shared your post';
     case 'report_reviewed':
       return 'report update';
     default:

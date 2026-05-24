@@ -320,7 +320,7 @@ export function EditProfilePage() {
                       key={g.value}
                       type="button"
                       onClick={() => setGender(g.value)}
-                      className={`flex-1 rounded-lg border-[1.5px] px-3 py-2 text-sm font-medium transition ${
+                      className={`min-h-[44px] flex-1 rounded-lg border-[1.5px] px-2 py-2 text-sm font-medium transition sm:px-3 ${
                         gender === g.value
                           ? 'border-accent bg-accent-bg text-accent'
                           : 'border-slate-300 bg-white text-slate-500 hover:border-slate-400 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-slate-500'

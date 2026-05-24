@@ -32,6 +32,8 @@ export class ChatService implements OnModuleInit {
     this.kafka.subscribeToResponseOf('chat.list_messages');
     this.kafka.subscribeToResponseOf('chat.list_conversations');
     this.kafka.subscribeToResponseOf('chat.create_group');
+    this.kafka.subscribeToResponseOf('chat.leave_group');
+    this.kafka.subscribeToResponseOf('chat.add_group_members');
   }
 
   async createMessage(userId: string, dto: CreateMessageDto) {
@@ -125,6 +127,115 @@ export class ChatService implements OnModuleInit {
       }),
     )) as { message: string; data: ConversationListRow };
     await this.enrichParticipantProfiles(userId, [res.data]);
+    return res;
+  }
+
+  async leaveGroup(userId: string, conversationId: string) {
+    const res = (await firstValueFrom(
+      this.kafka.send('chat.leave_group', {
+        userId,
+        conversationId,
+      }),
+    )) as {
+      message: string;
+      data: {
+        conversationId: string;
+        systemMessage?: {
+          id: string;
+          conversationId: string;
+          sender_id: string;
+          content: string;
+          media_url: string;
+          type: string;
+          createdAt: string;
+          receiverIds: string[];
+        } | null;
+        notifyUserIds: string[];
+      };
+    };
+
+    const row = res.data.systemMessage;
+    if (row) {
+      const payload = {
+        message: {
+          id: row.id,
+          conversationId: row.conversationId,
+          sender_id: row.sender_id,
+          content: row.content,
+          media_url: row.media_url,
+          type: row.type,
+          createdAt: row.createdAt,
+        },
+      };
+      for (const uid of row.receiverIds ?? []) {
+        this.chatGateway.emitToUser(uid, 'receive_message', payload);
+      }
+    }
+    for (const uid of res.data.notifyUserIds ?? []) {
+      this.chatGateway.emitToUser(uid, 'group_updated', {
+        conversationId: res.data.conversationId,
+        action: 'leave',
+        userId,
+      });
+    }
+    return res;
+  }
+
+  async addGroupMembers(
+    userId: string,
+    conversationId: string,
+    memberIds: string[],
+  ) {
+    const res = (await firstValueFrom(
+      this.kafka.send('chat.add_group_members', {
+        userId,
+        conversationId,
+        memberIds,
+      }),
+    )) as {
+      message: string;
+      data: {
+        conversation: ConversationListRow;
+        systemMessage: {
+          id: string;
+          conversationId: string;
+          sender_id: string;
+          content: string;
+          media_url: string;
+          type: string;
+          createdAt: string;
+          receiverIds: string[];
+        };
+        notifyUserIds: string[];
+      };
+    };
+
+    await this.enrichParticipantProfiles(userId, [res.data.conversation]);
+
+    const row = res.data.systemMessage;
+    if (row) {
+      const payload = {
+        message: {
+          id: row.id,
+          conversationId: row.conversationId,
+          sender_id: row.sender_id,
+          content: row.content,
+          media_url: row.media_url,
+          type: row.type,
+          createdAt: row.createdAt,
+        },
+      };
+      for (const uid of row.receiverIds ?? []) {
+        this.chatGateway.emitToUser(uid, 'receive_message', payload);
+      }
+    }
+    for (const uid of res.data.notifyUserIds ?? []) {
+      this.chatGateway.emitToUser(uid, 'group_updated', {
+        conversationId: res.data.conversation.id,
+        action: 'members_added',
+        conversation: res.data.conversation,
+      });
+    }
     return res;
   }
 

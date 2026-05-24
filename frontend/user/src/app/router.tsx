@@ -30,6 +30,7 @@ import { DiscoverPage } from '../pages/discover/DiscoverPage';
 import { PostDetailPage } from '../pages/post/PostDetailPage';
 import { NotificationsPage } from '../pages/notifications/NotificationsPage';
 import { RequireUserProfile } from './RequireUserProfile';
+import { ProtectedLayout } from '../shared/layout/ProtectedLayout';
 
 /**
  * Renders primary routes at `location.state.backgroundLocation` when present so
@@ -50,110 +51,60 @@ function AppShellRoutes() {
       <MiniCallBar />
       <OAuthReturnHandler />
       <Routes location={background ?? location}>
+            <Route element={<ProtectedLayout />}>
             <Route
               path={ROUTES.HOME}
-              element={
-                <RequireUserProfile>
-                  <HomePage />
-                </RequireUserProfile>
-              }
+              element={<HomePage />}
             />
             <Route
               path={ROUTES.CHAT}
-              element={
-                <RequireUserProfile>
-                  <ChatPage />
-                </RequireUserProfile>
-              }
+              element={<ChatPage />}
             />
             <Route
               path={ROUTES.CALL}
-              element={
-                <RequireUserProfile>
-                  <CallRoomPage />
-                </RequireUserProfile>
-              }
+              element={<CallRoomPage />}
             />
             <Route
               path={ROUTES.DISCOVER}
-              element={
-                <RequireUserProfile>
-                  <DiscoverPage />
-                </RequireUserProfile>
-              }
+              element={<DiscoverPage />}
             />
             <Route
               path={ROUTES.NOTIFICATIONS}
-              element={
-                <RequireUserProfile>
-                  <NotificationsPage />
-                </RequireUserProfile>
-              }
+              element={<NotificationsPage />}
             />
             <Route
               path={ROUTES.POST}
-              element={
-                <RequireUserProfile>
-                  <PostDetailPage />
-                </RequireUserProfile>
-              }
+              element={<PostDetailPage />}
             />
             <Route
               path={ROUTES.PROFILE_ME}
-              element={
-                <RequireUserProfile>
-                  <ProfilePage mode="me" />
-                </RequireUserProfile>
-              }
+              element={<ProfilePage mode="me" />}
             />
             <Route
               path={ROUTES.PROFILE_ME_FOLLOWERS}
-              element={
-                <RequireUserProfile>
-                  <FollowEdgesPage mode="me-followers" />
-                </RequireUserProfile>
-              }
+              element={<FollowEdgesPage mode="me-followers" />}
             />
             <Route
               path={ROUTES.PROFILE_ME_FOLLOWING}
-              element={
-                <RequireUserProfile>
-                  <FollowEdgesPage mode="me-following" />
-                </RequireUserProfile>
-              }
+              element={<FollowEdgesPage mode="me-following" />}
             />
             <Route
               path={ROUTES.SETTINGS_PROFILE}
-              element={
-                <RequireUserProfile>
-                  <EditProfilePage />
-                </RequireUserProfile>
-              }
+              element={<EditProfilePage />}
             />
             <Route
               path={ROUTES.PROFILE}
-              element={
-                <RequireUserProfile>
-                  <ProfilePage mode="other" />
-                </RequireUserProfile>
-              }
+              element={<ProfilePage mode="other" />}
             />
             <Route
               path={ROUTES.PROFILE_FOLLOWERS}
-              element={
-                <RequireUserProfile>
-                  <FollowEdgesPage mode="user-followers" />
-                </RequireUserProfile>
-              }
+              element={<FollowEdgesPage mode="user-followers" />}
             />
             <Route
               path={ROUTES.PROFILE_FOLLOWING}
-              element={
-                <RequireUserProfile>
-                  <FollowEdgesPage mode="user-following" />
-                </RequireUserProfile>
-              }
+              element={<FollowEdgesPage mode="user-following" />}
             />
+            </Route>
             <Route path={ROUTES.LOGIN} element={<LoginPage />} />
             <Route
               path={ROUTES.FORGOT_PASSWORD}

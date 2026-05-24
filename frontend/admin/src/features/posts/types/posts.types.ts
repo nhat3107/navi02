@@ -8,6 +8,7 @@ export type PostVisibility =
 export interface AdminPost {
   id: string;
   authorId: string;
+  authorUsername?: string | null;
   content: string;
   mediaUrls: string[];
   visibility: PostVisibility;
@@ -21,6 +22,7 @@ export interface AdminPost {
 export interface AdminReport {
   id: string;
   reporterId: string;
+  reporterUsername?: string | null;
   targetId: string;
   targetType: 'post' | 'comment' | 'user';
   description: string;
@@ -29,6 +31,7 @@ export interface AdminReport {
   reviewedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  targetPost?: AdminPost | null;
 }
 
 export interface ReportedPostItem {
@@ -49,6 +52,10 @@ export function normalizeAdminPost(raw: Record<string, unknown>): AdminPost {
   return {
     id: readId(raw),
     authorId: String(raw.authorId ?? ''),
+    authorUsername:
+      raw.authorUsername === null || raw.authorUsername === undefined
+        ? null
+        : String(raw.authorUsername),
     content: String(raw.content ?? ''),
     mediaUrls: Array.isArray(raw.mediaUrls)
       ? raw.mediaUrls.map(String)
@@ -63,9 +70,14 @@ export function normalizeAdminPost(raw: Record<string, unknown>): AdminPost {
 }
 
 export function normalizeAdminReport(raw: Record<string, unknown>): AdminReport {
+  const targetPostRaw = raw.targetPost;
   return {
     id: readId(raw),
     reporterId: String(raw.reporterId ?? ''),
+    reporterUsername:
+      raw.reporterUsername === null || raw.reporterUsername === undefined
+        ? null
+        : String(raw.reporterUsername),
     targetId: String(raw.targetId ?? ''),
     targetType: (raw.targetType as AdminReport['targetType']) ?? 'post',
     description: String(raw.description ?? ''),
@@ -80,6 +92,10 @@ export function normalizeAdminReport(raw: Record<string, unknown>): AdminReport 
         : String(raw.reviewedAt),
     createdAt: String(raw.createdAt ?? ''),
     updatedAt: String(raw.updatedAt ?? ''),
+    targetPost:
+      targetPostRaw && typeof targetPostRaw === 'object'
+        ? normalizeAdminPost(targetPostRaw as Record<string, unknown>)
+        : null,
   };
 }
 

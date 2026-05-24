@@ -13,10 +13,10 @@ import { ThemeToggleButton } from '../../../shared/components/ThemeToggle';
 import { LogoutButton } from '../../auth/components/LogoutButton';
 
 const NAV_ITEMS = [
-  { to: ROUTES.HOME, label: 'Home', icon: 'home' },
-  { to: ROUTES.DISCOVER, label: 'Discover', icon: 'compass' },
-  { to: ROUTES.CHAT, label: 'Messages', icon: 'chat' },
-  { to: ROUTES.PROFILE_ME, label: 'Profile', icon: 'user' },
+  { to: ROUTES.HOME, label: 'Home', mobileLabel: 'Home', icon: 'home' },
+  { to: ROUTES.DISCOVER, label: 'Discover', mobileLabel: 'Discover', icon: 'compass' },
+  { to: ROUTES.CHAT, label: 'Messages', mobileLabel: 'Chat', icon: 'chat' },
+  { to: ROUTES.PROFILE_ME, label: 'Profile', mobileLabel: 'Profile', icon: 'user' },
 ] as const;
 
 function NavIcon({ name }: { name: string }) {
@@ -65,22 +65,15 @@ function navLinkClass(isActive: boolean, mobile = false) {
   if (mobile) {
     return `mobile-nav__link${isActive ? ' mobile-nav__link--active' : ''}`;
   }
-  return `shrink-0 rounded-2xl px-3 py-1.5 text-sm font-medium transition-colors ${
-    isActive
-      ? 'bg-accent-bg text-accent'
-      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100'
-  }`;
+  return `app-top-nav__link${isActive ? ' app-top-nav__link--active' : ''}`;
 }
 
 /**
- * App-shell navbar for the social area (home, discover, profile, settings,
- * follower lists). Not rendered on chat or call routes — those have their
- * own immersive headers.
+ * App-shell navbar for the signed-in social area (home, discover, chat, profile, etc.).
  */
 export function AppNavBar() {
   const location = useLocation();
-  const hideMobileNav =
-    location.pathname === ROUTES.CHAT || location.pathname === ROUTES.CALL;
+  const hideMobileTopBar = location.pathname === ROUTES.CHAT;
   const { user, isAuthenticated } = useAuthStore();
   const myProfile = useProfileCache((s) => s.myProfile);
   const setMyProfile = useProfileCache((s) => s.setMyProfile);
@@ -119,18 +112,15 @@ export function AppNavBar() {
   if (!isAuthenticated) return null;
 
   const displayName =
-    myProfile?.full_name?.trim() ||
-    (myProfile?.username ? `@${myProfile.username}` : user?.email) ||
-    'You';
+    (myProfile?.username ? `@${myProfile.username}` : user?.email) || 'You';
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-lg dark:border-slate-800/80 dark:bg-slate-950/90">
-        <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-3 px-4">
-          <Link
-            to={ROUTES.HOME}
-            className="flex shrink-0 items-center gap-2 rounded-2xl px-2 py-1 transition hover:bg-slate-100 dark:hover:bg-slate-800"
-          >
+      <header
+        className={`app-top-nav${hideMobileTopBar ? ' max-md:hidden' : ''}`}
+      >
+        <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-2 px-3 sm:gap-3 sm:px-4">
+          <Link to={ROUTES.HOME} className="app-top-nav__brand">
             <span
               aria-hidden
               className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-500 text-sm font-bold text-white shadow-md"
@@ -155,13 +145,13 @@ export function AppNavBar() {
             ))}
           </nav>
 
-          <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
             <ThemeToggleButton />
             <NotificationNavBell />
             <Link
               to={ROUTES.PROFILE_ME}
               title={displayName}
-              className="flex shrink-0 items-center gap-2 rounded-full p-0.5 pr-3 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="app-top-nav__profile"
             >
               <UserAvatar
                 label={displayName}
@@ -173,16 +163,14 @@ export function AppNavBar() {
               </span>
             </Link>
 
-            <LogoutButton />
+            <div className="hidden md:block">
+              <LogoutButton />
+            </div>
           </div>
         </div>
       </header>
 
-      {!hideMobileNav ? (
-      <nav
-        className="mobile-nav"
-        aria-label="Primary navigation"
-      >
+      <nav className="mobile-nav" aria-label="Primary navigation">
         {NAV_ITEMS.map((item) => (
           <NavLink
             key={item.to}
@@ -193,11 +181,10 @@ export function AppNavBar() {
             <span className="mobile-nav__icon">
               <NavIcon name={item.icon} />
             </span>
-            {item.label}
+            <span className="max-w-full truncate px-0.5">{item.mobileLabel}</span>
           </NavLink>
         ))}
       </nav>
-      ) : null}
     </>
   );
 }

@@ -407,7 +407,15 @@ export class UserServiceService {
       if (!userId) {
         throw new RpcException({ status: 400, message: 'userId is required' });
       }
-      const limit = Math.min(Math.max(data.limit ?? 10, 1), 30);
+      const limit = Math.min(Math.max(data.limit ?? 10, 1), 50);
+
+      const me = await this.prismaService.userProfile.findUnique({
+        where: { id: userId },
+        select: { id: true },
+      });
+      if (!me) {
+        throw new RpcException({ status: 404, message: 'User not found' });
+      }
 
       // Step 1 — who does the requesting user already follow?
       const myFollowRows = await this.prismaService.userFollow.findMany({

@@ -7,6 +7,17 @@ import { postCallBroadcast } from '../../features/call/lib/callBroadcast';
 import { ROUTES } from '../../shared/constants/routes';
 import { ParticipantMediaTile } from './ParticipantMediaTile';
 import { ScreenShareTile } from './ScreenShareTile';
+import {
+  CamOffIcon,
+  CamOnIcon,
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  MicOffIcon,
+  MicOnIcon,
+  PhoneHangupIcon,
+  ScreenShareIcon,
+  UsersIcon,
+} from '../../features/call/components/CallIcons';
 
 /** Isolated timer — does not re-render video tiles every second. */
 function MeetingDuration() {
@@ -18,7 +29,11 @@ function MeetingDuration() {
   const m = Math.floor(elapsed / 60);
   const sec = elapsed % 60;
   return (
-    <span className="rounded-lg bg-white/10 px-2 py-1 text-xs tabular-nums">
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-xs font-medium tabular-nums text-white/90">
+      <span className="call-room__live-dot">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/70 opacity-75" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+      </span>
       {String(m).padStart(2, '0')}:{String(sec).padStart(2, '0')}
     </span>
   );
@@ -40,19 +55,17 @@ function CallNotices({
 }) {
   if (!reconnecting && toasts.length === 0) return null;
   return (
-    <div className="pointer-events-none absolute inset-x-2 top-3 z-30 flex flex-col items-center gap-2 sm:inset-x-0">
+    <div className="pointer-events-none absolute inset-x-2 top-2 z-30 flex flex-col items-center gap-2 sm:inset-x-0">
       {reconnecting && (
-        <div className="pointer-events-auto rounded-full bg-amber-500/90 px-3 py-1.5 text-xs font-medium text-white shadow-lg shadow-amber-900/30 backdrop-blur">
+        <div className="call-room__notice call-room__notice--warn">
           Reconnecting…
         </div>
       )}
       {toasts.map((t) => (
         <div
           key={t.id}
-          className={`pointer-events-auto max-w-full truncate rounded-full px-3 py-1.5 text-xs font-medium text-white shadow-lg backdrop-blur ${
-            t.tone === 'in'
-              ? 'bg-emerald-600/90 shadow-emerald-900/30'
-              : 'bg-zinc-700/90 shadow-zinc-900/30'
+          className={`call-room__notice ${
+            t.tone === 'in' ? 'call-room__notice--in' : 'call-room__notice--out'
           }`}
         >
           {t.text}
@@ -399,62 +412,102 @@ export function MeetingRoomShell() {
     isMeetingJoined &&
     (connState === 'DISCONNECTED' || connState === 'CONNECTING');
 
+  const callTitle = useMemo(() => {
+    if (isGroupCall) return 'Group call';
+    for (const p of participants.values()) {
+      if (!p.local) {
+        const name = p.displayName?.trim();
+        if (name) return name;
+      }
+    }
+    return activeSession?.callType === 'audio' ? 'Audio call' : 'Video call';
+  }, [isGroupCall, participants, activeSession?.callType]);
+
+  const callSubtitle = isGroupCall
+    ? `${participantIds.length} participant${participantIds.length === 1 ? '' : 's'}`
+    : activeSession?.callType === 'audio'
+      ? 'Audio only'
+      : 'Camera enabled';
+
   return (
-    <div className="relative flex h-[100dvh] flex-col bg-[#0b0d10] text-white">
-      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 px-3 py-2 sm:px-4 sm:py-3 md:px-6">
-        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+    <div className="call-room">
+      <div className="call-room__ambient" aria-hidden />
+
+      <header className="call-room__topbar">
+        <div className="call-room__topbar-pill min-w-0">
           <button
             type="button"
             onClick={() => navigate(ROUTES.CHAT)}
             title="Back to chat (call keeps running)"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white/80 transition hover:bg-white/15 hover:text-white"
             aria-label="Back to chat"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4"
-            >
-              <path d="m15 18-6-6 6-6" />
-            </svg>
+            <ChevronLeftIcon className="h-4 w-4" />
           </button>
           <div className="min-w-0">
-            <p className="text-[0.6rem] font-semibold uppercase tracking-wider text-white/45 sm:text-[0.65rem]">
-              {isGroupCall ? 'Group meeting' : 'Meeting'}
-            </p>
-            <p className="hidden truncate font-mono text-xs text-white/75 sm:block md:text-sm">
-              {meetingId.slice(0, 12)}…{meetingId.slice(-6)}
-            </p>
+            <div className="flex items-center gap-1.5">
+              <p className="truncate text-sm font-semibold text-white">
+                {callTitle}
+              </p>
+              {isGroupCall ? (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-200">
+                  <UsersIcon className="h-3 w-3" />
+                  Group
+                </span>
+              ) : null}
+            </div>
+            <p className="truncate text-xs text-white/50">{callSubtitle}</p>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2 text-sm tabular-nums text-white/80 sm:gap-4">
-          <span className="hidden md:inline">
+
+        <div className="call-room__topbar-pill shrink-0">
+          <span className="hidden text-xs text-white/60 sm:inline">
             {participantIds.length}{' '}
-            {participantIds.length === 1 ? 'participant' : 'participants'}
+            {participantIds.length === 1 ? 'person' : 'people'}
           </span>
-          <span className="inline md:hidden" aria-label="participants" title="participants">
-            {participantIds.length}p
+          <span className="text-white/30 sm:hidden" aria-hidden>
+            ·
           </span>
           <MeetingDuration />
         </div>
       </header>
 
-      <main className="relative min-h-0 flex-1 overflow-hidden p-2 sm:p-3 md:p-4">
+      <main className="call-room__stage">
         <CallNotices toasts={toasts} reconnecting={reconnecting} />
 
         {!isMeetingJoined ? (
-          <div className="flex h-full min-h-[40vh] flex-col items-center justify-center gap-3 text-center text-white/70">
-            <span className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-white" />
-            <p className="text-sm">Joining meeting…</p>
+          <div className="call-room__waiting">
+            <div className="relative flex h-20 w-20 items-center justify-center">
+              <span className="call-room__waiting-ring" aria-hidden />
+              <span
+                className="call-room__waiting-ring"
+                style={{ animationDelay: '0.75s' }}
+                aria-hidden
+              />
+              <span className="relative h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-emerald-400" />
+            </div>
+            <div>
+              <p className="text-base font-semibold text-white">Joining call…</p>
+              <p className="mt-1 text-sm text-white/50">Setting up audio and video</p>
+            </div>
           </div>
         ) : participantIds.length === 0 ? (
-          <div className="flex min-h-[40vh] items-center justify-center text-sm text-white/60">
-            Waiting for participants…
+          <div className="call-room__waiting">
+            <div className="relative flex h-20 w-20 items-center justify-center">
+              <span className="call-room__waiting-ring" aria-hidden />
+              <span
+                className="call-room__waiting-ring"
+                style={{ animationDelay: '0.75s' }}
+                aria-hidden
+              />
+              <UsersIcon className="relative h-9 w-9 text-emerald-400/90" />
+            </div>
+            <div>
+              <p className="text-base font-semibold text-white">Waiting for others</p>
+              <p className="mt-1 text-sm text-white/50">
+                They&apos;ll appear here when they join
+              </p>
+            </div>
           </div>
         ) : showPresenter && presenterId ? (
           <div className="flex h-full min-h-[55vh] flex-col gap-2 sm:gap-3">
@@ -496,31 +549,33 @@ export function MeetingRoomShell() {
         )}
       </main>
 
-      <footer className="shrink-0 border-t border-white/10 bg-[#12151a]/95 px-2.5 py-2.5 backdrop-blur-md sm:px-4 sm:py-4 md:px-8">
-        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-2 sm:gap-3 md:gap-4">
+      <div className="call-room__dock-wrap">
+        <div className="call-room__dock">
           <button
             type="button"
             onClick={() => toggleMic()}
             title={localMicOn ? 'Mute' : 'Unmute'}
-            className={`flex h-10 w-10 items-center justify-center rounded-full text-base transition sm:h-12 sm:w-12 sm:text-lg md:h-14 md:w-14 ${
-              localMicOn
-                ? 'bg-white/10 hover:bg-white/15'
-                : 'bg-rose-600/90 hover:bg-rose-500'
-            }`}
+            aria-pressed={localMicOn}
+            className={`call-room__ctrl ${localMicOn ? 'call-room__ctrl--idle' : 'call-room__ctrl--off'}`}
           >
-            {localMicOn ? '🎤' : '🔇'}
+            {localMicOn ? (
+              <MicOnIcon className="h-5 w-5" />
+            ) : (
+              <MicOffIcon className="h-5 w-5" />
+            )}
           </button>
           <button
             type="button"
             onClick={() => toggleWebcam()}
             title={localWebcamOn ? 'Camera off' : 'Camera on'}
-            className={`flex h-10 w-10 items-center justify-center rounded-full text-base transition sm:h-12 sm:w-12 sm:text-lg md:h-14 md:w-14 ${
-              localWebcamOn
-                ? 'bg-white/10 hover:bg-white/15'
-                : 'bg-rose-600/90 hover:bg-rose-500'
-            }`}
+            aria-pressed={localWebcamOn}
+            className={`call-room__ctrl ${localWebcamOn ? 'call-room__ctrl--idle' : 'call-room__ctrl--off'}`}
           >
-            {localWebcamOn ? '📹' : '📷'}
+            {localWebcamOn ? (
+              <CamOnIcon className="h-5 w-5" />
+            ) : (
+              <CamOffIcon className="h-5 w-5" />
+            )}
           </button>
           <button
             type="button"
@@ -528,27 +583,11 @@ export function MeetingRoomShell() {
             title={localScreenShareOn ? 'Stop sharing' : 'Share screen'}
             aria-pressed={localScreenShareOn}
             disabled={!isMeetingJoined}
-            className={`flex h-10 w-10 items-center justify-center rounded-full transition sm:h-12 sm:w-12 md:h-14 md:w-14 disabled:opacity-40 ${
-              localScreenShareOn
-                ? 'bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-900/40'
-                : 'bg-white/10 hover:bg-white/15'
+            className={`call-room__ctrl ${
+              localScreenShareOn ? 'call-room__ctrl--active' : 'call-room__ctrl--idle'
             }`}
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-5 w-5"
-              aria-hidden="true"
-            >
-              <rect width="20" height="14" x="2" y="3" rx="2" />
-              <line x1="8" x2="16" y1="21" y2="21" />
-              <line x1="12" x2="12" y1="17" y2="21" />
-            </svg>
+            <ScreenShareIcon className="h-5 w-5" />
           </button>
 
           {isGroupCall ? (
@@ -557,48 +596,35 @@ export function MeetingRoomShell() {
                 type="button"
                 onClick={() => setShowLeaveMenu((v) => !v)}
                 title="Leave call"
-                className="flex h-10 items-center gap-2 rounded-2xl bg-rose-600 px-3 text-xs font-semibold shadow-lg shadow-rose-900/40 transition hover:bg-rose-500 sm:h-12 sm:px-4 sm:text-sm md:h-14 md:px-5"
+                className="call-room__ctrl call-room__ctrl--danger flex items-center"
                 aria-haspopup="menu"
                 aria-expanded={showLeaveMenu}
               >
-                Leave
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-4 w-4"
-                >
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
+                <PhoneHangupIcon className="h-5 w-5" />
+                <span className="hidden sm:inline">Leave</span>
+                <ChevronDownIcon className="h-4 w-4 opacity-80" />
               </button>
               {showLeaveMenu && (
-                <div
-                  className="absolute bottom-[calc(100%+0.5rem)] right-0 z-40 w-[min(15rem,calc(100vw-1.5rem))] rounded-2xl border border-white/10 bg-[#1b1f25] p-1.5 text-sm shadow-2xl shadow-black/60"
-                  role="menu"
-                >
+                <div className="call-room__leave-menu" role="menu">
                   <button
                     type="button"
                     onClick={hangUp}
-                    className="block w-full rounded-xl px-3 py-2.5 text-left text-white/85 transition hover:bg-white/10"
+                    className="call-room__leave-item text-white/90"
                     role="menuitem"
                   >
                     Leave call
-                    <span className="block text-[0.7rem] text-white/50">
+                    <span className="block text-[0.7rem] text-white/45">
                       Others stay in the meeting
                     </span>
                   </button>
                   <button
                     type="button"
                     onClick={endForEveryone}
-                    className="block w-full rounded-xl px-3 py-2.5 text-left text-rose-300 transition hover:bg-rose-500/10"
+                    className="call-room__leave-item text-rose-300 hover:bg-rose-500/10"
                     role="menuitem"
                   >
-                    End call for everyone
-                    <span className="block text-[0.7rem] text-rose-200/60">
+                    End for everyone
+                    <span className="block text-[0.7rem] text-rose-200/55">
                       Removes all participants
                     </span>
                   </button>
@@ -610,13 +636,14 @@ export function MeetingRoomShell() {
               type="button"
               onClick={hangUp}
               title="Leave call"
-              className="flex h-10 w-14 items-center justify-center rounded-2xl bg-rose-600 text-xs font-semibold shadow-lg shadow-rose-900/40 transition hover:bg-rose-500 sm:h-12 sm:w-16 sm:text-sm md:h-14 md:w-20"
+              className="call-room__ctrl call-room__ctrl--danger flex items-center gap-2"
             >
-              Leave
+              <PhoneHangupIcon className="h-5 w-5" />
+              <span className="hidden sm:inline">Leave</span>
             </button>
           )}
         </div>
-      </footer>
+      </div>
     </div>
   );
 }

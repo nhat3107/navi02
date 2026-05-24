@@ -25,4 +25,14 @@ export class ChatServiceController {
   create_group(data: any): Promise<any> {
     return this.chatService.create_group(data);
   }
+
+  @MessagePattern('chat.leave_group', Transport.KAFKA)
+  leave_group(data: any): Promise<any> {
+    return this.chatService.leave_group(data);
+  }
+
+  @MessagePattern('chat.add_group_members', Transport.KAFKA)
+  add_group_members(data: any): Promise<any> {
+    return this.chatService.add_group_members(data);
+  }
 }

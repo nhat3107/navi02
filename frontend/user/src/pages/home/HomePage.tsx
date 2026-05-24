@@ -81,7 +81,9 @@ export function HomePage() {
     return () => obs.disconnect();
   }, [isAuthenticated, loadMore]);
 
-  const authorIds = posts.map((p) => p.authorId);
+  const authorIds = posts.flatMap((p) =>
+    [p.authorId, p.originalPost?.authorId].filter(Boolean) as string[],
+  );
   const { byId: authorById } = useAuthorProfiles(authorIds);
 
   if (!isAuthenticated) {
@@ -114,9 +116,7 @@ export function HomePage() {
   }
 
   const displayName =
-    myProfile?.full_name?.trim() ||
-    (myProfile?.username ? `@${myProfile.username}` : user?.email) ||
-    'You';
+    (myProfile?.username ? `@${myProfile.username}` : user?.email) || 'You';
 
   return (
     <AppPage mainClassName="max-w-[min(100%,640px)]">
@@ -162,9 +162,17 @@ export function HomePage() {
               key={post.id}
               post={post}
               author={authorById[post.authorId]}
+              originalAuthor={
+                post.originalPost
+                  ? authorById[post.originalPost.authorId]
+                  : undefined
+              }
               viewerUserId={user?.id ?? null}
               mode="feed"
               onChanged={() => void refreshFeed()}
+              onReposted={(repost) => {
+                setPosts((prev) => [repost, ...prev.filter((p) => p.id !== repost.id)]);
+              }}
               onPostDeleted={() =>
                 setPosts((prev) => prev.filter((p) => p.id !== post.id))
               }
@@ -186,9 +194,7 @@ export function HomePage() {
 }
 
 /**
- * Floating action bubble anchored bottom-right that takes the user straight to
- * their messages. Stays on top of feed content via `z-40`, gracefully hides on
- * very narrow viewports so it doesn't cover the last post.
+ * Desktop-only shortcut to chat — mobile already has Messages in the bottom tab bar.
  */
 function ChatFloatingBubble() {
   return (
@@ -196,16 +202,14 @@ function ChatFloatingBubble() {
       to={ROUTES.CHAT}
       aria-label="Open messages"
       title="Messages"
-      className="group fixed bottom-6 right-4 z-40 inline-flex items-center gap-2 rounded-full bg-gradient-to-br from-violet-500 via-fuchsia-500 to-pink-500 px-4 py-3 text-white shadow-[0_18px_42px_-12px_rgba(139,92,246,0.55)] ring-1 ring-white/40 transition-all hover:scale-[1.04] hover:from-violet-600 hover:via-fuchsia-600 hover:to-pink-600 focus:outline-none focus-visible:ring-4 focus-visible:ring-accent/40 dark:ring-white/10 sm:bottom-8 sm:right-8"
+      className="group fixed bottom-8 right-8 z-30 hidden items-center gap-2 rounded-full bg-gradient-to-br from-violet-500 via-fuchsia-500 to-pink-500 px-4 py-3 text-white shadow-[0_18px_42px_-12px_rgba(139,92,246,0.55)] ring-1 ring-white/40 transition-all hover:scale-[1.04] hover:from-violet-600 hover:via-fuchsia-600 hover:to-pink-600 focus:outline-none focus-visible:ring-4 focus-visible:ring-accent/40 dark:ring-white/10 md:inline-flex"
     >
       <span
         aria-hidden
         className="absolute -right-1 -top-1 inline-flex h-3 w-3 rounded-full bg-emerald-400 ring-2 ring-white shadow-[0_0_0_2px_rgba(16,185,129,0.35)] dark:ring-neutral-950"
       />
       <ChatBubbleIcon />
-      <span className="hidden pr-1 text-sm font-semibold tracking-tight sm:inline">
-        Messages
-      </span>
+      <span className="pr-1 text-sm font-semibold tracking-tight">Messages</span>
     </Link>
   );
 }

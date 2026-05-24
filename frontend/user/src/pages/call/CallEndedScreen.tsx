@@ -3,16 +3,47 @@ import { useNavigate } from 'react-router-dom';
 import type { CallEndedInfo } from '../../features/call/store/call.store';
 import { useCallStore } from '../../features/call/store/call.store';
 import { ROUTES } from '../../shared/constants/routes';
+import { PhoneHangupIcon } from '../../features/call/components/CallIcons';
+
+function endedVisual(reason: CallEndedInfo['reason']) {
+  switch (reason) {
+    case 'rejected':
+      return {
+        tone: 'text-amber-300',
+        bg: 'bg-amber-500/15 ring-amber-400/20',
+        label: 'Declined',
+      };
+    case 'connection_failed':
+      return {
+        tone: 'text-red-300',
+        bg: 'bg-red-500/15 ring-red-400/20',
+        label: 'Disconnected',
+      };
+    case 'ended_for_everyone':
+    case 'all_left':
+    case 'ended_by_remote':
+      return {
+        tone: 'text-slate-200',
+        bg: 'bg-white/10 ring-white/10',
+        label: 'Ended',
+      };
+    default:
+      return {
+        tone: 'text-emerald-300',
+        bg: 'bg-emerald-500/15 ring-emerald-400/20',
+        label: 'Left',
+      };
+  }
+}
 
 /**
- * Brief post-call confirmation, then bounce back to /chat. Lives inside
- * `CallRoomPage` so it can reuse the dark, full-screen call layout for a
- * smooth visual transition (CALL_OPTIMIZATION.md §5).
+ * Brief post-call confirmation, then bounce back to /chat.
  */
 export function CallEndedScreen({ info }: { info: CallEndedInfo }) {
   const navigate = useNavigate();
   const setLastEnded = useCallStore((s) => s.setLastEnded);
   const [seconds, setSeconds] = useState(3);
+  const visual = endedVisual(info.reason);
 
   useEffect(() => {
     const tick = window.setInterval(
@@ -63,7 +94,7 @@ export function CallEndedScreen({ info }: { info: CallEndedInfo }) {
         return 'The other party hung up.';
       case 'left_by_me':
       default:
-        return null;
+        return 'Returning you to chat.';
     }
   })();
 
@@ -73,32 +104,30 @@ export function CallEndedScreen({ info }: { info: CallEndedInfo }) {
   };
 
   return (
-    <div className="flex h-[100dvh] items-center justify-center bg-[#0b0d10] text-white">
-      <div className="flex max-w-sm flex-col items-center gap-4 px-6 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/8">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.6}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-8 w-8 text-white/80"
-            aria-hidden="true"
-          >
-            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92Z" />
-            <line x1="2" y1="2" x2="22" y2="22" />
-          </svg>
+    <div className="call-room__ended">
+      <div className="call-room__ambient" aria-hidden />
+      <div className="call-room__ended-card relative">
+        <div
+          className={`mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl ring-1 ${visual.bg}`}
+        >
+          <PhoneHangupIcon className={`h-8 w-8 ${visual.tone}`} />
         </div>
-        <h1 className="text-xl font-semibold">{heading}</h1>
-        {subline && <p className="text-sm text-white/60">{subline}</p>}
+        <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">
+          {visual.label}
+        </p>
+        <h1 className="text-xl font-bold tracking-tight text-white">{heading}</h1>
+        {subline ? (
+          <p className="mt-2 text-sm leading-relaxed text-white/55">{subline}</p>
+        ) : null}
         <button
           type="button"
           onClick={handleReturn}
-          className="mt-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15"
+          className="mt-6 inline-flex w-full items-center justify-center rounded-2xl bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
         >
-          Back to chat ({seconds})
+          Back to chat
+          <span className="ml-2 font-mono text-xs tabular-nums text-white/50">
+            {seconds}s
+          </span>
         </button>
       </div>
     </div>

@@ -3,19 +3,26 @@ import {
   fetchReports,
   reviewReportApi,
 } from '../../features/reports/api/reports.api';
+import { ReportCard } from '../../features/reports/components/ReportCard';
 import type { AdminReport } from '../../features/posts/types/posts.types';
-import { Button } from '../../shared/components/Button';
+import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { EmptyState } from '../../shared/components/EmptyState';
 import { LoadingState } from '../../shared/components/LoadingState';
 import { PageHeader } from '../../shared/components/PageHeader';
-import { formatRelativeTime } from '../../shared/utils/format';
+
+type StatusFilter = 'pending' | 'all';
+type ReviewAction = 'uphold' | 'dismiss';
 
 export function ReportsPage() {
   const [reports, setReports] = useState<AdminReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<'pending' | 'all'>('pending');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending');
+  const [confirm, setConfirm] = useState<{
+    reportId: string;
+    action: ReviewAction;
+  } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -37,17 +44,12 @@ export function ReportsPage() {
     void load();
   }, [load]);
 
-  const handleReview = async (reportId: string, action: 'uphold' | 'dismiss') => {
-    const label =
-      action === 'uphold'
-        ? 'Uphold this report (remove post + penalty)?'
-        : 'Dismiss this report and keep the post?';
-    if (!window.confirm(label)) return;
-
+  const runReview = async (reportId: string, action: ReviewAction) => {
     setActionId(reportId);
     try {
       await reviewReportApi(reportId, action);
       setReports((prev) => prev.filter((r) => r.id !== reportId));
+      setConfirm(null);
     } catch {
       setError('Failed to review report.');
     } finally {
@@ -55,78 +57,91 @@ export function ReportsPage() {
     }
   };
 
+  const confirmCopy =
+    confirm?.action === 'uphold'
+      ? {
+          title: 'Uphold report?',
+          message:
+            'This will remove the reported content and apply a penalty to the author when applicable.',
+          confirmLabel: 'Uphold & remove',
+          confirmVariant: 'danger' as const,
+        }
+      : {
+          title: 'Dismiss report?',
+          message: 'The report will be closed and the content will stay visible.',
+          confirmLabel: 'Dismiss report',
+          confirmVariant: 'primary' as const,
+        };
+
   return (
-    <div className="page">
+    <div className="page reports-page">
       <PageHeader
         eyebrow="Trust & safety"
         title="Reports"
-        description="Review user-submitted content reports."
+        description="Review user flags and open reported posts when needed."
         actions={
-          <select
-            className="select select--header"
-            value={statusFilter}
-            onChange={(e) =>
-              setStatusFilter(e.target.value as 'pending' | 'all')
-            }
-          >
-            <option value="pending">Pending only</option>
-            <option value="all">All statuses</option>
-          </select>
+          <div className="reports-filter" role="tablist" aria-label="Report status filter">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={statusFilter === 'pending'}
+              className={`reports-filter__btn${statusFilter === 'pending' ? ' reports-filter__btn--active' : ''}`}
+              onClick={() => setStatusFilter('pending')}
+            >
+              Pending
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={statusFilter === 'all'}
+              className={`reports-filter__btn${statusFilter === 'all' ? ' reports-filter__btn--active' : ''}`}
+              onClick={() => setStatusFilter('all')}
+            >
+              All
+            </button>
+          </div>
         }
       />
 
       {error ? <div className="alert alert--error">{error}</div> : null}
       {loading ? <LoadingState label="Loading reports…" /> : null}
+
       {!loading && reports.length === 0 ? (
         <EmptyState
           title="No reports to show"
           description={
             statusFilter === 'pending'
-              ? 'Pending reports will appear here.'
-              : 'Try changing the status filter.'
+              ? 'New user flags will land here for review.'
+              : 'Try switching back to pending reports.'
           }
         />
       ) : null}
 
-      <div className="mod-list">
+      <div className="reports-list">
         {reports.map((report) => (
-          <article key={report.id} className="mod-card">
-            <header className="mod-card__header">
-              <div>
-                <span className={`badge badge--${report.status}`}>
-                  {report.status}
-                </span>
-                <span className="mod-card__meta">
-                  {report.targetType} · {formatRelativeTime(report.createdAt)}
-                </span>
-              </div>
-              <span className="mod-card__id">#{report.id.slice(-8)}</span>
-            </header>
-            <p className="mod-card__content">{report.description}</p>
-            <p className="mod-card__meta">
-              Target {report.targetId.slice(0, 12)}… · Reporter{' '}
-              {report.reporterId.slice(0, 8)}…
-            </p>
-            {report.status === 'pending' ? (
-              <div className="mod-card__actions">
-                <Button
-                  variant="secondary"
-                  disabled={actionId === report.id}
-                  onClick={() => handleReview(report.id, 'dismiss')}
-                >
-                  Dismiss
-                </Button>
-                <Button
-                  disabled={actionId === report.id}
-                  onClick={() => handleReview(report.id, 'uphold')}
-                >
-                  Uphold & remove
-                </Button>
-              </div>
-            ) : null}
-          </article>
+          <ReportCard
+            key={report.id}
+            report={report}
+            busy={actionId === report.id}
+            onDismiss={(id) => setConfirm({ reportId: id, action: 'dismiss' })}
+            onUphold={(id) => setConfirm({ reportId: id, action: 'uphold' })}
+          />
         ))}
       </div>
+
+      <ConfirmDialog
+        open={confirm !== null}
+        title={confirmCopy.title}
+        message={confirmCopy.message}
+        confirmLabel={confirmCopy.confirmLabel}
+        confirmVariant={confirmCopy.confirmVariant}
+        confirming={actionId !== null}
+        onClose={() => !actionId && setConfirm(null)}
+        onConfirm={() => {
+          if (!confirm) return;
+          void runReview(confirm.reportId, confirm.action);
+        }}
+      />
     </div>
   );
 }

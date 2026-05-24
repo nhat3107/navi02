@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import type { AxiosError } from 'axios';
-import { AppNavBar } from '../../features/user/components/AppNavBar';
+import { AppPage } from '../../shared/layout/AppPage';
 import { UserAvatar } from '../../features/user/components/UserAvatar';
 import { ROUTES, buildProfilePath, type PostOverlayNavigationState } from '../../shared/constants/routes';
 import { useAuthStore } from '../../features/auth/store/auth.store';
@@ -26,6 +26,7 @@ import { NetworkMediaPicker } from '../../features/network/components/NetworkMed
 import { NetworkMediaStrip } from '../../features/network/components/NetworkMediaStrip';
 import { formatRelativeTime } from '../../features/network/lib/formatRelativeTime';
 import { ExpandablePlainText } from '../../features/network/components/ExpandablePlainText';
+import { SharePostModal } from '../../features/network/components/SharePostModal';
 import { isCloudinaryVideoUrl } from '../../shared/lib/cloudinary';
 
 const MAX_COMMENT_MEDIA = 4;
@@ -58,6 +59,7 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [deleteBusy] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   /** Active media inside the in-pane carousel (first item by default). */
@@ -147,7 +149,9 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
     setLikeCount(post.likeCount);
   }, [post?.id, post?.liked, post?.likeCount]);
 
-  const mediaCount = post?.mediaUrls.length ?? 0;
+  const displayMediaUrls =
+    post?.originalPost?.mediaUrls ?? post?.mediaUrls ?? [];
+  const mediaCount = displayMediaUrls.length;
   const showPrev = useCallback(() => {
     if (mediaCount < 2) return;
     setActiveMediaIndex((i) => (i - 1 + mediaCount) % mediaCount);
@@ -210,7 +214,11 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
   }, [menuOpen]);
 
   const baseAuthorIds = post
-    ? [post.authorId, ...comments.map((c) => c.authorId)]
+    ? [
+        post.authorId,
+        post.originalPost?.authorId,
+        ...comments.map((c) => c.authorId),
+      ].filter(Boolean) as string[]
     : [];
   const mergedAuthorIds = [...new Set([...baseAuthorIds, ...extraAuthorIds])];
   const { byId: authorById } = useAuthorProfiles(mergedAuthorIds);
@@ -280,6 +288,9 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
   }
 
   const author = post ? authorById[post.authorId] : undefined;
+  const originalPost = post?.originalPost ?? null;
+  const isRepost = Boolean(post?.originalPostId);
+  const displayPost = isRepost && originalPost ? originalPost : post;
   const username = author?.username?.trim() || 'user';
   const displayName =
     author?.full_name?.trim() ||
@@ -287,18 +298,22 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
   const profilePath = post ? buildProfilePath(post.authorId) : ROUTES.HOME;
   const isAuthor = Boolean(viewerId && post && viewerId === post.authorId);
   const when = post ? formatRelativeTime(post.createdAt) : '';
-  const hasMedia = (post?.mediaUrls.length ?? 0) > 0;
+  const hasMedia = (displayPost?.mediaUrls.length ?? 0) > 0;
   const textOnly = Boolean(
-    post && !hasMedia && post.content.trim().length > 0,
+    displayPost &&
+      !hasMedia &&
+      (isRepost
+        ? displayPost.content.trim().length > 0
+        : (post?.content.trim().length ?? 0) > 0),
   );
   const detailTwoColumn = Boolean(post && (hasMedia || textOnly));
 
   const pageMain = (
     <main
-      className={`relative mx-auto w-full max-w-[min(1120px,100%)] scroll-mt-4 px-3 pb-12 sm:px-6 ${
+      className={`relative mx-auto w-full max-w-[min(1120px,100%)] scroll-mt-4 pb-4 sm:px-6 md:pb-12 ${
         overlay
-          ? 'pt-2 sm:pt-3'
-          : 'pt-[max(1rem,env(safe-area-inset-top,0px))] sm:pt-6'
+          ? 'px-0 pt-2 sm:pt-3'
+          : 'px-0 pt-0 sm:pt-6'
       }`}
     >
         {phase === 'loading' && (
@@ -340,26 +355,27 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
         {phase === 'ready' && post && (
           <article
             aria-label="Post detail"
-            className={`relative overflow-hidden rounded-3xl border shadow-[0_24px_64px_-28px_rgba(15,23,42,0.2)] ring-1 transition-shadow duration-300 dark:shadow-[0_28px_72px_-32px_rgba(0,0,0,0.65)] ${
-              textOnly
-                ? 'border-violet-200/70 bg-gradient-to-br from-white via-violet-50/50 to-sky-50/40 ring-violet-200/30 dark:border-violet-500/20 dark:from-neutral-950 dark:via-violet-950/35 dark:to-slate-950/80 dark:ring-violet-500/10'
-                : 'border-neutral-200/60 bg-white ring-black/[0.04] dark:border-neutral-800/70 dark:bg-neutral-950 dark:ring-white/[0.06]'
-            } ${
+            className={`relative overflow-hidden rounded-3xl border shadow-[0_24px_64px_-28px_rgba(15,23,42,0.2)] ring-1 transition-shadow duration-300 dark:shadow-[0_28px_72px_-32px_rgba(0,0,0,0.65)] border-neutral-200/60 bg-white ring-black/[0.04] dark:border-neutral-800/70 dark:bg-neutral-950 dark:ring-white/[0.06] ${
               detailTwoColumn
                 ? 'lg:grid lg:grid-cols-[minmax(0,1.55fr)_minmax(360px,1fr)]'
                 : 'mx-auto lg:max-w-[700px]'
             }`}
           >
+            {isRepost && (
+              <p className="border-b border-neutral-200 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-500 lg:col-span-2 dark:border-neutral-800 dark:text-neutral-400">
+                Reposted
+              </p>
+            )}
             {post.visibility === 'pending' && isAuthor && (
               <p className="border-b border-amber-200/80 bg-amber-50 px-5 py-2.5 text-center text-sm font-semibold text-amber-900 lg:col-span-2 dark:border-amber-900/50 dark:bg-amber-950/50 dark:text-amber-100">
                 Under review — this post is hidden from everyone else until moderation
                 finishes.
               </p>
             )}
-            {hasMedia && (
+            {hasMedia && displayPost && (
               <MediaCarousel
-                urls={post.mediaUrls}
-                index={Math.min(activeMediaIndex, post.mediaUrls.length - 1)}
+                urls={displayPost.mediaUrls}
+                index={Math.min(activeMediaIndex, displayPost.mediaUrls.length - 1)}
                 onPrev={showPrev}
                 onNext={showNext}
                 onJumpTo={(i) => setActiveMediaIndex(i)}
@@ -370,23 +386,15 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
             {textOnly && (
               <section
                 aria-label="Post text"
-                className="relative flex min-h-[280px] flex-col border-b border-violet-200/50 bg-gradient-to-b from-violet-50/60 via-white/80 to-fuchsia-50/35 dark:border-violet-800/40 dark:from-violet-950/50 dark:via-neutral-950/90 dark:to-fuchsia-950/25 lg:h-[min(82vh,820px)] lg:max-h-[min(82vh,820px)] lg:min-h-[560px] lg:border-b-0 lg:border-r lg:border-violet-200/40 dark:lg:border-violet-800/30"
+                className="post-detail-text-only relative flex min-h-[280px] flex-col border-b border-neutral-200 dark:border-neutral-800 lg:h-[min(82vh,820px)] lg:max-h-[min(82vh,820px)] lg:min-h-[560px] lg:border-b-0 lg:border-r"
               >
                 <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto p-5 sm:p-8">
-                  <div className="relative overflow-hidden rounded-2xl border border-violet-200/70 bg-white/95 px-7 py-9 shadow-[0_12px_48px_-16px_rgba(124,58,237,0.28)] ring-2 ring-violet-400/25 dark:border-violet-500/30 dark:bg-neutral-900/90 dark:shadow-[0_16px_56px_-20px_rgba(167,139,250,0.35)] dark:ring-violet-400/20 sm:rounded-3xl sm:px-10 sm:py-11">
-                    <div
-                      className="pointer-events-none absolute -left-8 -top-10 h-36 w-36 rounded-full bg-gradient-to-br from-violet-400/25 to-fuchsia-400/15 blur-2xl dark:from-violet-500/20 dark:to-fuchsia-600/10"
-                      aria-hidden
-                    />
-                    <div
-                      className="pointer-events-none absolute -bottom-8 -right-6 h-32 w-32 rounded-full bg-gradient-to-tl from-sky-400/20 to-violet-400/10 blur-2xl dark:from-sky-500/15 dark:to-violet-500/10"
-                      aria-hidden
-                    />
+                  <div className="post-detail-text-only__highlight">
                     <ExpandablePlainText
-                      text={post.content.trim()}
+                      text={(isRepost ? displayPost?.content ?? '' : post?.content ?? '').trim()}
                       maxCollapsedChars={720}
-                      paragraphClassName="relative mx-auto max-w-prose whitespace-pre-wrap text-[1.0625rem] font-semibold leading-[1.7] tracking-[-0.01em] text-neutral-900 antialiased sm:text-lg dark:text-neutral-100"
-                      moreClassName="relative mt-3 text-sm font-semibold text-violet-600 hover:text-violet-700 dark:text-violet-300 dark:hover:text-violet-200"
+                      paragraphClassName="whitespace-pre-wrap text-base leading-relaxed text-slate-800 dark:text-slate-200 sm:text-lg"
+                      moreClassName="mt-3 text-sm font-medium text-accent hover:text-accent-hover"
                     />
                   </div>
                 </div>
@@ -394,11 +402,7 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
             )}
 
             <div
-              className={`flex flex-col ${
-                textOnly
-                  ? 'bg-gradient-to-b from-white/95 via-violet-50/30 to-white/90 dark:from-neutral-950 dark:via-violet-950/20 dark:to-neutral-950'
-                  : 'bg-white dark:bg-neutral-950'
-              } ${
+              className={`flex flex-col bg-white dark:bg-neutral-950 ${
                 detailTwoColumn
                   ? 'lg:h-[min(82vh,820px)] lg:max-h-[min(82vh,820px)] lg:min-h-[560px]'
                   : ''
@@ -435,7 +439,12 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
                       </span>
                     )}
                   </div>
-                  {hasMedia && post.content.trim().length > 0 && (
+                  {isRepost && post.content.trim().length > 0 && (
+                    <p className="mt-2 whitespace-pre-wrap break-words text-[1.0625rem] font-medium leading-[1.65] text-neutral-900 antialiased dark:text-neutral-100 sm:text-lg sm:leading-relaxed">
+                      {post.content}
+                    </p>
+                  )}
+                  {!isRepost && hasMedia && post.content.trim().length > 0 && (
                     <p className="mt-2 whitespace-pre-wrap break-words text-[1.0625rem] font-medium leading-[1.65] text-neutral-900 antialiased dark:text-neutral-100 sm:text-lg sm:leading-relaxed">
                       {post.content}
                     </p>
@@ -452,7 +461,7 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
                     <MoreIcon />
                   </button>
                   {menuOpen && (
-                    <div className="absolute right-0 top-10 z-30 min-w-[10rem] overflow-hidden rounded-xl border border-neutral-200 bg-white py-1 shadow-xl dark:border-neutral-700 dark:bg-neutral-950">
+                    <div className="absolute bottom-full right-0 z-30 mb-1 min-w-[10rem] overflow-hidden rounded-xl border border-neutral-200 bg-white py-1 shadow-xl md:bottom-auto md:top-10 md:mb-0 dark:border-neutral-700 dark:bg-neutral-950">
                       <button
                         type="button"
                         className="w-full px-4 py-2.5 text-left text-sm text-neutral-800 hover:bg-neutral-50 dark:text-neutral-100 dark:hover:bg-neutral-900"
@@ -545,6 +554,16 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
                   >
                     <CommentIcon />
                   </button>
+                  {viewerId ? (
+                    <button
+                      type="button"
+                      onClick={() => setShareOpen(true)}
+                      className="rounded-full p-2 text-neutral-900 transition hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-900"
+                      aria-label="Share post"
+                    >
+                      <ShareIcon />
+                    </button>
+                  ) : null}
                 </div>
               </div>
 
@@ -588,7 +607,7 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
                       {submittingComment ? 'Posting…' : 'Post'}
                     </button>
                   </div>
-                  <div className="mt-2 flex items-center justify-between gap-3">
+                  <div className="mt-2 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                     <p className="text-[0.7rem] font-medium text-neutral-500 dark:text-neutral-400">
                       Press Enter to post · Shift + Enter for a new line
                     </p>
@@ -616,6 +635,12 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
               )}
             </div>
 
+            <SharePostModal
+              open={shareOpen}
+              onClose={() => setShareOpen(false)}
+              post={isRepost && originalPost ? originalPost : post}
+              viewerUserId={viewerId ?? ''}
+            />
             <ReportModal
               open={reportOpen}
               onClose={() => setReportOpen(false)}
@@ -636,7 +661,7 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
 
         {phase === 'ready' && post && hasMedia && lightboxIndex !== null && (
           <ImageLightbox
-            urls={post.mediaUrls}
+            urls={displayMediaUrls}
             startIndex={lightboxIndex}
             onClose={() => setLightboxIndex(null)}
             onIndexChange={(i) => setActiveMediaIndex(i)}
@@ -667,6 +692,17 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
           aria-label="Close and return"
           onClick={() => dismissOverlay()}
         />
+        <button
+          type="button"
+          onClick={() => dismissOverlay()}
+          aria-label="Close post"
+          className="fixed left-4 top-[max(0.75rem,env(safe-area-inset-top))] z-[96] inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/20 bg-black/55 px-4 text-sm font-semibold text-white shadow-lg backdrop-blur-md transition hover:bg-black/70"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4" aria-hidden>
+            <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Back
+        </button>
         <div className="relative z-10 my-8 w-full max-w-[min(1120px,100%)] sm:my-10">
           {pageMain}
         </div>
@@ -675,9 +711,7 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-neutral-200 dark:bg-black">
-      <AppNavBar />
-
+    <AppPage mainClassName="relative overflow-hidden bg-neutral-200 p-0 dark:bg-black">
       {/* Soft floating backdrop, evokes the "lifted" feel of a modal. */}
       <div
         aria-hidden
@@ -685,7 +719,7 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
       />
 
       {pageMain}
-    </div>
+    </AppPage>
   );
 }
 
@@ -987,6 +1021,16 @@ function HeartIcon({ filled }: { filled: boolean }) {
       aria-hidden
     >
       <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+      <polyline points="16 6 12 2 8 6" />
+      <line x1="12" y1="2" x2="12" y2="15" />
     </svg>
   );
 }
@@ -1438,7 +1482,7 @@ function CommentItem({
           {menuOpen && (
             <div
               role="menu"
-              className="absolute right-0 top-9 z-20 min-w-[9.5rem] overflow-hidden rounded-xl border border-neutral-200 bg-white py-1 shadow-xl dark:border-neutral-700 dark:bg-neutral-950"
+              className="absolute bottom-full right-0 z-20 mb-1 min-w-[9.5rem] overflow-hidden rounded-xl border border-neutral-200 bg-white py-1 shadow-xl md:bottom-auto md:top-9 md:mb-0 dark:border-neutral-700 dark:bg-neutral-950"
             >
               <button
                 type="button"
