@@ -42,11 +42,17 @@ export function MiniCallBar() {
   const label =
     session.callType === 'video' ? 'Video call in progress' : 'Audio call in progress';
 
+  const hideMobileTopBar = location.pathname === ROUTES.CHAT;
+
   return (
     <button
       type="button"
       onClick={() => navigate(ROUTES.CALL)}
-      className="fixed left-1/2 top-3 z-[90] flex -translate-x-1/2 items-center gap-3 rounded-full bg-emerald-600/95 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-emerald-900/30 transition hover:bg-emerald-500"
+      className={`fixed left-1/2 z-[90] flex -translate-x-1/2 items-center gap-3 rounded-full border border-emerald-400/20 bg-emerald-600/95 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-emerald-900/30 backdrop-blur-md transition hover:bg-emerald-500 ${
+        hideMobileTopBar
+          ? 'top-[max(0.75rem,env(safe-area-inset-top))]'
+          : 'top-[calc(3.5rem+env(safe-area-inset-top))] md:top-[max(0.75rem,env(safe-area-inset-top))]'
+      }`}
       aria-label="Return to active call"
     >
       <span className="relative flex h-2.5 w-2.5">

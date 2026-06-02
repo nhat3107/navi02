@@ -1,19 +1,22 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { getProfileApi } from '../../features/auth/api/auth.api';
 import { useAuthStore } from '../../features/auth/store/auth.store';
 import { fetchCallRoom } from '../../features/call/api/call.api';
 import { useCallSocket } from '../../features/call/hooks/useCallSocket';
 import { useCallStore } from '../../features/call/store/call.store';
 import {
+  addGroupMembers,
   createGroupConversation,
   fetchConversations,
   fetchMessages,
+  leaveGroupConversation,
   postMessage,
 } from '../../features/chat/api/chat.api';
 import { uploadChatMediaFile } from '../../features/chat/lib/uploadChatMedia';
 import {
   useChatSocket,
+  type ChatGroupUpdatedPayload,
   type ChatTypingPayload,
 } from '../../features/chat/hooks/useChatSocket';
 import type { ChatMessage, ConversationListItem } from '../../features/chat/types';
@@ -21,11 +24,14 @@ import {
   searchUsers,
   type UserSearchHit,
 } from '../../features/user/api/userDirectory.api';
-import { AppNavBar } from '../../features/user/components/AppNavBar';
+import { AppPage } from '../../shared/layout/AppPage';
 import { Button } from '../../shared/components/Button';
+import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { MediaLightbox } from '../../shared/components/MediaLightbox';
+import { extractApiMessage } from '../../shared/utils/api-error';
 import { ROUTES } from '../../shared/constants/routes';
 import { isCloudinaryVideoUrl } from '../../shared/lib/cloudinary';
+import { SharedPostPreviewById } from '../../features/network/components/SharedPostPreview';
 
 function mapRowsToMessages(
   rows: Array<{
@@ -33,6 +39,8 @@ function mapRowsToMessages(
     sender_id: string;
     content: string;
     media_url: string;
+    type?: string;
+    shared_post_id?: string | null;
     createdAt: string;
   }>,
   conversationId: string,
@@ -43,6 +51,11 @@ function mapRowsToMessages(
     sender_id: r.sender_id,
     content: r.content,
     media_url: r.media_url,
+    type:
+      r.type === 'system' || r.type === 'post_share'
+        ? r.type
+        : undefined,
+    shared_post_id: r.shared_post_id ?? null,
     createdAt: r.createdAt,
   }));
 }
@@ -249,14 +262,18 @@ const CHAT_BUBBLE_MEDIA_SHELL_BASE =
 const CHAT_BUBBLE_MEDIA_BASE =
   'block w-full max-h-[min(34vh,240px)] sm:max-h-[min(38vh,288px)] h-auto object-contain';
 
+const CHAT_SCROLL_STICK_THRESHOLD_PX = 96;
+
 function ChatMessageMedia({
   mediaUrl,
   isMe,
   onOpen,
+  onMediaLoad,
 }: {
   mediaUrl: string;
   isMe: boolean;
   onOpen?: () => void;
+  onMediaLoad?: () => void;
 }) {
   /** Borders align with bubble: accent = soft light edge; peer = same family as `border-slate-200/80` on bubble */
   const shellTheme = isMe
@@ -279,6 +296,7 @@ function ChatMessageMedia({
           playsInline
           preload="metadata"
           className={cls}
+          onLoadedData={onMediaLoad}
         />
         {onOpen ? (
           <button
@@ -302,14 +320,26 @@ function ChatMessageMedia({
         aria-label="View attachment full screen"
         className={`${shell} block cursor-zoom-in text-left`}
       >
-        <img src={mediaUrl} alt="Attachment" className={cls} loading="lazy" />
+        <img
+          src={mediaUrl}
+          alt="Attachment"
+          className={cls}
+          loading="lazy"
+          onLoad={onMediaLoad}
+        />
       </button>
     );
   }
 
   return (
     <div className={shell}>
-      <img src={mediaUrl} alt="Attachment" className={cls} loading="lazy" />
+      <img
+        src={mediaUrl}
+        alt="Attachment"
+        className={cls}
+        loading="lazy"
+        onLoad={onMediaLoad}
+      />
     </div>
   );
 }
@@ -351,6 +381,7 @@ function formatListPreview(text: string | null | undefined): string {
 
 export function ChatPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, accessToken, isAuthenticated } = useAuthStore();
   const userId = user?.id ?? null;
   const { emitCallUser } = useCallSocket();
@@ -383,6 +414,16 @@ export function ChatPage() {
     null,
   );
   const [creatingGroup, setCreatingGroup] = useState(false);
+  const [showAddMembers, setShowAddMembers] = useState(false);
+  const [addMemberSearchInput, setAddMemberSearchInput] = useState('');
+  const [addMemberResults, setAddMemberResults] = useState<UserSearchHit[]>([]);
+  const [addMemberLoading, setAddMemberLoading] = useState(false);
+  const [addingMembers, setAddingMembers] = useState(false);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [leavingGroup, setLeavingGroup] = useState(false);
+  const addMemberDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [mediaLightbox, setMediaLightbox] = useState<{
@@ -406,7 +447,8 @@ export function ChatPage() {
   const [typingFrom, setTypingFrom] = useState<string | null>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
+  const stickToBottomRef = useRef(true);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
 
@@ -594,6 +636,41 @@ export function ChatPage() {
     return null;
   }, [activeConversation, userId, peerId, peerLabel, peerAvatarUrl]);
 
+  const hasActiveThread = Boolean(activeConversationId || peerId.trim());
+
+  const scrollToLatestMessage = useCallback(
+    (opts?: { force?: boolean; smooth?: boolean }) => {
+      const el = messagesScrollRef.current;
+      if (!el) return;
+
+      const distanceFromBottom =
+        el.scrollHeight - el.scrollTop - el.clientHeight;
+      const nearBottom = distanceFromBottom <= CHAT_SCROLL_STICK_THRESHOLD_PX;
+      const force = opts?.force ?? false;
+
+      if (!force && !stickToBottomRef.current && !nearBottom) return;
+
+      if (force || nearBottom) stickToBottomRef.current = true;
+
+      const behavior = opts?.smooth ? 'smooth' : 'auto';
+      const run = () => {
+        el.scrollTo({ top: el.scrollHeight, behavior });
+      };
+      run();
+      requestAnimationFrame(run);
+    },
+    [],
+  );
+
+  const onMessagesScroll = useCallback(() => {
+    const el = messagesScrollRef.current;
+    if (!el) return;
+    const distanceFromBottom =
+      el.scrollHeight - el.scrollTop - el.clientHeight;
+    stickToBottomRef.current =
+      distanceFromBottom <= CHAT_SCROLL_STICK_THRESHOLD_PX;
+  }, []);
+
   const reloadConversations = useCallback(async () => {
     if (!accessToken) return;
     setLoadingList(true);
@@ -611,6 +688,17 @@ export function ChatPage() {
   useEffect(() => {
     void reloadConversations();
   }, [reloadConversations]);
+
+  useEffect(() => {
+    const openId = (location.state as { openConversationId?: string } | null)
+      ?.openConversationId;
+    if (openId) {
+      setActiveConversationId(openId);
+      setPeerId('');
+      setPeerLabel('');
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.pathname, location.state, navigate]);
 
   const loadMessages = useCallback(
     async (conversationId: string) => {
@@ -638,12 +726,38 @@ export function ChatPage() {
   }, [activeConversationId, loadMessages]);
 
   useEffect(() => {
+    stickToBottomRef.current = true;
     setShowInfo(false);
+    setShowAddMembers(false);
+    setAddMemberSearchInput('');
+    setAddMemberResults([]);
   }, [activeConversationId, peerId]);
 
+  useLayoutEffect(() => {
+    if (loadingMessages) return;
+    scrollToLatestMessage({ smooth: true });
+  }, [messages, loadingMessages, scrollToLatestMessage]);
+
+  useLayoutEffect(() => {
+    if (loadingMessages) return;
+    scrollToLatestMessage({ force: true });
+  }, [loadingMessages, activeConversationId, peerId, scrollToLatestMessage]);
+
+  useLayoutEffect(() => {
+    if (loadingMessages || !typingFrom) return;
+    scrollToLatestMessage({ smooth: true });
+  }, [typingFrom, loadingMessages, scrollToLatestMessage]);
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loadingMessages, typingFrom]);
+    const el = messagesScrollRef.current;
+    if (!el) return;
+
+    const observer = new ResizeObserver(() => {
+      scrollToLatestMessage();
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [activeConversationId, peerId, scrollToLatestMessage]);
 
   useEffect(() => {
     const el = messageInputRef.current;
@@ -693,6 +807,34 @@ export function ChatPage() {
         clearTimeout(groupSearchDebounceRef.current);
     };
   }, [groupSearchInput]);
+
+  useEffect(() => {
+    if (!showAddMembers) return;
+    if (addMemberDebounceRef.current) clearTimeout(addMemberDebounceRef.current);
+    const q = addMemberSearchInput.trim();
+    if (q.length < 2) {
+      setAddMemberResults([]);
+      setAddMemberLoading(false);
+      return;
+    }
+    const memberIds = new Set(
+      activeConversation?.participants.map((p) => p.id) ?? [],
+    );
+    setAddMemberLoading(true);
+    addMemberDebounceRef.current = setTimeout(() => {
+      void searchUsers(q)
+        .then((hits) =>
+          setAddMemberResults(
+            hits.filter((h) => h.id !== userId && !memberIds.has(h.id)),
+          ),
+        )
+        .catch(() => setAddMemberResults([]))
+        .finally(() => setAddMemberLoading(false));
+    }, 320);
+    return () => {
+      if (addMemberDebounceRef.current) clearTimeout(addMemberDebounceRef.current);
+    };
+  }, [addMemberSearchInput, showAddMembers, activeConversation, userId]);
 
   const selectPeer = (hit: UserSearchHit) => {
     clearPendingMedia();
@@ -777,6 +919,50 @@ export function ChatPage() {
     }
   };
 
+  const handleLeaveGroup = async () => {
+    if (!activeConversationId || leavingGroup) return;
+    setLeavingGroup(true);
+    setError(null);
+    try {
+      await leaveGroupConversation(activeConversationId);
+      setConversations((prev) =>
+        prev.filter((c) => c.id !== activeConversationId),
+      );
+      setActiveConversationId(null);
+      setMessages([]);
+      setShowInfo(false);
+      setShowAddMembers(false);
+      setLeaveConfirmOpen(false);
+    } catch (e) {
+      setError(extractApiMessage(e, 'Could not leave group.'));
+    } finally {
+      setLeavingGroup(false);
+    }
+  };
+
+  const submitAddMember = async (hit: UserSearchHit) => {
+    if (!activeConversationId || addingMembers || !userId) return;
+    if (hit.id === userId) return;
+    if (activeConversation?.participants.some((p) => p.id === hit.id)) return;
+    setAddingMembers(true);
+    setError(null);
+    try {
+      const res = await addGroupMembers(activeConversationId, [hit.id]);
+      const updated = res.data.conversation;
+      setConversations((prev) => {
+        const has = prev.some((c) => c.id === updated.id);
+        if (!has) return [updated, ...prev];
+        return prev.map((c) => (c.id === updated.id ? updated : c));
+      });
+      setAddMemberSearchInput('');
+      setAddMemberResults([]);
+    } catch (e) {
+      setError(extractApiMessage(e, 'Could not add member.'));
+    } finally {
+      setAddingMembers(false);
+    }
+  };
+
   const onReceive = useCallback((msg: ChatMessage) => {
     const conv = activeConvIdRef.current;
     if (msg.conversationId === conv) {
@@ -807,9 +993,41 @@ export function ChatPage() {
     [userId],
   );
 
+  const onGroupUpdated = useCallback(
+    (payload: ChatGroupUpdatedPayload) => {
+      if (payload.action === 'leave' && payload.userId === userId) {
+        setConversations((prev) =>
+          prev.filter((c) => c.id !== payload.conversationId),
+        );
+        if (activeConvIdRef.current === payload.conversationId) {
+          setActiveConversationId(null);
+          setMessages([]);
+          setShowInfo(false);
+          setShowAddMembers(false);
+        }
+        return;
+      }
+      if (
+        payload.action === 'members_added' &&
+        payload.conversation
+      ) {
+        const row = payload.conversation;
+        setConversations((prev) => {
+          const has = prev.some((c) => c.id === row.id);
+          if (!has) return [row, ...prev];
+          return prev.map((c) => (c.id === row.id ? row : c));
+        });
+        return;
+      }
+      void reloadConversations();
+    },
+    [userId, reloadConversations],
+  );
+
   const { emitTyping } = useChatSocket({
     onReceive,
     onTyping,
+    onGroupUpdated,
   });
 
   const appendSentMessage = useCallback(
@@ -819,6 +1037,8 @@ export function ChatPage() {
       sender_id: string;
       content: string;
       media_url: string;
+      type?: string;
+      shared_post_id?: string | null;
       createdAt: string;
     }) => {
       setActiveConversationId(row.conversationId);
@@ -834,6 +1054,11 @@ export function ChatPage() {
             sender_id: row.sender_id,
             content: row.content,
             media_url: row.media_url,
+            type:
+              row.type === 'system' || row.type === 'post_share'
+                ? row.type
+                : undefined,
+            shared_post_id: row.shared_post_id ?? null,
             createdAt: row.createdAt,
           },
         ];
@@ -1128,7 +1353,7 @@ export function ChatPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-8 bg-neutral-200 dark:bg-slate-950">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-8 bg-slate-200 dark:bg-slate-950">
         <p className="text-slate-600 dark:text-slate-400">Sign in to use chat.</p>
         <Link to={ROUTES.LOGIN} className="text-accent font-medium">
           Go to login
@@ -1138,13 +1363,12 @@ export function ChatPage() {
   }
 
   return (
-    <div className="chat-page">
-      <AppNavBar />
-
-      <div className="chat-page__layout">
+    <AppPage fill>
+      <div className="chat-page">
+      <div className={`chat-page__layout${hasActiveThread ? ' chat-page__layout--thread' : ''}`}>
         <aside
-          className={`chat-sidebar h-full min-h-0 w-full shrink-0 flex-col overflow-hidden md:max-w-[340px] ${
-            activeConversationId || peerId.trim() ? 'hidden md:flex' : 'flex'
+          className={`chat-sidebar ${
+            hasActiveThread ? 'hidden md:flex' : 'flex'
           }`}
         >
           <div className="chat-sidebar__head">
@@ -1275,7 +1499,7 @@ export function ChatPage() {
             </div>
           ) : null}
 
-          <div className="chat-sidebar__list min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div className="chat-sidebar__list">
             {sidebarTab === 'direct' && convFilterNorm.length >= 2 ? (
               <section className="chat-sidebar__section">
                 <p className="chat-sidebar__section-label">People</p>
@@ -1362,7 +1586,7 @@ export function ChatPage() {
 
         <main
           className={`chat-panel ${
-            activeConversationId || peerId.trim() ? 'flex' : 'hidden md:flex'
+            hasActiveThread ? 'chat-panel--thread flex' : 'hidden md:flex'
           }`}
         >
           {headerMeta ? (
@@ -1451,7 +1675,12 @@ export function ChatPage() {
           {error ? <div className="chat-panel__error">{error}</div> : null}
 
           {headerMeta ? (
-            <div className="chat-panel__messages">
+            <div
+              ref={messagesScrollRef}
+              className="chat-panel__messages"
+              onScroll={onMessagesScroll}
+            >
+              <div className="chat-panel__messages-inner">
               {loadingMessages ? (
                 <p className="py-12 text-center text-sm text-slate-500">
                   Loading messages…
@@ -1470,6 +1699,13 @@ export function ChatPage() {
                 </div>
               ) : (
                 messages.map((m) => {
+                  if (m.type === 'system') {
+                    return (
+                      <div key={m.id} className="flex justify-center px-2 py-1">
+                        <p className="chat-system-msg">{m.content}</p>
+                      </div>
+                    );
+                  }
                   const isMe = m.sender_id === userId;
                   const showPeerAvatar = Boolean(userId) && !isMe;
                   const label = senderLabel(m.sender_id);
@@ -1496,21 +1732,33 @@ export function ChatPage() {
                         <div
                           className={`chat-bubble ${isMe ? 'chat-bubble--mine' : 'chat-bubble--theirs'}`}
                         >
-                          {m.media_url?.trim() ? (
-                            <ChatMessageMedia
-                              mediaUrl={m.media_url.trim()}
-                              isMe={isMe}
-                              onOpen={() => openChatMedia(m.media_url.trim())}
-                            />
-                          ) : null}
                           {m.content?.trim() ? (
                             <p
                               className={`whitespace-pre-wrap break-words ${
-                                m.media_url?.trim() ? 'mt-2' : ''
+                                m.type === 'post_share' && m.shared_post_id
+                                  ? 'mb-2'
+                                  : m.media_url?.trim()
+                                    ? 'mt-2'
+                                    : ''
                               }`}
                             >
                               {m.content}
                             </p>
+                          ) : null}
+                          {m.type === 'post_share' && m.shared_post_id ? (
+                            <SharedPostPreviewById
+                              postId={m.shared_post_id}
+                              compact
+                              stopCardNavigation
+                            />
+                          ) : null}
+                          {m.media_url?.trim() && m.type !== 'post_share' ? (
+                            <ChatMessageMedia
+                              mediaUrl={m.media_url.trim()}
+                              isMe={isMe}
+                              onOpen={() => openChatMedia(m.media_url.trim())}
+                              onMediaLoad={() => scrollToLatestMessage()}
+                            />
                           ) : null}
                           <p
                             className={`chat-bubble__time ${isMe ? 'chat-bubble__time--mine' : 'chat-bubble__time--theirs'}`}
@@ -1533,7 +1781,7 @@ export function ChatPage() {
                   </span>
                 </div>
               ) : null}
-              <div ref={messagesEndRef} className="h-1" aria-hidden />
+              </div>
             </div>
           ) : null}
 
@@ -1717,43 +1965,109 @@ export function ChatPage() {
               </div>
 
               {activeConversation.isGroup ? (
-                <section>
-                  <p className="chat-info__section-label">
-                    Members · {activeConversation.participants.length}
-                  </p>
-                  <ul className="space-y-1">
-                    {activeConversation.participants.map((p) => {
-                      const displayName =
-                        p.full_name?.trim() ||
-                        (p.username ? `@${p.username}` : `${p.id.slice(0, 8)}…`);
-                      const isSelf = p.id === userId;
-                      return (
-                        <li key={p.id} className="chat-info__member">
-                          <ChatAvatar
-                            label={displayName}
-                            imageUrl={p.avatar_url}
-                            size="md"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
-                              {displayName}
-                              {isSelf && (
-                                <span className="ml-1.5 text-xs font-normal text-slate-500 dark:text-slate-400">
-                                  (you)
-                                </span>
-                              )}
-                            </p>
-                            {p.username && p.full_name && (
-                              <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-                                @{p.username}
+                <>
+                  <section>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <p className="chat-info__section-label !mb-0">
+                        Members · {activeConversation.participants.length}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddMembers((v) => !v)}
+                        className="text-xs font-semibold text-accent hover:text-accent-hover"
+                      >
+                        {showAddMembers ? 'Done' : 'Add people'}
+                      </button>
+                    </div>
+                    {showAddMembers ? (
+                      <div className="mb-3 space-y-2 rounded-2xl border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-800/50">
+                        <input
+                          type="search"
+                          value={addMemberSearchInput}
+                          onChange={(e) => setAddMemberSearchInput(e.target.value)}
+                          placeholder="Search users to add…"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-accent dark:border-slate-600 dark:bg-slate-900"
+                        />
+                        {addMemberLoading ? (
+                          <p className="text-xs text-slate-500">Searching…</p>
+                        ) : addMemberResults.length > 0 ? (
+                          <ul className="max-h-40 space-y-1 overflow-y-auto">
+                            {addMemberResults.map((hit) => (
+                              <li key={hit.id}>
+                                <button
+                                  type="button"
+                                  disabled={addingMembers}
+                                  onClick={() => void submitAddMember(hit)}
+                                  className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left transition hover:bg-white dark:hover:bg-slate-900/60 disabled:opacity-50"
+                                >
+                                  <ChatAvatar
+                                    label={hit.full_name || hit.username}
+                                    imageUrl={hit.avatar_url}
+                                    size="sm"
+                                  />
+                                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                                    {hit.full_name?.trim() || `@${hit.username}`}
+                                  </span>
+                                  <span className="text-xs font-semibold text-accent">
+                                    Add
+                                  </span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : addMemberSearchInput.trim().length >= 2 ? (
+                          <p className="text-xs text-slate-500">No users found.</p>
+                        ) : (
+                          <p className="text-xs text-slate-500">
+                            Type at least 2 characters to search.
+                          </p>
+                        )}
+                      </div>
+                    ) : null}
+                    <ul className="space-y-1">
+                      {activeConversation.participants.map((p) => {
+                        const displayName =
+                          p.full_name?.trim() ||
+                          (p.username ? `@${p.username}` : `${p.id.slice(0, 8)}…`);
+                        const isSelf = p.id === userId;
+                        return (
+                          <li key={p.id} className="chat-info__member">
+                            <ChatAvatar
+                              label={displayName}
+                              imageUrl={p.avatar_url}
+                              size="md"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                                {displayName}
+                                {isSelf && (
+                                  <span className="ml-1.5 text-xs font-normal text-slate-500 dark:text-slate-400">
+                                    (you)
+                                  </span>
+                                )}
                               </p>
-                            )}
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </section>
+                              {p.username && p.full_name && (
+                                <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                                  @{p.username}
+                                </p>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </section>
+
+                  <section className="border-t border-slate-100 pt-4 dark:border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setLeaveConfirmOpen(true)}
+                      className="w-full rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50"
+                    >
+                      Leave group
+                    </button>
+                  </section>
+                </>
               ) : (
                 (() => {
                   const other = getOtherParticipant(activeConversation, userId);
@@ -1799,6 +2113,17 @@ export function ChatPage() {
           onClose={() => setMediaLightbox(null)}
         />
       ) : null}
+
+      <ConfirmDialog
+        open={leaveConfirmOpen}
+        onClose={() => !leavingGroup && setLeaveConfirmOpen(false)}
+        onConfirm={() => void handleLeaveGroup()}
+        title="Leave this group?"
+        message="You will no longer receive messages from this group. Other members will stay in the chat."
+        confirmLabel="Leave group"
+        confirming={leavingGroup}
+      />
     </div>
+    </AppPage>
   );
 }

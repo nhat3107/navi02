@@ -85,6 +85,7 @@ export const API_ROUTES = {
   USER_ONBOARDING: 'user/onboarding',
   USER_CLOUDINARY_SIGNATURE: 'user/cloudinary-upload-signature',
   USER_SEARCH: 'user/search',
+  USER_SUGGESTIONS: 'user/suggestions',
   /** Followers/following — me */
   USER_FOLLOWERS_ME: 'user/followers',
   USER_FOLLOWING_ME: 'user/following',
@@ -108,6 +109,9 @@ export const API_ROUTES = {
 export const apiNetworkPostById = (postId: string): string =>
   `network/posts/${encodeURIComponent(postId)}`;
 
+export const apiNetworkPostShare = (postId: string): string =>
+  `${apiNetworkPostById(postId)}/share`;
+
 export const apiNetworkPostsByAuthor = (authorId: string): string =>
   `network/posts/author/${encodeURIComponent(authorId)}`;
 
@@ -119,3 +123,9 @@ export const apiNetworkCommentReplies = (parentCommentId: string): string =>
 
 export const apiNetworkCommentById = (commentId: string): string =>
   `network/comments/${encodeURIComponent(commentId)}`;
+
+export const apiConversationLeave = (conversationId: string): string =>
+  `conversations/${encodeURIComponent(conversationId)}/leave`;
+
+export const apiConversationMembers = (conversationId: string): string =>
+  `conversations/${encodeURIComponent(conversationId)}/members`;

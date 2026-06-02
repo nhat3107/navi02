@@ -31,9 +31,9 @@ const STYLES: Record<NotificationVisualKind, NotificationVisualStyle> = {
     cardUnread:
       'border-rose-200/90 bg-rose-50/70 ring-rose-200/60 dark:border-rose-900/50 dark:bg-rose-950/35 dark:ring-rose-900/40',
     cardRead:
-      'border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950',
+      'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950',
     rowUnread: 'bg-rose-50/80 dark:bg-rose-950/30',
-    rowRead: 'hover:bg-neutral-50 dark:hover:bg-neutral-900',
+    rowRead: 'hover:bg-slate-50 dark:hover:bg-slate-900',
     dot: 'bg-rose-500',
   },
   comment: {
@@ -43,9 +43,9 @@ const STYLES: Record<NotificationVisualKind, NotificationVisualStyle> = {
     cardUnread:
       'border-sky-200/90 bg-sky-50/70 ring-sky-200/60 dark:border-sky-900/50 dark:bg-sky-950/35 dark:ring-sky-900/40',
     cardRead:
-      'border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950',
+      'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950',
     rowUnread: 'bg-sky-50/80 dark:bg-sky-950/30',
-    rowRead: 'hover:bg-neutral-50 dark:hover:bg-neutral-900',
+    rowRead: 'hover:bg-slate-50 dark:hover:bg-slate-900',
     dot: 'bg-sky-500',
   },
   follow: {
@@ -55,9 +55,9 @@ const STYLES: Record<NotificationVisualKind, NotificationVisualStyle> = {
     cardUnread:
       'border-violet-200/90 bg-violet-50/70 ring-violet-200/60 dark:border-violet-900/50 dark:bg-violet-950/35 dark:ring-violet-900/40',
     cardRead:
-      'border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950',
+      'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950',
     rowUnread: 'bg-violet-50/80 dark:bg-violet-950/30',
-    rowRead: 'hover:bg-neutral-50 dark:hover:bg-neutral-900',
+    rowRead: 'hover:bg-slate-50 dark:hover:bg-slate-900',
     dot: 'bg-violet-500',
   },
   new_post: {
@@ -67,9 +67,9 @@ const STYLES: Record<NotificationVisualKind, NotificationVisualStyle> = {
     cardUnread:
       'border-indigo-200/90 bg-indigo-50/70 ring-indigo-200/60 dark:border-indigo-900/50 dark:bg-indigo-950/35 dark:ring-indigo-900/40',
     cardRead:
-      'border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950',
+      'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950',
     rowUnread: 'bg-indigo-50/80 dark:bg-indigo-950/30',
-    rowRead: 'hover:bg-neutral-50 dark:hover:bg-neutral-900',
+    rowRead: 'hover:bg-slate-50 dark:hover:bg-slate-900',
     dot: 'bg-indigo-500',
   },
   moderation_pending: {
@@ -79,9 +79,9 @@ const STYLES: Record<NotificationVisualKind, NotificationVisualStyle> = {
     cardUnread:
       'border-amber-200/90 bg-amber-50/70 ring-amber-200/60 dark:border-amber-900/50 dark:bg-amber-950/35 dark:ring-amber-900/40',
     cardRead:
-      'border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950',
+      'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950',
     rowUnread: 'bg-amber-50/80 dark:bg-amber-950/30',
-    rowRead: 'hover:bg-neutral-50 dark:hover:bg-neutral-900',
+    rowRead: 'hover:bg-slate-50 dark:hover:bg-slate-900',
     dot: 'bg-amber-500',
   },
   moderation_approved: {
@@ -91,9 +91,9 @@ const STYLES: Record<NotificationVisualKind, NotificationVisualStyle> = {
     cardUnread:
       'border-emerald-200/90 bg-emerald-50/70 ring-emerald-200/60 dark:border-emerald-900/50 dark:bg-emerald-950/35 dark:ring-emerald-900/40',
     cardRead:
-      'border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950',
+      'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950',
     rowUnread: 'bg-emerald-50/80 dark:bg-emerald-950/30',
-    rowRead: 'hover:bg-neutral-50 dark:hover:bg-neutral-900',
+    rowRead: 'hover:bg-slate-50 dark:hover:bg-slate-900',
     dot: 'bg-emerald-500',
   },
   moderation_removed: {
@@ -103,9 +103,9 @@ const STYLES: Record<NotificationVisualKind, NotificationVisualStyle> = {
     cardUnread:
       'border-orange-200/90 bg-orange-50/70 ring-orange-200/60 dark:border-orange-900/50 dark:bg-orange-950/35 dark:ring-orange-900/40',
     cardRead:
-      'border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950',
+      'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950',
     rowUnread: 'bg-orange-50/80 dark:bg-orange-950/30',
-    rowRead: 'hover:bg-neutral-50 dark:hover:bg-neutral-900',
+    rowRead: 'hover:bg-slate-50 dark:hover:bg-slate-900',
     dot: 'bg-orange-500',
   },
   penalty: {
@@ -114,9 +114,9 @@ const STYLES: Record<NotificationVisualKind, NotificationVisualStyle> = {
     cardUnread:
       'border-red-200/90 bg-red-50/70 ring-red-200/60 dark:border-red-900/50 dark:bg-red-950/35 dark:ring-red-900/40',
     cardRead:
-      'border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950',
+      'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950',
     rowUnread: 'bg-red-50/80 dark:bg-red-950/30',
-    rowRead: 'hover:bg-neutral-50 dark:hover:bg-neutral-900',
+    rowRead: 'hover:bg-slate-50 dark:hover:bg-slate-900',
     dot: 'bg-red-500',
   },
   report: {
@@ -126,22 +126,22 @@ const STYLES: Record<NotificationVisualKind, NotificationVisualStyle> = {
     cardUnread:
       'border-fuchsia-200/90 bg-fuchsia-50/70 ring-fuchsia-200/60 dark:border-fuchsia-900/50 dark:bg-fuchsia-950/35 dark:ring-fuchsia-900/40',
     cardRead:
-      'border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950',
+      'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950',
     rowUnread: 'bg-fuchsia-50/80 dark:bg-fuchsia-950/30',
-    rowRead: 'hover:bg-neutral-50 dark:hover:bg-neutral-900',
+    rowRead: 'hover:bg-slate-50 dark:hover:bg-slate-900',
     dot: 'bg-fuchsia-500',
   },
   default: {
     label: 'Update',
     badge:
-      'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200',
+      'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
     cardUnread:
-      'border-neutral-200 bg-accent-bg ring-neutral-200/90 dark:border-neutral-800 dark:bg-accent-bg dark:ring-neutral-800',
+      'border-slate-200 bg-accent-bg ring-slate-200/90 dark:border-slate-800 dark:bg-accent-bg dark:ring-slate-800',
     cardRead:
-      'border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950',
+      'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950',
     rowUnread: 'bg-accent-bg dark:bg-accent-bg',
-    rowRead: 'hover:bg-neutral-50 dark:hover:bg-neutral-900',
-    dot: 'bg-neutral-400',
+    rowRead: 'hover:bg-slate-50 dark:hover:bg-slate-900',
+    dot: 'bg-slate-400',
   },
 };
 
@@ -155,7 +155,7 @@ const ACCENT_BORDER: Record<NotificationVisualKind, string> = {
   moderation_removed: 'border-l-orange-500',
   penalty: 'border-l-red-500',
   report: 'border-l-fuchsia-500',
-  default: 'border-l-neutral-400',
+  default: 'border-l-slate-400',
 };
 
 export function notificationVisualKind(

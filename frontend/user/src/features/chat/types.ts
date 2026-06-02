@@ -4,6 +4,8 @@ export interface ChatMessage {
   sender_id: string;
   content: string;
   media_url: string;
+  type?: 'text' | 'post_share' | 'system';
+  shared_post_id?: string | null;
   createdAt: string;
 }
 

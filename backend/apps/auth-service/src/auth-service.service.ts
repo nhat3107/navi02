@@ -569,15 +569,40 @@ export class AuthServiceService {
   async getAdminDashboardStats(): Promise<{
     totalUsers: number;
     blockedUsers: number;
+    usersOverTime: { date: string; count: number }[];
   }> {
     const memberWhere = { role: { not: 'admin' as const } };
-    const [totalUsers, blockedUsers] = await Promise.all([
+    const dayCount = 7;
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - (dayCount - 1));
+
+    const [totalUsers, blockedUsers, signupsInRange] = await Promise.all([
       this.prismaService.user.count({ where: memberWhere }),
       this.prismaService.user.count({
         where: { ...memberWhere, account_status: 'blocked' },
       }),
+      this.prismaService.user.findMany({
+        where: { ...memberWhere, createdAt: { gte: start } },
+        select: { createdAt: true },
+      }),
     ]);
-    return { totalUsers, blockedUsers };
+
+    const countByDate = new Map<string, number>();
+    for (const row of signupsInRange) {
+      const key = row.createdAt.toISOString().slice(0, 10);
+      countByDate.set(key, (countByDate.get(key) ?? 0) + 1);
+    }
+
+    const usersOverTime: { date: string; count: number }[] = [];
+    for (let i = 0; i < dayCount; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const key = d.toISOString().slice(0, 10);
+      usersOverTime.push({ date: key, count: countByDate.get(key) ?? 0 });
+    }
+
+    return { totalUsers, blockedUsers, usersOverTime };
   }
 
   async getAccountStatus(userId: string): Promise<{ data: unknown }> {

@@ -1,13 +1,20 @@
+import { Navigate } from 'react-router-dom';
 import { LoginForm } from './LoginForm';
 import { SocialLoginButtons } from '../../../features/auth/components/SocialLoginButtons';
 import { AuthFooter, AuthFooterLink } from '../../../features/auth/components/AuthFooter';
 import { ToastContainer } from '../../../shared/components/ToastContainer';
 import { useOAuthLoginErrorToast } from '../../../features/auth/hooks/useOAuthLoginErrorToast';
+import { useAuthStore } from '../../../features/auth/store/auth.store';
 import { AuthLayout } from '../../../shared/layout/AuthLayout';
 import { ROUTES } from '../../../shared/constants/routes';
 
 export function LoginPage() {
   useOAuthLoginErrorToast();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  if (isAuthenticated) {
+    return <Navigate to={ROUTES.HOME} replace />;
+  }
 
   return (
     <AuthLayout

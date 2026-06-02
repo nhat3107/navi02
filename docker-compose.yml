@@ -1,0 +1,296 @@
+# Full Navi stack — infrastructure, backend microservices, and frontends.
+#
+# Quick start:
+#   cp .env.docker.example .env
+#   docker compose up --build
+#
+# User app:   http://localhost:8080
+# Admin app:  http://localhost:8081
+# API:        http://localhost:3000/api
+
+name: navi
+
+x-kafka-env: &kafka-env
+  KAFKA_BROKERS: ${KAFKA_BROKERS:-broker:9092}
+
+x-jwt-env: &jwt-env
+  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Set JWT_ACCESS_SECRET in .env}
+  JWT_RESET_SECRET: ${JWT_RESET_SECRET:?Set JWT_RESET_SECRET in .env}
+
+services:
+  broker:
+    image: apache/kafka:latest
+    container_name: navi-kafka
+    ports:
+      - "9094:9094"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,PLAINTEXT_HOST://:9094,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092,PLAINTEXT_HOST://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 3
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1 || exit 1",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: navi-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/01-init-databases.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mongo:
+    image: mongo:7
+    container_name: navi-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-example}
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  db-init:
+    build:
+      context: ./backend
+      dockerfile: docker/Dockerfile.db-init
+    container_name: navi-db-init
+    environment:
+      AUTH_DATABASE_URL: ${AUTH_DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/auth_db}
+      USER_DATABASE_URL: ${USER_DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/user_db}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api-gateway:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: api-gateway
+      args:
+        SERVICE: api-gateway
+    container_name: navi-api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      <<: [*kafka-env, *jwt-env]
+      NODE_ENV: production
+      PORT: ${PORT:-3000}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:8080,http://localhost:8081}
+      OAUTH_FRONTEND_LOGIN_URL: ${OAUTH_FRONTEND_LOGIN_URL:-http://localhost:8080/login}
+      OAUTH_FRONTEND_REDIRECT_URL: ${OAUTH_FRONTEND_REDIRECT_URL:-http://localhost:8080}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:3000/api/auth/google/callback}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GITHUB_CALLBACK_URL: ${GITHUB_CALLBACK_URL:-http://localhost:3000/api/auth/github/callback}
+      VIDEOSDK_API_KEY: ${VIDEOSDK_API_KEY:-}
+      VIDEOSDK_SECRET: ${VIDEOSDK_SECRET:-}
+    depends_on:
+      broker:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+      auth-service:
+        condition: service_started
+      user-service:
+        condition: service_started
+      chat-service:
+        condition: service_started
+      network-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+      ai-service:
+        condition: service_started
+    restart: unless-stopped
+
+  auth-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: auth-service
+      args:
+        SERVICE: auth-service
+    container_name: navi-auth-service
+    environment:
+      <<: [*kafka-env, *jwt-env]
+      NODE_ENV: production
+      DATABASE_URL: ${AUTH_DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/auth_db}
+    depends_on:
+      broker:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: user-service
+      args:
+        SERVICE: user-service
+    container_name: navi-user-service
+    environment:
+      <<: [*kafka-env]
+      NODE_ENV: production
+      DATABASE_URL: ${USER_DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/user_db}
+      EMAIL_USER: ${EMAIL_USER:-}
+      EMAIL_PASS: ${EMAIL_PASS:-}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      CLOUDINARY_UPLOAD_FOLDER: ${CLOUDINARY_UPLOAD_FOLDER:-navi/onboarding}
+      CLOUDINARY_NETWORK_FOLDER: ${CLOUDINARY_NETWORK_FOLDER:-navi/network}
+      CLOUDINARY_CHAT_FOLDER: ${CLOUDINARY_CHAT_FOLDER:-navi/chat}
+    depends_on:
+      broker:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  chat-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: chat-service
+      args:
+        SERVICE: chat-service
+    container_name: navi-chat-service
+    environment:
+      <<: [*kafka-env]
+      NODE_ENV: production
+      CHAT_HTTP_PORT: 4030
+      CHAT_DB: ${CHAT_DB:-mongodb://root:example@mongo:27017/chat_db?authSource=admin}
+    depends_on:
+      broker:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  network-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: network-service
+      args:
+        SERVICE: network-service
+    container_name: navi-network-service
+    environment:
+      <<: [*kafka-env]
+      NODE_ENV: production
+      NETWORK_DB_URL: ${NETWORK_DB_URL:-mongodb://root:example@mongo:27017/network_db?authSource=admin}
+    depends_on:
+      broker:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  notification-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: notification-service
+      args:
+        SERVICE: notification-service
+    container_name: navi-notification-service
+    environment:
+      <<: [*kafka-env]
+      NODE_ENV: production
+      NOTIFICATION_DB_URL: ${NOTIFICATION_DB_URL:-mongodb://root:example@mongo:27017/notification_db?authSource=admin}
+    depends_on:
+      broker:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ai-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: ai-service
+      args:
+        SERVICE: ai-service
+    container_name: navi-ai-service
+    environment:
+      <<: [*kafka-env]
+      NODE_ENV: production
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    depends_on:
+      broker:
+        condition: service_healthy
+    restart: unless-stopped
+
+  user-app:
+    build:
+      context: ./frontend
+      dockerfile: user/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api}
+        VITE_WS_ORIGIN: ${VITE_WS_ORIGIN:-http://localhost:3000}
+        VITE_ENABLE_OAUTH: ${VITE_ENABLE_OAUTH:-false}
+    container_name: navi-user-app
+    ports:
+      - "8080:80"
+    depends_on:
+      - api-gateway
+    restart: unless-stopped
+
+  admin-app:
+    build:
+      context: ./frontend
+      dockerfile: admin/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api}
+    container_name: navi-admin-app
+    ports:
+      - "8081:80"
+    depends_on:
+      - api-gateway
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  mongo_data:

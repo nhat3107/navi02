@@ -5,6 +5,7 @@ import {
   apiNetworkCommentReplies,
   apiNetworkCommentsByPost,
   apiNetworkPostById,
+  apiNetworkPostShare,
   apiNetworkPostsByAuthor,
 } from '../../../shared/constants/routes';
 import type {
@@ -32,7 +33,7 @@ export async function fetchFeed(
     { params: { limit, skip } },
   );
   const rows = asRecordList(res.data.data);
-  return { data: rows.map(normalizeNetworkPost) };
+  return { data: rows.map((raw) => normalizeNetworkPost(raw)) };
 }
 
 export async function fetchPostsByAuthor(
@@ -45,7 +46,7 @@ export async function fetchPostsByAuthor(
     { params: { limit, skip } },
   );
   const rows = asRecordList(res.data.data);
-  return { data: rows.map(normalizeNetworkPost) };
+  return { data: rows.map((raw) => normalizeNetworkPost(raw)) };
 }
 
 export async function fetchPostById(postId: string): Promise<NetworkPost> {
@@ -126,6 +127,17 @@ export async function likeComment(commentId: string): Promise<void> {
 
 export async function unlikeComment(commentId: string): Promise<void> {
   await api.delete(apiNetworkCommentById(commentId) + '/like');
+}
+
+export async function sharePost(
+  postId: string,
+  content?: string,
+): Promise<NetworkPost> {
+  const res = await api.post<{ data: Record<string, unknown> }>(
+    apiNetworkPostShare(postId),
+    { content: content?.trim() || undefined },
+  );
+  return normalizeNetworkPost(res.data.data);
 }
 
 export async function createReport(body: {

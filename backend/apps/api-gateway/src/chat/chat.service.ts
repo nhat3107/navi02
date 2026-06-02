@@ -32,14 +32,27 @@ export class ChatService implements OnModuleInit {
     this.kafka.subscribeToResponseOf('chat.list_messages');
     this.kafka.subscribeToResponseOf('chat.list_conversations');
     this.kafka.subscribeToResponseOf('chat.create_group');
+    this.kafka.subscribeToResponseOf('chat.leave_group');
+    this.kafka.subscribeToResponseOf('chat.add_group_members');
   }
 
   async createMessage(userId: string, dto: CreateMessageDto) {
     const text = (dto.content ?? '').trim();
     const media = (dto.media_url ?? '').trim();
-    if (!text && !media) {
-      throw new BadRequestException('content or media_url is required');
+    const isPostShare = dto.type === 'post_share';
+
+    if (isPostShare) {
+      if (!dto.sharedPostId?.trim()) {
+        throw new BadRequestException(
+          'sharedPostId is required when type is post_share',
+        );
+      }
+    } else {
+      if (!text && !media) {
+        throw new BadRequestException('content or media_url is required');
+      }
     }
+
     if (!dto.conversationId && !dto.receiverId) {
       throw new BadRequestException(
         'receiverId is required when conversationId is omitted',
@@ -52,6 +65,8 @@ export class ChatService implements OnModuleInit {
         receiverId: dto.receiverId,
         content: text,
         mediaUrl: media,
+        type: dto.type ?? 'text',
+        sharedPostId: dto.sharedPostId,
       }),
     )) as {
       message: string;
@@ -61,6 +76,8 @@ export class ChatService implements OnModuleInit {
         sender_id: string;
         content: string;
         media_url: string;
+        type: string;
+        shared_post_id: string | null;
         createdAt: string;
         receiverIds: string[];
       };
@@ -73,6 +90,8 @@ export class ChatService implements OnModuleInit {
         sender_id: row.sender_id,
         content: row.content,
         media_url: row.media_url,
+        type: row.type,
+        shared_post_id: row.shared_post_id,
         createdAt: row.createdAt,
       },
     };
@@ -108,6 +127,115 @@ export class ChatService implements OnModuleInit {
       }),
     )) as { message: string; data: ConversationListRow };
     await this.enrichParticipantProfiles(userId, [res.data]);
+    return res;
+  }
+
+  async leaveGroup(userId: string, conversationId: string) {
+    const res = (await firstValueFrom(
+      this.kafka.send('chat.leave_group', {
+        userId,
+        conversationId,
+      }),
+    )) as {
+      message: string;
+      data: {
+        conversationId: string;
+        systemMessage?: {
+          id: string;
+          conversationId: string;
+          sender_id: string;
+          content: string;
+          media_url: string;
+          type: string;
+          createdAt: string;
+          receiverIds: string[];
+        } | null;
+        notifyUserIds: string[];
+      };
+    };
+
+    const row = res.data.systemMessage;
+    if (row) {
+      const payload = {
+        message: {
+          id: row.id,
+          conversationId: row.conversationId,
+          sender_id: row.sender_id,
+          content: row.content,
+          media_url: row.media_url,
+          type: row.type,
+          createdAt: row.createdAt,
+        },
+      };
+      for (const uid of row.receiverIds ?? []) {
+        this.chatGateway.emitToUser(uid, 'receive_message', payload);
+      }
+    }
+    for (const uid of res.data.notifyUserIds ?? []) {
+      this.chatGateway.emitToUser(uid, 'group_updated', {
+        conversationId: res.data.conversationId,
+        action: 'leave',
+        userId,
+      });
+    }
+    return res;
+  }
+
+  async addGroupMembers(
+    userId: string,
+    conversationId: string,
+    memberIds: string[],
+  ) {
+    const res = (await firstValueFrom(
+      this.kafka.send('chat.add_group_members', {
+        userId,
+        conversationId,
+        memberIds,
+      }),
+    )) as {
+      message: string;
+      data: {
+        conversation: ConversationListRow;
+        systemMessage: {
+          id: string;
+          conversationId: string;
+          sender_id: string;
+          content: string;
+          media_url: string;
+          type: string;
+          createdAt: string;
+          receiverIds: string[];
+        };
+        notifyUserIds: string[];
+      };
+    };
+
+    await this.enrichParticipantProfiles(userId, [res.data.conversation]);
+
+    const row = res.data.systemMessage;
+    if (row) {
+      const payload = {
+        message: {
+          id: row.id,
+          conversationId: row.conversationId,
+          sender_id: row.sender_id,
+          content: row.content,
+          media_url: row.media_url,
+          type: row.type,
+          createdAt: row.createdAt,
+        },
+      };
+      for (const uid of row.receiverIds ?? []) {
+        this.chatGateway.emitToUser(uid, 'receive_message', payload);
+      }
+    }
+    for (const uid of res.data.notifyUserIds ?? []) {
+      this.chatGateway.emitToUser(uid, 'group_updated', {
+        conversationId: res.data.conversation.id,
+        action: 'members_added',
+        conversation: res.data.conversation,
+      });
+    }
     return res;
   }
 

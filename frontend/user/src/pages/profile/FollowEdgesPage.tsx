@@ -158,7 +158,7 @@ export function FollowEdgesPage({ mode }: FollowEdgesPageProps) {
       : ROUTES.PROFILE_ME;
 
   return (
-    <AppPage mainClassName="max-w-2xl">
+    <AppPage innerClassName="max-w-2xl">
         <PageHeader
           title={heading}
           description={

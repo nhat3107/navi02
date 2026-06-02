@@ -43,10 +43,12 @@ export class AdminService implements OnModuleInit {
     return {
       totalUsers: userStats.totalUsers ?? 0,
       blockedUsers: userStats.blockedUsers ?? 0,
+      usersOverTime: userStats.usersOverTime ?? [],
       totalPosts: postStats.totalPosts ?? 0,
       pendingPosts: postStats.pendingPosts ?? 0,
       reportedPosts: postStats.reportedPosts ?? 0,
       postsOverTime: analytics.postsOverTime ?? [],
+      reportsOverTime: analytics.reportsOverTime ?? [],
       recentActivity: analytics.recentActivity ?? [],
     };
   }

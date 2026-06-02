@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchDashboardStats } from '../../features/dashboard/api/dashboard.api';
 import { PostsChart } from '../../features/dashboard/components/PostsChart';
+import { ReportsChart, ReportsChartFooterLink } from '../../features/dashboard/components/ReportsChart';
 import { ActivityTimeline } from '../../features/dashboard/components/ActivityTimeline';
+import { UsersChart, UsersChartFooterLink } from '../../features/dashboard/components/UsersChart';
+import { DashboardPanelCell } from '../../features/dashboard/components/DashboardPanelCell';
 import {
   BlockedIcon,
   DashboardStatCard,
@@ -169,8 +172,18 @@ export function DashboardPage() {
       </div>
 
       <div className="dashboard-panels">
-        <PostsChart data={stats.postsOverTime ?? []} />
-        <ActivityTimeline items={stats.recentActivity ?? []} />
+        <DashboardPanelCell>
+          <PostsChart data={stats.postsOverTime ?? []} />
+        </DashboardPanelCell>
+        <DashboardPanelCell>
+          <ActivityTimeline items={stats.recentActivity ?? []} />
+        </DashboardPanelCell>
+        <DashboardPanelCell footer={<ReportsChartFooterLink />}>
+          <ReportsChart data={stats.reportsOverTime ?? []} />
+        </DashboardPanelCell>
+        <DashboardPanelCell footer={<UsersChartFooterLink />}>
+          <UsersChart data={stats.usersOverTime ?? []} />
+        </DashboardPanelCell>
       </div>
     </div>
   );

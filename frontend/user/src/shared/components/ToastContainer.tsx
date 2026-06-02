@@ -6,7 +6,7 @@ const TONE_STYLES = {
     'border-red-200/90 bg-red-50 text-red-900 dark:border-red-900/60 dark:bg-red-950/90 dark:text-red-100',
   success:
     'border-emerald-200/90 bg-emerald-50 text-emerald-950 dark:border-emerald-900/60 dark:bg-emerald-950/90 dark:text-emerald-100',
-  info: 'border-neutral-200/90 bg-white text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100',
+  info: 'border-slate-200/90 bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100',
 } as const;
 
 interface ToastContainerProps {
@@ -30,7 +30,7 @@ export function ToastContainer({ surface = 'global' }: ToastContainerProps) {
       className={
         isLogin
           ? 'flex w-full flex-col gap-2'
-          : 'pointer-events-none fixed inset-x-0 top-4 z-[100] flex flex-col items-center gap-2 px-4 sm:items-end sm:px-6'
+          : 'pointer-events-none fixed inset-x-0 top-[max(1rem,env(safe-area-inset-top))] z-[100] flex flex-col items-center gap-2 px-4 sm:items-end sm:px-6'
       }
       aria-live="polite"
       aria-relevant="additions"

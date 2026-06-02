@@ -74,6 +74,107 @@ export class ChatServiceService implements OnModuleInit {
     return map;
   }
 
+  private displayLabel(profile: ProfileRow | undefined, id: string): string {
+    const username = profile?.username?.trim();
+    if (username) return `@${username}`;
+    const fullName = profile?.full_name?.trim();
+    if (fullName) return fullName;
+    return id.slice(0, 8);
+  }
+
+  private async buildConversationListItem(
+    c: ConversationDocument,
+    profileMap: Map<string, ProfileRow>,
+  ) {
+    const lastMsg = await this.msgModel
+      .findOne({ conversation_id: c._id.toString() })
+      .sort({ createdAt: -1 })
+      .exec();
+    return {
+      id: c._id.toString(),
+      group_name: c.group_name ?? null,
+      isGroup: c.is_group,
+      last_message: c.last_message ?? null,
+      participants: c.participant_ids.map((pid) => {
+        const p = profileMap.get(pid);
+        return (
+          p ?? {
+            id: pid,
+            username: '',
+            full_name: '',
+            avatar_url: '',
+          }
+        );
+      }),
+      last_message_row: lastMsg
+        ? {
+            id: lastMsg._id.toString(),
+            sender_id: lastMsg.sender_id,
+            content: lastMsg.content,
+            media_url: lastMsg.media_url,
+          }
+        : null,
+    };
+  }
+
+  private async getGroupForParticipant(
+    conversationId: string,
+    userId: string,
+  ): Promise<ConversationDocument> {
+    const conv = await this.convModel.findById(conversationId).exec();
+    if (!conv) {
+      throw new RpcException({ status: 404, message: 'Conversation not found' });
+    }
+    if (!conv.is_group) {
+      throw new RpcException({
+        status: 400,
+        message: 'Not a group conversation',
+      });
+    }
+    if (!conv.participant_ids.includes(userId)) {
+      throw new RpcException({ status: 403, message: 'Not a participant' });
+    }
+    return conv;
+  }
+
+  private async insertSystemMessage(data: {
+    conversationId: string;
+    actorId: string;
+    content: string;
+    notifyUserIds: string[];
+  }) {
+    const now = new Date();
+    const msgDoc = await this.msgModel.create({
+      conversation_id: data.conversationId,
+      sender_id: data.actorId,
+      content: data.content,
+      media_url: '',
+      type: 'system',
+    });
+    const preview = data.content.slice(0, 500);
+    await this.convModel.updateOne(
+      { _id: data.conversationId },
+      {
+        $set: {
+          last_message: preview,
+          last_message_at: now,
+        },
+      },
+    );
+    return {
+      id: msgDoc._id.toString(),
+      conversationId: data.conversationId,
+      sender_id: data.actorId,
+      content: data.content,
+      media_url: '',
+      type: 'system' as const,
+      createdAt:
+        (msgDoc as { createdAt?: Date }).createdAt?.toISOString?.() ??
+        now.toISOString(),
+      receiverIds: data.notifyUserIds,
+    };
+  }
+
   async create_group(data: {
     creatorId: string;
     groupName: string;
@@ -137,6 +238,123 @@ export class ChatServiceService implements OnModuleInit {
     };
   }
 
+  async leave_group(data: {
+    userId: string;
+    conversationId: string;
+  }): Promise<any> {
+    const conv = await this.getGroupForParticipant(
+      data.conversationId,
+      data.userId,
+    );
+    const remaining = conv.participant_ids.filter((id) => id !== data.userId);
+    const profileMap = await this.hydrateProfiles([data.userId]);
+    const actorLabel = this.displayLabel(profileMap.get(data.userId), data.userId);
+
+    await this.convModel.updateOne(
+      { _id: conv._id },
+      { $pull: { participant_ids: data.userId } },
+    );
+
+    let systemMessage: Awaited<
+      ReturnType<ChatServiceService['insertSystemMessage']>
+    > | null = null;
+    if (remaining.length > 0) {
+      systemMessage = await this.insertSystemMessage({
+        conversationId: conv._id.toString(),
+        actorId: data.userId,
+        content: `${actorLabel} left the group`,
+        notifyUserIds: remaining,
+      });
+    }
+
+    return {
+      message: 'Left group',
+      data: {
+        conversationId: conv._id.toString(),
+        systemMessage,
+        notifyUserIds: remaining,
+      },
+    };
+  }
+
+  async add_group_members(data: {
+    userId: string;
+    conversationId: string;
+    memberIds: string[];
+  }): Promise<any> {
+    const conv = await this.getGroupForParticipant(
+      data.conversationId,
+      data.userId,
+    );
+    const toAdd = [
+      ...new Set(
+        (data.memberIds ?? [])
+          .map((id) => `${id}`.trim())
+          .filter(
+            (id) =>
+              id.length > 0 &&
+              id !== data.userId &&
+              !conv.participant_ids.includes(id),
+          ),
+      ),
+    ];
+    if (toAdd.length === 0) {
+      throw new RpcException({
+        status: 400,
+        message: 'No new members to add',
+      });
+    }
+    if (conv.participant_ids.length + toAdd.length > 50) {
+      throw new RpcException({
+        status: 400,
+        message: 'Group cannot exceed 50 members',
+      });
+    }
+
+    await this.convModel.updateOne(
+      { _id: conv._id },
+      { $addToSet: { participant_ids: { $each: toAdd } } },
+    );
+
+    const updated = await this.convModel.findById(conv._id).exec();
+    if (!updated) {
+      throw new RpcException({ status: 404, message: 'Conversation not found' });
+    }
+
+    const profileMap = await this.hydrateProfiles([data.userId, ...toAdd]);
+    const actorLabel = this.displayLabel(profileMap.get(data.userId), data.userId);
+    const addedLabels = toAdd.map((id) =>
+      this.displayLabel(profileMap.get(id), id),
+    );
+    const addedText =
+      addedLabels.length === 1
+        ? addedLabels[0]
+        : addedLabels.length === 2
+          ? `${addedLabels[0]} and ${addedLabels[1]}`
+          : `${addedLabels.slice(0, -1).join(', ')}, and ${addedLabels[addedLabels.length - 1]}`;
+
+    const systemMessage = await this.insertSystemMessage({
+      conversationId: updated._id.toString(),
+      actorId: data.userId,
+      content: `${actorLabel} added ${addedText}`,
+      notifyUserIds: updated.participant_ids,
+    });
+
+    const conversation = await this.buildConversationListItem(
+      updated,
+      await this.hydrateProfiles(updated.participant_ids),
+    );
+
+    return {
+      message: 'Members added',
+      data: {
+        conversation,
+        systemMessage,
+        notifyUserIds: updated.participant_ids,
+      },
+    };
+  }
+
   private async findDmConversationId(
     userA: string,
     userB: string,
@@ -156,6 +374,8 @@ export class ChatServiceService implements OnModuleInit {
     conversationId?: string;
     content?: string;
     mediaUrl?: string;
+    type?: string;
+    sharedPostId?: string;
   }): Promise<any> {
     const {
       senderId,
@@ -163,14 +383,27 @@ export class ChatServiceService implements OnModuleInit {
       conversationId: inputConvId,
       content,
       mediaUrl = '',
+      type = 'text',
+      sharedPostId,
     } = data;
     const text = (content ?? '').trim();
     const media = (mediaUrl ?? '').trim();
-    if (!text && !media) {
-      throw new RpcException({
-        status: 400,
-        message: 'Message text or media is required',
-      });
+    const isPostShare = type === 'post_share';
+
+    if (isPostShare) {
+      if (!sharedPostId?.trim()) {
+        throw new RpcException({
+          status: 400,
+          message: 'sharedPostId is required when type is post_share',
+        });
+      }
+    } else {
+      if (!text && !media) {
+        throw new RpcException({
+          status: 400,
+          message: 'Message text or media is required',
+        });
+      }
     }
     let conversationId = inputConvId ?? '';
     let receiverIds: string[] = [];
@@ -213,13 +446,14 @@ export class ChatServiceService implements OnModuleInit {
       sender_id: senderId,
       content: text,
       media_url: media,
+      type: isPostShare ? 'post_share' : 'text',
+      shared_post_id: isPostShare ? (sharedPostId ?? null) : null,
     });
 
     const now = new Date();
-    const lastPreview = (text || (media ? 'Sent a photo or video' : '')).slice(
-      0,
-      500,
-    );
+    const lastPreview = isPostShare
+    ? 'Shared a post'
+    : (text || (media ? 'Sent a photo or video' : '')).slice(0, 500,);
     await this.convModel.updateOne(
       { _id: conversationId },
       {
@@ -230,7 +464,9 @@ export class ChatServiceService implements OnModuleInit {
       },
     );
 
-    const preview = (text || (media ? 'Sent media' : '')).slice(0, 120);
+    const preview = isPostShare
+    ? 'Shared a post'
+    : (text || (media ? 'Sent media' : '')).slice(0, 120);
     for (const rid of receiverIds) {
       try {
         this.kafkaclient.emit('chat.message', {
@@ -259,6 +495,8 @@ export class ChatServiceService implements OnModuleInit {
         sender_id: msgDoc.sender_id,
         content: msgDoc.content,
         media_url: msgDoc.media_url,
+        type: msgDoc.type,
+        shared_post_id: msgDoc.shared_post_id ?? null,
         createdAt: (msgDoc as { createdAt?: Date }).createdAt?.toISOString?.() ?? now.toISOString(),
         receiverIds,
       },
@@ -288,6 +526,8 @@ export class ChatServiceService implements OnModuleInit {
         sender_id: m.sender_id,
         content: m.content,
         media_url: m.media_url,
+        type: m.type ?? 'text',
+        shared_post_id: m.shared_post_id ?? null,
         createdAt: (m as { createdAt?: Date }).createdAt?.toISOString?.() ?? new Date().toISOString(),
       })),
     };
@@ -305,37 +545,7 @@ export class ChatServiceService implements OnModuleInit {
     const profileMap = await this.hydrateProfiles(allParticipantIds);
 
     const dataOut = await Promise.all(
-      conversations.map(async (c) => {
-        const lastMsg = await this.msgModel
-          .findOne({ conversation_id: c._id.toString() })
-          .sort({ createdAt: -1 })
-          .exec();
-        return {
-          id: c._id.toString(),
-          group_name: c.group_name ?? null,
-          isGroup: c.is_group,
-          last_message: c.last_message ?? null,
-          participants: c.participant_ids.map((pid) => {
-            const p = profileMap.get(pid);
-            return (
-              p ?? {
-                id: pid,
-                username: '',
-                full_name: '',
-                avatar_url: '',
-              }
-            );
-          }),
-          last_message_row: lastMsg
-            ? {
-                id: lastMsg._id.toString(),
-                sender_id: lastMsg.sender_id,
-                content: lastMsg.content,
-                media_url: lastMsg.media_url,
-              }
-            : null,
-        };
-      }),
+      conversations.map((c) => this.buildConversationListItem(c, profileMap)),
     );
 
     return {

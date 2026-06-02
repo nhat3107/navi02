@@ -1,0 +1,6 @@
+apiVersion: v2
+name: navi
+description: Navi social platform — microservices, frontends, and in-cluster infrastructure
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

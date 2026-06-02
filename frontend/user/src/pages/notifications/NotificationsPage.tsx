@@ -125,60 +125,67 @@ export function NotificationsPage() {
   };
 
   return (
-    <AppPage mainClassName="max-w-[min(100%,640px)]">
-        <PageHeader
-          eyebrow="Activity"
-          title="Notifications"
-          description="Likes, comments, and updates from people you follow."
-          badge={
-            unreadCount > 0 ? (
-              <span className="inline-flex items-center rounded-full bg-accent-bg px-2.5 py-1 text-[11px] font-semibold text-accent">
-                {unreadCount} unread
-              </span>
-            ) : null
-          }
-          actions={
-            <>
-              <Link to={ROUTES.HOME} className="chip-btn">
-                <ChevronLeftIcon className="mr-1.5 h-4 w-4" />
-                Home
-              </Link>
-              <button
-                type="button"
-                onClick={() => void refresh()}
-                disabled={loading}
-                className="chip-btn"
-              >
-                Refresh
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleMarkAll()}
-                className="chip-btn chip-btn--primary"
-              >
-                Mark all read
-              </button>
-            </>
-          }
-        />
+    <AppPage mainClassName="app-main--stack">
+        <div className="app-main__inner app-main__inner--narrow shrink-0">
+          <PageHeader
+            eyebrow="Activity"
+            title="Notifications"
+            description="Likes, comments, and updates from people you follow."
+            badge={
+              unreadCount > 0 ? (
+                <span className="inline-flex items-center rounded-full bg-accent-bg px-2.5 py-1 text-[11px] font-semibold text-accent">
+                  {unreadCount} unread
+                </span>
+              ) : null
+            }
+            actions={
+              <>
+                <Link to={ROUTES.HOME} className="chip-btn hidden sm:inline-flex">
+                  <ChevronLeftIcon className="mr-1.5 h-4 w-4" />
+                  Home
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => void refresh()}
+                  disabled={loading}
+                  className="chip-btn"
+                >
+                  Refresh
+                </button>
+                {unreadCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleMarkAll()}
+                    className="chip-btn chip-btn--primary"
+                  >
+                    <span className="sm:hidden">Mark read</span>
+                    <span className="hidden sm:inline">Mark all read</span>
+                  </button>
+                ) : null}
+              </>
+            }
+          />
 
-        {err ? (
-          <p className="mb-4 rounded-2xl border border-red-200/80 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/80 dark:bg-red-950/50 dark:text-red-200">
-            {err}
-          </p>
-        ) : null}
+          {err ? (
+            <p className="mb-4 rounded-2xl border border-red-200/80 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/80 dark:bg-red-950/50 dark:text-red-200">
+              {err}
+            </p>
+          ) : null}
+        </div>
 
+        <div className="app-main__scroll">
+        <div className="app-main__inner app-main__inner--narrow">
         {loading && storeItems.length === 0 ? (
           <ul className="flex flex-col gap-3 py-6">
             {Array.from({ length: 6 }).map((_, i) => (
               <li
                 key={i}
-                className="flex gap-4 rounded-2xl border border-neutral-200 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-neutral-800 dark:bg-neutral-950 dark:shadow-none"
+                className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-slate-800 dark:bg-slate-950 dark:shadow-none"
               >
-                <div className="h-12 w-12 shrink-0 animate-pulse rounded-2xl bg-neutral-200 dark:bg-neutral-800" />
+                <div className="h-12 w-12 shrink-0 animate-pulse rounded-2xl bg-slate-200 dark:bg-slate-800" />
                 <div className="flex-1 space-y-2 pt-1">
-                  <div className="h-4 w-2/3 max-w-xs animate-pulse rounded-lg bg-neutral-200 dark:bg-neutral-800" />
-                  <div className="h-3 w-1/3 animate-pulse rounded bg-neutral-100 dark:bg-neutral-900" />
+                  <div className="h-4 w-2/3 max-w-xs animate-pulse rounded-lg bg-slate-200 dark:bg-slate-800" />
+                  <div className="h-3 w-1/3 animate-pulse rounded bg-slate-100 dark:bg-slate-900" />
                 </div>
               </li>
             ))}
@@ -214,17 +221,17 @@ export function NotificationsPage() {
               return (
                 <li key={row.id}>
                   <div
-                    className={`rounded-2xl border p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors dark:shadow-none ${notificationCardClasses(row, row.isRead)}`}
+                    className={`rounded-2xl border p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors sm:p-4 dark:shadow-none ${notificationCardClasses(row, row.isRead)}`}
                   >
-                    <div className="flex gap-4">
+                    <div className="flex gap-3 sm:gap-4">
                       <UserAvatar
                         label={systemNotice ? 'You' : name}
                         src={systemNotice ? null : avatarUrl}
                         size="md"
                       />
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <p className="text-[15px] leading-snug text-neutral-900 dark:text-neutral-100">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+                          <p className="text-[15px] leading-snug text-slate-900 dark:text-slate-100">
                             {systemNotice ? (
                               act ? (
                                 <Link
@@ -247,14 +254,14 @@ export function NotificationsPage() {
                                 >
                                   {name}
                                 </button>{' '}
-                                <span className="font-normal text-neutral-600 dark:text-neutral-400">
+                                <span className="font-normal text-slate-600 dark:text-slate-400">
                                   {headline}
                                 </span>
                               </>
                             )}
                           </p>
-                          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
-                            <NotificationTypeBadge row={row} />
+                          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1 sm:gap-1.5">
+                            <NotificationTypeBadge row={row} className="hidden sm:inline-flex" />
                             {!row.isRead ? (
                               <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
                                 New
@@ -262,17 +269,18 @@ export function NotificationsPage() {
                             ) : null}
                             <NotificationDismissButton
                               onDismiss={() => setDeleteTarget(row)}
+                              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 sm:h-auto sm:w-auto sm:rounded-lg sm:p-1.5 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                             />
                           </div>
                         </div>
                         {preview ? (
-                          <p className="mt-2 line-clamp-2 rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
+                          <p className="mt-2 line-clamp-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
                             {preview}
                           </p>
                         ) : null}
                         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                           {when ? (
-                            <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
                               {when}
                             </span>
                           ) : null}
@@ -286,7 +294,7 @@ export function NotificationsPage() {
                               {act.label} →
                             </Link>
                           ) : row.referenceType === 'comment' ? (
-                            <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
                               Open the post from your feed to see the thread.
                             </span>
                           ) : null}
@@ -299,6 +307,8 @@ export function NotificationsPage() {
             })}
           </ul>
         )}
+        </div>
+        </div>
       <ConfirmDialog
         open={deleteTarget !== null}
         onClose={() => !deleting && setDeleteTarget(null)}

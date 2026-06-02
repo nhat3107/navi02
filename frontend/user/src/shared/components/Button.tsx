@@ -13,7 +13,7 @@ const variantClasses: Record<ButtonVariant, string> = {
   primary:
     'bg-gradient-to-r from-violet-500 to-indigo-500 text-white shadow-[0_2px_8px_rgba(139,92,246,0.35)] hover:from-violet-600 hover:to-indigo-600 hover:shadow-[0_4px_14px_rgba(139,92,246,0.4)] hover:-translate-y-px active:translate-y-0',
   secondary:
-    'bg-white text-slate-800 border border-slate-200 shadow-sm hover:border-accent hover:text-accent dark:bg-neutral-950 dark:text-slate-200 dark:border-neutral-800 dark:hover:border-accent',
+    'bg-white text-slate-800 border border-slate-200 shadow-sm hover:border-accent hover:text-accent dark:bg-slate-950 dark:text-slate-200 dark:border-slate-800 dark:hover:border-accent',
   danger:
     'bg-error text-white shadow-sm hover:opacity-90',
 };

@@ -18,6 +18,19 @@ import { kafkaBrokersFromEnv } from './kafka-brokers';
           },
         },
       },
+      {
+        name: 'USER_KAFKA_SERVICE',
+        transport: Transport.KAFKA,
+        options: {
+          client: {
+            clientId: 'network-user',
+            brokers: kafkaBrokersFromEnv(),
+          },
+          consumer: {
+            groupId: 'network-user-reply',
+          },
+        },
+      },
     ]),
   ],
   exports: [ClientsModule],

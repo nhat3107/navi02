@@ -23,10 +23,14 @@ export function PageHeader({
           <h1 className="page-hero__title">{title}</h1>
           {badge}
         </div>
-        {description ? <p className="page-hero__desc">{description}</p> : null}
+        {description ? (
+          <p className="page-hero__desc hidden sm:block">{description}</p>
+        ) : null}
       </div>
       {actions ? (
-        <div className="flex flex-wrap items-center gap-2">{actions}</div>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+          {actions}
+        </div>
       ) : null}
     </header>
   );

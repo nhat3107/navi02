@@ -5,6 +5,7 @@ import { ClientKafka, RpcException } from '@nestjs/microservices';
 import { firstValueFrom, timeout } from 'rxjs';
 import { Post, PostDocument, PostVisibility } from './schemas/post.schema';
 import { Like, LikeDocument } from '../likes/schemas/like.schema';
+import { Share, ShareDocument } from './schemas/share.schema';
 
 const MODERATION_RPC = 'ai.moderate_content';
 const MODERATION_TIMEOUT_MS = 45_000;
@@ -16,6 +17,7 @@ export class PostsService {
   constructor(
     @InjectModel(Post.name) private readonly postModel: Model<PostDocument>,
     @InjectModel(Like.name) private readonly likeModel: Model<LikeDocument>,
+    @InjectModel(Share.name) private readonly shareModel: Model<ShareDocument>,
     @Inject('KAFKA_SERVICE') private readonly kafkaClient: ClientKafka,
   ) {}
 
@@ -204,7 +206,10 @@ export class PostsService {
         liked = !!likeRecord;
       }
 
-      return { data: { ...post, liked } };
+      const [enriched] = await this.attachOriginalPosts([
+        { ...post, liked },
+      ]);
+      return { data: enriched };
     } catch (error) {
       if (error instanceof RpcException) throw error;
       if ((error as { name?: string }).name === 'CastError') {
@@ -232,8 +237,13 @@ export class PostsService {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
+        .lean()
         .exec();
-      return { data: posts };
+      return {
+        data: await this.attachOriginalPosts(
+          posts as unknown as Record<string, unknown>[],
+        ),
+      };
     } catch (error) {
       if (error instanceof RpcException) throw error;
       console.error('Error finding posts by author', error);
@@ -267,10 +277,12 @@ export class PostsService {
         .exec();
       const likedSet = new Set(likedRecords.map((l) => l.postId.toString()));
 
-      const data = posts.map((post) => ({
-        ...post,
-        liked: likedSet.has(post._id.toString()),
-      }));
+      const data = await this.attachOriginalPosts(
+        posts.map((post) => ({
+          ...post,
+          liked: likedSet.has(post._id.toString()),
+        })),
+      );
 
       return { data };
     } catch (error) {
@@ -306,6 +318,119 @@ export class PostsService {
       if (error instanceof RpcException) throw error;
       console.error('Error updating post', error);
       throw new RpcException({ status: 500, message: 'Failed to update post' });
+    }
+  }
+
+  async sharePost(
+    userId: string,
+    postId: string,
+    caption?: string,
+  ): Promise<any> {
+    try {
+      const original = await this.postModel.findById(postId).lean().exec();
+      if (!original) {
+        throw new RpcException({ status: 404, message: `Post ${postId} not found` });
+      }
+
+      if (original.authorId === userId) {
+        throw new RpcException({
+          status: 400,
+          message: 'You cannot share your own post',
+        });
+      }
+
+      if (original.visibility === PostVisibility.PRIVATE) {
+        throw new RpcException({
+          status: 403,
+          message: 'Cannot share a private post',
+        });
+      }
+
+      if (original.visibility === PostVisibility.PENDING) {
+        throw new RpcException({
+          status: 403,
+          message: 'Cannot share a post under review',
+        });
+      }
+
+      if (original.visibility === PostVisibility.DELETED) {
+        throw new RpcException({
+          status: 410,
+          message: 'Post was removed',
+        });
+      }
+
+      const existingShare = await this.shareModel
+        .findOne({
+          userId,
+          originalPostId: new Types.ObjectId(postId),
+        })
+        .lean()
+        .exec();
+      if (existingShare) {
+        throw new RpcException({
+          status: 409,
+          message: 'You have already shared this post',
+        });
+      }
+
+      const captionText = (caption ?? '').trim();
+      const repost = await new this.postModel({
+        authorId: userId,
+        content: captionText,
+        mediaUrls: [],
+        visibility: PostVisibility.PUBLIC,
+        originalPostId: new Types.ObjectId(postId),
+      }).save();
+
+      try {
+        await new this.shareModel({
+          userId,
+          originalPostId: new Types.ObjectId(postId),
+          repostPostId: repost._id,
+        }).save();
+      } catch (error) {
+        await this.postModel.findByIdAndDelete(repost._id).exec();
+        if ((error as any).code === 11000) {
+          throw new RpcException({
+            status: 409,
+            message: 'You have already shared this post',
+          });
+        }
+        throw error;
+      }
+
+      await this.incrementShareCount(postId, 1);
+
+      const preview = captionText
+        ? captionText.length > 100
+          ? `${captionText.substring(0, 100)}...`
+          : captionText
+        : 'Shared a post';
+
+      this.kafkaClient.emit('notification.share_post', {
+        senderId: userId,
+        recipientId: original.authorId,
+        postId,
+        repostPostId: String(repost._id),
+        preview,
+      });
+
+      const [enriched] = await this.attachOriginalPosts([
+        repost.toObject() as unknown as Record<string, unknown>,
+      ]);
+
+      return {
+        message: 'Post shared successfully',
+        data: enriched,
+      };
+    } catch (error) {
+      if (error instanceof RpcException) throw error;
+      if ((error as any).name === 'CastError') {
+        throw new RpcException({ status: 404, message: `Post ${postId} not found` });
+      }
+      console.error('Error sharing post', error);
+      throw new RpcException({ status: 500, message: 'Failed to share post' });
     }
   }
 
@@ -378,6 +503,61 @@ export class PostsService {
       return PostVisibility.PUBLIC;
     }
     return PostVisibility.PUBLIC;
+  }
+
+  private readObjectId(value: unknown): string | null {
+    if (value == null) return null;
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'object' && value !== null) {
+      if ('$oid' in value) {
+        return String((value as { $oid: string }).$oid);
+      }
+      if ('_id' in value) {
+        return String((value as { _id: unknown })._id);
+      }
+      if (
+        'toString' in value &&
+        typeof (value as { toString: () => string }).toString === 'function'
+      ) {
+        const s = (value as { toString: () => string }).toString();
+        if (s && s !== '[object Object]') return s;
+      }
+    }
+    return String(value);
+  }
+
+  private async attachOriginalPosts<T extends Record<string, unknown>>(
+    posts: T[],
+  ): Promise<Array<T & { originalPost: Record<string, unknown> | null }>> {
+    const originalIds = [
+      ...new Set(
+        posts
+          .map((p) => this.readObjectId(p.originalPostId))
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+
+    if (originalIds.length === 0) {
+      return posts.map((post) => ({ ...post, originalPost: null }));
+    }
+
+    const originals = await this.postModel
+      .find({ _id: { $in: originalIds } })
+      .lean()
+      .exec();
+    const byId = new Map(originals.map((p) => [String(p._id), p]));
+
+    return posts.map((post) => {
+      const originalId = this.readObjectId(post.originalPostId);
+      if (!originalId) {
+        return { ...post, originalPost: null };
+      }
+      const original = byId.get(originalId);
+      return {
+        ...post,
+        originalPost: (original as Record<string, unknown> | undefined) ?? null,
+      };
+    });
   }
 
   private assertPostViewable(

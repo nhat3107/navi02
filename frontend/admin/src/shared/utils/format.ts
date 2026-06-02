@@ -25,3 +25,51 @@ export function visibilityLabel(v: string): string {
       return v;
   }
 }
+
+export function reportStatusLabel(status: string): string {
+  switch (status) {
+    case 'pending':
+      return 'Pending';
+    case 'reviewed':
+      return 'Reviewed';
+    case 'resolved':
+      return 'Resolved';
+    case 'rejected':
+      return 'Dismissed';
+    default:
+      return status;
+  }
+}
+
+export function targetTypeLabel(type: string): string {
+  switch (type) {
+    case 'post':
+      return 'Post';
+    case 'comment':
+      return 'Comment';
+    case 'user':
+      return 'User';
+    default:
+      return type;
+  }
+}
+
+export function truncateText(text: string, max = 160): string {
+  const t = text.trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, max).trimEnd()}…`;
+}
+
+export function shortId(id: string, len = 8): string {
+  if (!id) return '—';
+  return id.length <= len ? id : `${id.slice(0, len)}…`;
+}
+
+export function formatUsername(
+  userId: string,
+  username?: string | null,
+): string {
+  const u = username?.trim();
+  if (u) return `@${u}`;
+  return shortId(userId);
+}

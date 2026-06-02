@@ -85,7 +85,7 @@ export function NetworkMediaStrip({
     if (urls.length === 1) {
       return (
         <div
-          className={`flex w-full justify-center bg-neutral-50 dark:bg-black ${className}`.trim()}
+          className={`flex w-full justify-center bg-slate-50 dark:bg-slate-950 ${className}`.trim()}
         >
           {renderItem(urls[0], 0)}
         </div>
@@ -94,7 +94,7 @@ export function NetworkMediaStrip({
 
     return (
       <div
-        className={`flex w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden bg-neutral-50 dark:bg-black [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden ${className}`.trim()}
+        className={`flex w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden bg-slate-50 dark:bg-slate-950 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden ${className}`.trim()}
       >
         {urls.map((url, i) => (
           <div
@@ -113,7 +113,7 @@ export function NetworkMediaStrip({
       {urls.map((url, i) => (
         <li
           key={url}
-          className="overflow-hidden rounded-2xl border border-slate-200 bg-neutral-50 dark:border-slate-700 dark:bg-black/30"
+          className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40"
         >
           {isCloudinaryVideoUrl(url) ? (
             <video

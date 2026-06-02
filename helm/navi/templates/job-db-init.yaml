@@ -1,0 +1,47 @@
+{{- if .Values.dbInit.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: navi-db-init
+  namespace: {{ include "navi.namespace" . }}
+  labels:
+    {{- include "navi.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "10"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  ttlSecondsAfterFinished: {{ .Values.dbInit.ttlSecondsAfterFinished }}
+  backoffLimit: {{ .Values.dbInit.backoffLimit }}
+  template:
+    spec:
+      restartPolicy: Never
+      initContainers:
+        - name: wait-postgres
+          image: busybox:1.36
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until nc -z postgres 5432; do
+                echo "waiting for postgres..."
+                sleep 3
+              done
+      containers:
+        - name: db-init
+          image: {{ include "navi.image" (dict "root" . "name" .Values.images.dbInit) }}
+          envFrom:
+            - secretRef:
+                name: {{ include "navi.secretName" . }}
+          env:
+            - name: AUTH_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "navi.secretName" . }}
+                  key: AUTH_DATABASE_URL
+            - name: USER_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "navi.secretName" . }}
+                  key: USER_DATABASE_URL
+{{- end }}

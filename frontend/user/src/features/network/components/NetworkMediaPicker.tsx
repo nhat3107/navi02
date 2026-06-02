@@ -223,7 +223,7 @@ export const NetworkMediaPicker = forwardRef<NetworkMediaPickerHandle, Props>(
     // --- Empty state (panel only) -------------------------------------------
     if (!isCompact && !hasAny && !toolbarOnly) {
       return (
-        <div className="relative w-full overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 text-center dark:border-neutral-700 dark:bg-neutral-900/60">
+        <div className="relative w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 text-center dark:border-slate-700 dark:bg-slate-900/60">
           <input
             ref={inputRef}
             type="file"
@@ -235,15 +235,15 @@ export const NetworkMediaPicker = forwardRef<NetworkMediaPickerHandle, Props>(
           <div className="flex flex-col items-center justify-center gap-4 px-6 py-10 sm:py-12">
             <span
               aria-hidden
-              className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-neutral-700 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:ring-neutral-700"
+              className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-700"
             >
               <PhotoIcon size={26} />
             </span>
             <div className="space-y-1">
-              <p className="text-base font-semibold text-neutral-800 dark:text-neutral-100">
+              <p className="text-base font-semibold text-slate-800 dark:text-slate-100">
                 {addLabel}
               </p>
-              <p className="text-xs text-neutral-600 dark:text-neutral-300">
+              <p className="text-xs text-slate-600 dark:text-slate-300">
                 Up to {maxFiles} photos or videos. Click preview after adding.
               </p>
             </div>
@@ -342,7 +342,7 @@ export const NetworkMediaPicker = forwardRef<NetworkMediaPickerHandle, Props>(
                 <button
                   type="button"
                   onClick={() => inputRef.current?.click()}
-                  className="flex h-full w-full flex-col items-center justify-center gap-1 rounded-xl border border-neutral-300 bg-neutral-50 text-neutral-600 transition hover:border-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900/60 dark:text-neutral-300 dark:hover:border-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+                  className="flex h-full w-full flex-col items-center justify-center gap-1 rounded-xl border border-slate-300 bg-slate-50 text-slate-600 transition hover:border-slate-400 hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-100"
                   aria-label="Browse to add more media"
                 >
                   <PlusIcon />
@@ -356,7 +356,7 @@ export const NetworkMediaPicker = forwardRef<NetworkMediaPickerHandle, Props>(
         </div>
 
         <div className="flex items-center justify-between gap-2 text-[0.7rem]">
-          <span className="text-neutral-600 dark:text-neutral-300">
+          <span className="text-slate-600 dark:text-slate-300">
             {totalCount} / {maxFiles} attached
             {busy && (
               <span className="ml-1 font-semibold text-accent">· uploading…</span>
@@ -388,7 +388,7 @@ function Tile({
 }) {
   return (
     <li
-      className={`group relative overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 ${
+      className={`group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900 ${
         compact ? 'h-16 w-16 shrink-0' : 'aspect-square'
       }`}
     >
