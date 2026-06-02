@@ -1,5 +1,7 @@
 name: Docker Build & Push
 
+# Application images only. Kubernetes deploy is manual: Actions → "Deploy to Kubernetes".
+
 on:
   push:
     branches: [main, master]
