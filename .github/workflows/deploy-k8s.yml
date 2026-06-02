@@ -1,24 +1,15 @@
 name: Deploy to Kubernetes
 
 on:
-  workflow_run:
-    workflows: [Docker Build & Push]
-    types: [completed]
-    branches: [main, master]
   workflow_dispatch:
     inputs:
       image_tag:
-        description: Docker image tag to deploy (e.g. latest or sha-abc1234)
-        required: false
+        description: Docker image tag to deploy (e.g. latest or sha-<commit>)
+        required: true
         default: latest
-  push:
-    branches: [main, master]
-    paths:
-      - helm/**
-      - .github/workflows/deploy-k8s.yml
 
 concurrency:
-  group: deploy-k8s-${{ github.ref }}
+  group: deploy-k8s-manual
   cancel-in-progress: false
 
 permissions:
@@ -28,24 +19,13 @@ jobs:
   deploy:
     name: Helm deploy
     runs-on: ubuntu-latest
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Resolve image tag
         id: tag
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.image_tag }}" ]; then
-            echo "value=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
-            echo "value=sha-${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=${{ secrets.IMAGE_TAG || 'latest' }}" >> "$GITHUB_OUTPUT"
-          fi
+        run: echo "value=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
 
       - name: Resolve namespace
         id: ns
