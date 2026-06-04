@@ -7,12 +7,6 @@ on:
       - backend/**
       - frontend/**
       - .github/workflows/ci.yml
-  pull_request:
-    branches: [main]
-    paths:
-      - backend/**
-      - frontend/**
-      - .github/workflows/ci.yml
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -39,7 +33,8 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
-      - run: npm test
+      - name: Run unit tests
+        run: npm test -- --verbose
 
   frontend-user-test:
     name: Frontend user unit tests
@@ -55,12 +50,12 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/user/package-lock.json
       - run: npm ci
-      - run: npm test
+      - name: Run unit tests
+        run: npm test -- --reporter=verbose
 
   build-backend:
     name: Backend / ${{ matrix.service }}
     needs: [backend-test, frontend-user-test]
-    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -112,7 +107,6 @@ jobs:
   build-frontend:
     name: Frontend / ${{ matrix.name }}
     needs: [backend-test, frontend-user-test]
-    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
