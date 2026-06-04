@@ -3,13 +3,20 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ClientKafka, RpcException } from '@nestjs/microservices';
 import { Comment, CommentDocument } from './schemas/comment.schema';
+import {
+  CommentLike,
+  CommentLikeDocument,
+} from '../likes/schemas/comment-like.schema';
 import { PostsService } from '../posts/posts.service';
+import { canDeleteComment } from './comment-delete.policy';
 
 @Injectable()
 export class CommentsService {
   constructor(
     @InjectModel(Comment.name)
     private readonly commentModel: Model<CommentDocument>,
+    @InjectModel(CommentLike.name)
+    private readonly commentLikeModel: Model<CommentLikeDocument>,
     private readonly postsService: PostsService,
     @Inject('KAFKA_SERVICE') private readonly kafkaClient: ClientKafka,
   ) {}
@@ -157,31 +164,77 @@ export class CommentsService {
     }
   }
 
-  async remove(id: string, authorId: string): Promise<any> {
+  async remove(id: string, actorId: string): Promise<any> {
     try {
-      const comment = await this.commentModel
-        .findOneAndDelete({ _id: id, authorId })
-        .exec();
+      const comment = await this.commentModel.findById(id).exec();
       if (!comment) {
         throw new RpcException({ status: 404, message: `Comment ${id} not found` });
       }
 
-      if (comment.parentCommentId) {
+      const postResponse = await this.postsService.findById(
+        comment.postId.toString(),
+      );
+      const post = postResponse.data;
+      if (
+        !canDeleteComment(
+          actorId,
+          String(comment.authorId),
+          String(post.authorId),
+        )
+      ) {
+        throw new RpcException({
+          status: 403,
+          message: 'You can only delete your own comments or comments on your post',
+        });
+      }
+
+      const idsToDelete: Types.ObjectId[] = [comment._id as Types.ObjectId];
+
+      if (!comment.parentCommentId) {
+        const replies = await this.commentModel
+          .find({ parentCommentId: comment._id })
+          .select('_id')
+          .exec();
+        for (const reply of replies) {
+          idsToDelete.push(reply._id as Types.ObjectId);
+        }
+        await this.commentModel
+          .deleteMany({ _id: { $in: idsToDelete } })
+          .exec();
+        await this.commentLikeModel
+          .deleteMany({ commentId: { $in: idsToDelete } })
+          .exec();
+        await this.postsService.incrementCommentCount(
+          comment.postId.toString(),
+          -1,
+        );
+      } else {
+        await this.commentModel.deleteOne({ _id: comment._id }).exec();
+        await this.commentLikeModel
+          .deleteMany({ commentId: comment._id })
+          .exec();
         await this.commentModel
           .updateOne(
             { _id: comment.parentCommentId },
             { $inc: { replyCount: -1 } },
           )
           .exec();
-      } else {
-        await this.postsService.incrementCommentCount(
-          comment.postId.toString(),
-          -1,
-        );
       }
-      return { message: 'Comment deleted successfully' };
+
+      return {
+        message: 'Comment deleted successfully',
+        data: {
+          id,
+          postId: comment.postId.toString(),
+          parentCommentId: comment.parentCommentId?.toString() ?? null,
+          deletedReplyCount: idsToDelete.length - 1,
+        },
+      };
     } catch (error) {
       if (error instanceof RpcException) throw error;
+      if ((error as { name?: string }).name === 'CastError') {
+        throw new RpcException({ status: 404, message: `Comment ${id} not found` });
+      }
       console.error('Error removing comment', error);
       throw new RpcException({ status: 500, message: 'Failed to remove comment' });
     }

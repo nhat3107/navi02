@@ -1,19 +1,9 @@
-Navi has been deployed.
+Navi deployed (release {{ .Release.Name }}, namespace {{ include "navi.namespace" . }}).
 
-Release: {{ .Release.Name }}
-Namespace: {{ include "navi.namespace" . }}
+Images: {{ .Values.image.registry }}/*:{{ .Values.image.tag }}
 
 {{- if .Values.ingress.enabled }}
-
-Ingress hosts:
   API:   https://{{ .Values.ingress.apiHost }}
   User:  https://{{ .Values.ingress.userAppHost }}
   Admin: https://{{ .Values.ingress.adminAppHost }}
 {{- end }}
-
-Images use registry {{ .Values.registry.dockerhubUsername }} with tag {{ .Values.registry.tag }}.
-
-Check status:
-  kubectl get pods -n {{ include "navi.namespace" . }}
-
-Database init runs as a Helm post-upgrade hook (Job navi-db-init).
