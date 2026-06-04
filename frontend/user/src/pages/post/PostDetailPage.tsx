@@ -287,6 +287,36 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
     });
   }
 
+  const handleReplyCountChange = useCallback(
+    (parentCommentId: string, delta: 1 | -1) => {
+      setComments((prev) =>
+        prev.map((c) =>
+          c.id === parentCommentId
+            ? {
+                ...c,
+                replyCount: Math.max(0, c.replyCount + delta),
+              }
+            : c,
+        ),
+      );
+    },
+    [],
+  );
+
+  const handleCommentDeleted = useCallback(
+    (commentId: string, parentCommentId: string | null | undefined) => {
+      if (parentCommentId) {
+        handleReplyCountChange(parentCommentId, -1);
+        return;
+      }
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+      setPost((p) =>
+        p ? { ...p, commentCount: Math.max(0, p.commentCount - 1) } : p,
+      );
+    },
+    [handleReplyCountChange],
+  );
+
   const author = post ? authorById[post.authorId] : undefined;
   const originalPost = post?.originalPost ?? null;
   const isRepost = Boolean(post?.originalPostId);
@@ -502,8 +532,12 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
                       root={c}
                       authorById={authorById}
                       viewerUserId={viewerId}
+                      postAuthorId={post.authorId}
                       appendAuthors={appendAuthors}
-                      onThreadChanged={() => void load()}
+                      onCommentDeleted={handleCommentDeleted}
+                      onReplyAdded={(parentId) =>
+                        handleReplyCountChange(parentId, 1)
+                      }
                       onMediaClick={openCommentLightbox}
                     />
                   ))}
@@ -1133,15 +1167,22 @@ function CommentThread({
   root,
   authorById,
   viewerUserId,
+  postAuthorId,
   appendAuthors,
-  onThreadChanged,
+  onCommentDeleted,
+  onReplyAdded,
   onMediaClick,
 }: {
   root: NetworkComment;
   authorById: Record<string, UserProfile>;
   viewerUserId: string | null;
+  postAuthorId: string;
   appendAuthors: (ids: string[]) => void;
-  onThreadChanged: () => void;
+  onCommentDeleted: (
+    commentId: string,
+    parentCommentId: string | null | undefined,
+  ) => void;
+  onReplyAdded: (parentCommentId: string) => void;
   /** Open the fullscreen viewer at `index` for the given comment's media. */
   onMediaClick: (urls: string[], index: number) => void;
 }) {
@@ -1202,10 +1243,19 @@ function CommentThread({
       setReplyOpen(false);
       setReplies((r) => [...r, created]);
       setShowReplies(true);
-      onThreadChanged();
+      onReplyAdded(root.id);
     } finally {
       setSendingReply(false);
     }
+  }
+
+  function handleReplyDeleted(commentId: string) {
+    setReplies((r) => r.filter((x) => x.id !== commentId));
+    onCommentDeleted(commentId, root.id);
+  }
+
+  function handleRootDeleted() {
+    onCommentDeleted(root.id, null);
   }
 
   const replyDisabled =
@@ -1217,7 +1267,8 @@ function CommentThread({
         comment={root}
         author={authorById[root.authorId]}
         viewerUserId={viewerUserId}
-        onChanged={onThreadChanged}
+        postAuthorId={postAuthorId}
+        onDeleted={handleRootDeleted}
         canReply
         replyOpen={replyOpen}
         onToggleReply={toggleReplyOpen}
@@ -1282,7 +1333,8 @@ function CommentThread({
                 comment={r}
                 author={authorById[r.authorId]}
                 viewerUserId={viewerUserId}
-                onChanged={onThreadChanged}
+                postAuthorId={postAuthorId}
+                onDeleted={() => handleReplyDeleted(r.id)}
                 nested
                 onMediaClick={onMediaClick}
               />
@@ -1303,7 +1355,8 @@ function CommentItem({
   comment,
   author,
   viewerUserId,
-  onChanged,
+  postAuthorId,
+  onDeleted,
   nested,
   canReply,
   replyOpen,
@@ -1316,7 +1369,8 @@ function CommentItem({
   comment: NetworkComment;
   author: UserProfile | undefined;
   viewerUserId: string | null;
-  onChanged: () => void;
+  postAuthorId: string;
+  onDeleted: () => void;
   nested?: boolean;
   canReply?: boolean;
   replyOpen?: boolean;
@@ -1331,6 +1385,8 @@ function CommentItem({
   const [likeCount, setLikeCount] = useState(comment.likeCount);
   const [busy, setBusy] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -1345,7 +1401,13 @@ function CommentItem({
     return () => document.removeEventListener('mousedown', close);
   }, [menuOpen]);
 
-  const isAuthor = Boolean(viewerUserId && viewerUserId === comment.authorId);
+  const isCommentAuthor = Boolean(
+    viewerUserId && viewerUserId === comment.authorId,
+  );
+  const isPostAuthor = Boolean(
+    viewerUserId && viewerUserId === postAuthorId,
+  );
+  const canDelete = isCommentAuthor || isPostAuthor;
   const profilePath = buildProfilePath(comment.authorId);
   const display =
     author?.full_name?.trim() ||
@@ -1371,13 +1433,16 @@ function CommentItem({
   }
 
   async function remove() {
-    if (!isAuthor) return;
-    setMenuOpen(false);
+    if (!canDelete || deleteBusy) return;
+    setDeleteBusy(true);
     try {
       await deleteComment(comment.id);
-      onChanged();
+      onDeleted();
     } catch {
       /* ignore */
+    } finally {
+      setDeleteBusy(false);
+      setDeleteConfirmOpen(false);
     }
   }
 
@@ -1526,11 +1591,14 @@ function CommentItem({
               >
                 Report
               </button>
-              {isAuthor && (
+              {canDelete && (
                 <button
                   type="button"
                   role="menuitem"
-                  onClick={() => void remove()}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setDeleteConfirmOpen(true);
+                  }}
                   className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
                 >
                   Delete
@@ -1547,6 +1615,23 @@ function CommentItem({
         targetType="comment"
         targetId={comment.id}
         title="Report comment"
+      />
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onClose={() => !deleteBusy && setDeleteConfirmOpen(false)}
+        onConfirm={() => void remove()}
+        title="Delete comment?"
+        message={
+          isPostAuthor && !isCommentAuthor
+            ? 'This comment will be permanently removed from your post.'
+            : comment.parentCommentId
+              ? 'This reply will be permanently removed.'
+              : (comment.replyCount ?? 0) > 0
+                ? 'This comment and all replies under it will be permanently removed.'
+                : 'This comment will be permanently removed.'
+        }
+        confirmLabel="Delete"
+        confirming={deleteBusy}
       />
     </>
   );

@@ -1,14 +1,9 @@
-# Default values for the Navi chart.
-# Production secrets and hosts are injected by GitHub Actions CD — see helm/README.md.
-
-nameOverride: ""
-fullnameOverride: ""
+# Defaults — production overrides via `render-deploy-values.sh` or `-f deploy-values.yaml`.
 
 namespace: navi
-createNamespace: true
 
-registry:
-  dockerhubUsername: example
+image:
+  registry: example
   tag: latest
 
 ingress:
@@ -17,62 +12,46 @@ ingress:
   apiHost: api.example.com
   userAppHost: app.example.com
   adminAppHost: admin.example.com
-  annotations:
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
 
 config:
-  nodeEnv: production
-  kafkaBrokers: broker:9092
-  port: "3000"
-  chatHttpPort: "4030"
-  cloudinaryUploadFolder: navi/onboarding
-  cloudinaryNetworkFolder: navi/network
-  cloudinaryChatFolder: navi/chat
+  NODE_ENV: production
+  KAFKA_BROKERS: broker:9092
+  PORT: "3000"
+  CHAT_HTTP_PORT: "4030"
+  CLOUDINARY_UPLOAD_FOLDER: navi/onboarding
+  CLOUDINARY_NETWORK_FOLDER: navi/network
+  CLOUDINARY_CHAT_FOLDER: navi/chat
 
-# Populated at deploy time (GitHub Secrets → helm --values). Do not commit real values.
-secrets:
-  jwtAccessSecret: ""
-  jwtResetSecret: ""
-  postgresUser: postgres
-  postgresPassword: ""
-  mongoRootUser: root
-  mongoRootPassword: ""
-  authDatabaseUrl: ""
-  userDatabaseUrl: ""
-  chatDb: ""
-  networkDbUrl: ""
-  notificationDbUrl: ""
-  frontendOrigin: ""
-  oauthFrontendLoginUrl: ""
-  oauthFrontendRedirectUrl: ""
-  googleClientId: ""
-  googleClientSecret: ""
-  googleCallbackUrl: ""
-  githubClientId: ""
-  githubClientSecret: ""
-  githubCallbackUrl: ""
-  videosdkApiKey: ""
-  videosdkSecret: ""
-  emailUser: ""
-  emailPass: ""
-  frontendUrl: ""
-  cloudinaryCloudName: ""
-  cloudinaryApiKey: ""
-  cloudinaryApiSecret: ""
-  openaiApiKey: ""
+# Key/value env secrets (K8s secret `navi-secrets`). Filled at deploy time.
+secrets: {}
 
-images:
-  apiGateway: navi-api-gateway
-  authService: navi-auth-service
-  userService: navi-user-service
-  chatService: navi-chat-service
-  networkService: navi-network-service
-  notificationService: navi-notification-service
-  aiService: navi-ai-service
-  dbInit: navi-db-init
-  userApp: navi-user-app
-  adminApp: navi-admin-app
+apps:
+  - name: api-gateway
+    image: navi-api-gateway
+    port: 3000
+    expose: true
+  - name: auth-service
+    image: navi-auth-service
+    databaseUrlKey: AUTH_DATABASE_URL
+  - name: user-service
+    image: navi-user-service
+    databaseUrlKey: USER_DATABASE_URL
+  - name: chat-service
+    image: navi-chat-service
+  - name: network-service
+    image: navi-network-service
+  - name: notification-service
+    image: navi-notification-service
+  - name: ai-service
+    image: navi-ai-service
+  - name: user-app
+    image: navi-user-app
+    port: 80
+    expose: true
+  - name: admin-app
+    image: navi-admin-app
+    port: 80
+    expose: true
 
 infra:
   postgres:
@@ -87,18 +66,6 @@ infra:
     enabled: true
     image: apache/kafka:latest
 
-replicas:
-  apiGateway: 1
-  authService: 1
-  userService: 1
-  chatService: 1
-  networkService: 1
-  notificationService: 1
-  aiService: 1
-  userApp: 1
-  adminApp: 1
-
 dbInit:
   enabled: true
-  ttlSecondsAfterFinished: 600
-  backoffLimit: 3
+  image: navi-db-init

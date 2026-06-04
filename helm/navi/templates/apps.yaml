@@ -1,0 +1,67 @@
+{{- $ns := include "navi.namespace" . -}}
+{{- range .Values.apps }}
+{{- if .expose }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  namespace: {{ $ns }}
+spec:
+  ports:
+    - port: {{ .port }}
+      targetPort: {{ .port }}
+  selector:
+    app: {{ .name }}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .name }}
+  namespace: {{ $ns }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .name }}
+    spec:
+      containers:
+        - name: {{ .name }}
+          image: {{ include "navi.image" (dict "root" $ "name" .image) }}
+          {{- if .port }}
+          ports:
+            - containerPort: {{ .port }}
+          {{- end }}
+          envFrom:
+            - configMapRef:
+                name: navi-config
+            - secretRef:
+                name: navi-secrets
+          {{- if .databaseUrlKey }}
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: navi-secrets
+                  key: {{ .databaseUrlKey }}
+          {{- end }}
+          {{- if eq .name "api-gateway" }}
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          {{- else if .expose }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: {{ .port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          {{- end }}
+{{- end }}
