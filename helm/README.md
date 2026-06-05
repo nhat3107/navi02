@@ -82,7 +82,7 @@ In production (`NODE_ENV=production`), services use injected env only — not `a
 
 | Secret | Required |
 |--------|----------|
-| `KUBE_CONFIG` | yes — raw kubeconfig YAML **or** base64-encoded; must use a **public** API URL (not `localhost` / Docker Desktop). Use a deploy service-account token, not `exec` cloud CLI auth. |
+| `KUBE_CONFIG` | yes |
 | `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` | yes |
 | `AUTH_DATABASE_URL`, `USER_DATABASE_URL` | yes |
 | `CHAT_DATABASE_URL`, `NETWORK_DATABASE_URL`, `NOTIFICATION_DATABASE_URL` | yes |
@@ -95,18 +95,6 @@ In production (`NODE_ENV=production`), services use injected env only — not `a
 External DBs must exist (`auth_db`, `user_db`, Mongo DBs) and be reachable from the cluster.
 
 Set `dbInit.enabled: false` in `values.yaml` if schemas are managed outside the cluster.
-
-### `KUBE_CONFIG` for GitHub Actions
-
-```bash
-# Option A: base64 (recommended — avoids newline issues in GitHub Secrets)
-base64 -w0 ~/.kube/config   # Linux
-# macOS: base64 < ~/.kube/config | tr -d '\n'
-
-# Option B: paste the full YAML from ~/.kube/config
-```
-
-The API `server:` must be reachable from the internet (EKS/GKE/AKS/VPS public endpoint). Local minikube/kind/Docker Desktop URLs will fail in CD.
 
 ## Local deploy
 
