@@ -92,6 +92,7 @@ jobs:
         run: |
           NS="${K8S_NAMESPACE:-navi}"
           helm upgrade --install navi helm/navi \
+            --kube-insecure-skip-tls-verify
             --namespace "${NS}" \
             --create-namespace \
             -f helm/navi/values.yaml \
