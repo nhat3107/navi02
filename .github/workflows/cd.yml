@@ -1,6 +1,6 @@
 name: CD
 
-# Manual deploy: Actions → CD → set image_tag (e.g. latest or sha-abc1234).
+# Manual deploy: Actions → CD. Always deploys Docker images tagged `latest`.
 # Prerequisite: CI pushed app images to Docker Hub on main.
 # HTTP only (no TLS in cluster). Use http:// hosts in secrets; terminate TLS at an external LB if needed.
 # FRONTEND_ORIGIN: comma-separated user + admin app URLs (e.g. http://app.example.com,http://admin.example.com).
@@ -8,14 +8,12 @@ name: CD
 
 on:
   workflow_dispatch:
-    inputs:
-      image_tag:
-        description: Image tag to deploy
-        required: true
-        default: latest
 
 permissions:
   contents: read
+
+env:
+  IMAGE_TAG: latest
 
 jobs:
   deploy:
@@ -43,13 +41,12 @@ jobs:
           context: ./backend
           file: ./backend/docker/Dockerfile.db-init
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/navi-db-init:${{ inputs.image_tag }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/navi-db-init:${{ env.IMAGE_TAG }}
 
       - name: Write deploy values
         env:
           K8S_NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          IMAGE_TAG: ${{ inputs.image_tag }}
           API_HOST: ${{ secrets.API_HOST }}
           USER_APP_HOST: ${{ secrets.USER_APP_HOST }}
           ADMIN_APP_HOST: ${{ secrets.ADMIN_APP_HOST }}
@@ -84,7 +81,7 @@ jobs:
           namespace: ${NS}
           image:
             registry: ${DOCKERHUB_USERNAME}
-            tag: ${IMAGE_TAG}
+            tag: latest
           ingress:
             apiHost: ${API_HOST}
             userAppHost: ${USER_APP_HOST}
