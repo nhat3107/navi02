@@ -1,4 +1,4 @@
-# Defaults — production overrides via `render-deploy-values.sh` or `-f deploy-values.yaml`.
+# Base chart values — CD merges `/tmp/cd-values.yaml` (image, ingress, secrets) on deploy.
 
 namespace: navi
 
@@ -6,6 +6,7 @@ image:
   registry: example
   tag: latest
 
+# HTTP only — no TLS in this chart. Point DNS at the ingress controller.
 ingress:
   enabled: true
   className: nginx
@@ -18,11 +19,14 @@ config:
   KAFKA_BROKERS: broker:9092
   PORT: "3000"
   CHAT_HTTP_PORT: "4030"
+  COOKIE_SECURE: "false"
   CLOUDINARY_UPLOAD_FOLDER: navi/onboarding
   CLOUDINARY_NETWORK_FOLDER: navi/network
   CLOUDINARY_CHAT_FOLDER: navi/chat
 
 # Key/value env secrets (K8s secret `navi-secrets`). Filled at deploy time.
+# Database URLs: AUTH_DATABASE_URL, USER_DATABASE_URL, CHAT_DATABASE_URL,
+# NETWORK_DATABASE_URL, NOTIFICATION_DATABASE_URL → mapped to DATABASE_URL per app.
 secrets: {}
 
 apps:
@@ -38,10 +42,13 @@ apps:
     databaseUrlKey: USER_DATABASE_URL
   - name: chat-service
     image: navi-chat-service
+    databaseUrlKey: CHAT_DATABASE_URL
   - name: network-service
     image: navi-network-service
+    databaseUrlKey: NETWORK_DATABASE_URL
   - name: notification-service
     image: navi-notification-service
+    databaseUrlKey: NOTIFICATION_DATABASE_URL
   - name: ai-service
     image: navi-ai-service
   - name: user-app
@@ -53,19 +60,21 @@ apps:
     port: 80
     expose: true
 
+# Postgres and Mongo run outside the cluster — set full URLs in `secrets` at deploy time.
 infra:
   postgres:
-    enabled: true
+    enabled: false
     image: postgres:16-alpine
     storage: 5Gi
   mongo:
-    enabled: true
+    enabled: false
     image: mongo:7
     storage: 5Gi
   kafka:
     enabled: true
     image: apache/kafka:latest
 
+# Prisma schema push against external Postgres (disable if you manage schemas separately).
 dbInit:
   enabled: true
   image: navi-db-init

@@ -21,13 +21,14 @@ function kafkaBrokers(): string[] {
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      ignoreEnvFile: process.env.NODE_ENV === 'production',
       envFilePath: 'apps/chat-service/.env',
     }),
     MongooseModule.forRootAsync({
       useFactory: () => {
-        const uri = process.env.CHAT_DB?.trim();
+        const uri = process.env.DATABASE_URL?.trim();
         if (!uri) {
-          throw new Error('CHAT_DB must be set in apps/chat-service/.env');
+          throw new Error('DATABASE_URL must be set in apps/chat-service/.env');
         }
         return { uri };
       },

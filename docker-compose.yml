@@ -73,8 +73,8 @@ services:
     ports:
       - "27017:27017"
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-root}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-example}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-example}
     volumes:
       - mongo_data:/data/db
     healthcheck:
@@ -111,15 +111,16 @@ services:
       <<: [*kafka-env, *jwt-env]
       NODE_ENV: production
       PORT: ${PORT:-3000}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:8080,http://localhost:8081}
       OAUTH_FRONTEND_LOGIN_URL: ${OAUTH_FRONTEND_LOGIN_URL:-http://localhost:8080/login}
       OAUTH_FRONTEND_REDIRECT_URL: ${OAUTH_FRONTEND_REDIRECT_URL:-http://localhost:8080}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:3000/api/auth/google/callback}
-      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
-      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
-      GITHUB_CALLBACK_URL: ${GITHUB_CALLBACK_URL:-http://localhost:3000/api/auth/github/callback}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:3000/auth/google/callback}
+      GH_CLIENT_ID: ${GH_CLIENT_ID:-}
+      GH_CLIENT_SECRET: ${GH_CLIENT_SECRET:-}
+      GH_CALLBACK_URL: ${GH_CALLBACK_URL:-http://localhost:3000/auth/github/callback}
       VIDEOSDK_API_KEY: ${VIDEOSDK_API_KEY:-}
       VIDEOSDK_SECRET: ${VIDEOSDK_SECRET:-}
     depends_on:
@@ -200,7 +201,7 @@ services:
       <<: [*kafka-env]
       NODE_ENV: production
       CHAT_HTTP_PORT: 4030
-      CHAT_DB: ${CHAT_DB:-mongodb://root:example@mongo:27017/chat_db?authSource=admin}
+      DATABASE_URL: ${CHAT_DATABASE_URL:-mongodb://${MONGO_USER:-root}:${MONGO_PASSWORD:-example}@mongo:27017/chat_db?authSource=admin}
     depends_on:
       broker:
         condition: service_healthy
@@ -219,7 +220,7 @@ services:
     environment:
       <<: [*kafka-env]
       NODE_ENV: production
-      NETWORK_DB_URL: ${NETWORK_DB_URL:-mongodb://root:example@mongo:27017/network_db?authSource=admin}
+      DATABASE_URL: ${NETWORK_DATABASE_URL:-mongodb://${MONGO_USER:-root}:${MONGO_PASSWORD:-example}@mongo:27017/network_db?authSource=admin}
     depends_on:
       broker:
         condition: service_healthy
@@ -238,7 +239,7 @@ services:
     environment:
       <<: [*kafka-env]
       NODE_ENV: production
-      NOTIFICATION_DB_URL: ${NOTIFICATION_DB_URL:-mongodb://root:example@mongo:27017/notification_db?authSource=admin}
+      DATABASE_URL: ${NOTIFICATION_DATABASE_URL:-mongodb://${MONGO_USER:-root}:${MONGO_PASSWORD:-example}@mongo:27017/notification_db?authSource=admin}
     depends_on:
       broker:
         condition: service_healthy

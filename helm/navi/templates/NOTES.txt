@@ -3,7 +3,7 @@ Navi deployed (release {{ .Release.Name }}, namespace {{ include "navi.namespace
 Images: {{ .Values.image.registry }}/*:{{ .Values.image.tag }}
 
 {{- if .Values.ingress.enabled }}
-  API:   https://{{ .Values.ingress.apiHost }}
-  User:  https://{{ .Values.ingress.userAppHost }}
-  Admin: https://{{ .Values.ingress.adminAppHost }}
+  API:   http://{{ .Values.ingress.apiHost }}/api
+  User:  http://{{ .Values.ingress.userAppHost }}
+  Admin: http://{{ .Values.ingress.adminAppHost }}
 {{- end }}

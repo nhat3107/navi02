@@ -11,9 +11,9 @@ describe('oauth-env', () => {
     delete process.env.GOOGLE_CLIENT_ID;
     delete process.env.GOOGLE_CLIENT_SECRET;
     delete process.env.GOOGLE_CALLBACK_URL;
-    delete process.env.GITHUB_CLIENT_ID;
-    delete process.env.GITHUB_CLIENT_SECRET;
-    delete process.env.GITHUB_CALLBACK_URL;
+    delete process.env.GH_CLIENT_ID;
+    delete process.env.GH_CLIENT_SECRET;
+    delete process.env.GH_CALLBACK_URL;
   });
 
   afterAll(() => {
@@ -41,15 +41,15 @@ describe('oauth-env', () => {
   describe('isGithubOAuthConfigured', () => {
     it('returns false when any value is missing or blank', () => {
       expect(isGithubOAuthConfigured()).toBe(false);
-      process.env.GITHUB_CLIENT_ID = 'id';
-      process.env.GITHUB_CLIENT_SECRET = 'secret';
+      process.env.GH_CLIENT_ID = 'id';
+      process.env.GH_CLIENT_SECRET = 'secret';
       expect(isGithubOAuthConfigured()).toBe(false);
     });
 
     it('returns true when all values are set', () => {
-      process.env.GITHUB_CLIENT_ID = 'id';
-      process.env.GITHUB_CLIENT_SECRET = 'secret';
-      process.env.GITHUB_CALLBACK_URL = 'https://example.com/github/callback';
+      process.env.GH_CLIENT_ID = 'id';
+      process.env.GH_CLIENT_SECRET = 'secret';
+      process.env.GH_CALLBACK_URL = 'https://example.com/github/callback';
       expect(isGithubOAuthConfigured()).toBe(true);
     });
   });

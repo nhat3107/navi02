@@ -104,9 +104,32 @@ jobs:
           cache-from: type=gha,scope=backend-${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=backend-${{ matrix.service }}
 
+  validate-frontend-config:
+    name: Validate frontend build secrets
+    needs: [backend-test, frontend-user-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check VITE_* secrets for production
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_WS_ORIGIN: ${{ secrets.VITE_WS_ORIGIN }}
+        run: |
+          missing=0
+          for key in VITE_API_URL VITE_WS_ORIGIN; do
+            eval "val=\$$key"
+            if [ -z "$val" ]; then
+              echo "::error::GitHub secret $key is required for production frontend builds"
+              missing=1
+            elif echo "$val" | grep -qi localhost; then
+              echo "::error::$key must not use localhost on main — use http://<API_HOST>/api and http://<API_HOST>"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
   build-frontend:
     name: Frontend / ${{ matrix.name }}
-    needs: [backend-test, frontend-user-test]
+    needs: [validate-frontend-config]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -119,8 +142,8 @@ jobs:
             dockerfile: admin/Dockerfile
             image: navi-admin-app
     env:
-      VITE_API_URL: ${{ secrets.VITE_API_URL || 'http://localhost:3000/api' }}
-      VITE_WS_ORIGIN: ${{ secrets.VITE_WS_ORIGIN || 'http://localhost:3000' }}
+      VITE_API_URL: ${{ secrets.VITE_API_URL }}
+      VITE_WS_ORIGIN: ${{ secrets.VITE_WS_ORIGIN }}
       VITE_ENABLE_OAUTH: ${{ secrets.VITE_ENABLE_OAUTH || 'false' }}
     steps:
       - name: Checkout

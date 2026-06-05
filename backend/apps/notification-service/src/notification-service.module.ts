@@ -14,6 +14,7 @@ import { kafkaBrokersFromEnv } from './kafka-env';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      ignoreEnvFile: process.env.NODE_ENV === 'production',
       envFilePath: 'apps/notification-service/.env',
     }),
     MongooseModule.forRootAsync({

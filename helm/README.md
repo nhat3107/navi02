@@ -1,44 +1,107 @@
 # Helm deploy
 
-Chart: `helm/navi/` (4 templates: apps, infra, ingress, config + secret + db-init job).
+Chart: `helm/navi/` deploys the application stack into Kubernetes (HTTP ingress, no in-cluster TLS).
 
-## Manual deploy (GitHub Actions)
+- **In-cluster:** Kafka + all app pods
+- **External:** Postgres and Mongo (connection URLs in secrets)
+- **Backend:** api-gateway, auth, user, chat, network, notification, ai
+- **Frontend:** user-app, admin-app
+- **Job:** db-init — Prisma `db push` against external Postgres (optional)
 
-1. Run **Docker Build & Push** on `main` (or ensure images exist on Docker Hub).
-2. Actions → **Deploy to Kubernetes** → `image_tag`: `latest` or `sha-<commit>`.
+## CI/CD parity with local Docker
 
-## Manual deploy (local)
+| Local (`.env` + `docker compose`) | GitHub |
+|-----------------------------------|--------|
+| `AUTH_DATABASE_URL`, etc. | Same secret names in **CD** |
+| `VITE_API_URL`, `VITE_WS_ORIGIN` | **CI** secrets (baked into frontend images) |
+| `FRONTEND_ORIGIN` (comma-separated) | **CD** secret |
+| OAuth `*/auth/*/callback` (no `/api`) | **CD** secrets |
+| `docker compose` builds all services | **CI** pushes images; **CD** deploys via Helm |
 
-```bash
-export DOCKERHUB_USERNAME=myuser
-export IMAGE_TAG=latest
-export API_HOST=api.example.com
-export USER_APP_HOST=app.example.com
-export ADMIN_APP_HOST=admin.example.com
-# …required secrets (see render-deploy-values.sh)
+See `.env.docker.example` for local vars and `values-production.example.yaml` for Helm overrides.
 
-chmod +x helm/navi/render-deploy-values.sh
-./helm/navi/render-deploy-values.sh > /tmp/deploy-values.yaml
+### HTTP hosts (no TLS in cluster)
 
-helm upgrade --install navi ./helm/navi \
-  --namespace navi --create-namespace \
-  -f helm/navi/values.yaml \
-  -f /tmp/deploy-values.yaml \
-  --wait --timeout 15m
-```
+Use plain `http://` in all URLs unless TLS terminates outside the cluster:
+
+| Secret | Example |
+|--------|---------|
+| `API_HOST` | `api.example.com` |
+| `USER_APP_HOST` | `app.example.com` |
+| `ADMIN_APP_HOST` | `admin.example.com` |
+| `VITE_API_URL` (CI) | `http://api.example.com/api` |
+| `VITE_WS_ORIGIN` (CI) | `http://api.example.com` |
+| `FRONTEND_ORIGIN` (CD) | `http://app.example.com,http://admin.example.com` |
+| `GOOGLE_CALLBACK_URL` (CD) | `http://api.example.com/auth/google/callback` |
+
+## Application env ↔ CI/CD mapping
+
+| Runtime `process.env` | Set by | GitHub / Helm source |
+|----------------------|--------|----------------------|
+| `DATABASE_URL` | Helm per-app | `AUTH_DATABASE_URL`, `USER_DATABASE_URL`, `CHAT_DATABASE_URL`, `NETWORK_DATABASE_URL`, `NOTIFICATION_DATABASE_URL` |
+| `KAFKA_BROKERS` | Helm ConfigMap | `broker:9092` in `values.yaml` |
+| `JWT_ACCESS_SECRET`, `JWT_RESET_SECRET` | Helm Secret | CD secrets |
+| `FRONTEND_ORIGIN`, `OAUTH_*`, `GOOGLE_*`, `GH_*` | Helm Secret | CD secrets (api-gateway) |
+| `EMAIL_*`, `CLOUDINARY_*`, `FRONTEND_URL` | Helm Secret | CD secrets (user-service) |
+| `OPENAI_API_KEY` | Helm Secret | CD secret (ai-service) |
+| `VIDEOSDK_*` | Helm Secret | CD secrets (api-gateway) |
+| `NODE_ENV`, `PORT`, `CHAT_HTTP_PORT`, `COOKIE_SECURE`, `CLOUDINARY_*_FOLDER` | Helm ConfigMap | `values.yaml` |
+| `VITE_API_URL`, `VITE_WS_ORIGIN`, `VITE_ENABLE_OAUTH` | Docker build args | **CI** secrets (frontend only) |
+
+In production (`NODE_ENV=production`), services use injected env only — not `apps/*/.env` files.
+
+`COOKIE_SECURE` must stay `false` for HTTP ingress. Set `true` only if TLS terminates before the browser.
+
+## Database env naming
+
+| Secret | Runtime env in pod | Service |
+|--------|-------------------|---------|
+| `AUTH_DATABASE_URL` | `DATABASE_URL` | auth-service |
+| `USER_DATABASE_URL` | `DATABASE_URL` | user-service |
+| `CHAT_DATABASE_URL` | `DATABASE_URL` | chat-service |
+| `NETWORK_DATABASE_URL` | `DATABASE_URL` | network-service |
+| `NOTIFICATION_DATABASE_URL` | `DATABASE_URL` | notification-service |
+
+## GitHub CD (manual)
+
+1. Set **CI** secrets (`VITE_*`, `DOCKERHUB_*`) and **CD** secrets (below).
+2. Push to `main` → CI tests, builds, and pushes images.
+3. Actions → **CD** → `image_tag`: `latest` or matching `sha-<commit>`.
 
 ## GitHub Secrets
+
+### CI
+
+| Secret | Required |
+|--------|----------|
+| `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` | yes |
+| `VITE_API_URL`, `VITE_WS_ORIGIN` | yes (must not be localhost on main) |
+| `VITE_ENABLE_OAUTH` | optional |
+
+### CD
 
 | Secret | Required |
 |--------|----------|
 | `KUBE_CONFIG` | yes |
-| `DOCKERHUB_USERNAME` | yes |
-| `DOCKERHUB_TOKEN` | yes (CD db-init push) |
+| `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` | yes |
+| `AUTH_DATABASE_URL`, `USER_DATABASE_URL` | yes |
+| `CHAT_DATABASE_URL`, `NETWORK_DATABASE_URL`, `NOTIFICATION_DATABASE_URL` | yes |
 | `JWT_ACCESS_SECRET`, `JWT_RESET_SECRET` | yes |
-| `POSTGRES_USER`, `POSTGRES_PASSWORD` | yes |
-| `MONGO_ROOT_USER`, `MONGO_ROOT_PASSWORD` | yes |
 | `API_HOST`, `USER_APP_HOST`, `ADMIN_APP_HOST` | yes |
 | `FRONTEND_ORIGIN`, `FRONTEND_URL`, `OPENAI_API_KEY` | recommended |
 | OAuth, Cloudinary, Email, VideoSDK | optional |
+| `K8S_NAMESPACE` | optional (default `navi`) |
 
-DB URLs are built automatically in `render-deploy-values.sh`.
+External DBs must exist (`auth_db`, `user_db`, Mongo DBs) and be reachable from the cluster.
+
+Set `dbInit.enabled: false` in `values.yaml` if schemas are managed outside the cluster.
+
+## Local deploy
+
+```bash
+helm upgrade --install navi ./helm/navi \
+  --namespace navi --create-namespace \
+  -f helm/navi/values.yaml \
+  -f helm/navi/values-production.example.yaml \
+  --wait --timeout 15m
+```

@@ -15,6 +15,7 @@ import { KafkaProducerLifecycle } from './kafka-producer.lifecycle';
     KafkaClientModule,
     ConfigModule.forRoot({
       isGlobal: true,
+      ignoreEnvFile: process.env.NODE_ENV === 'production',
       envFilePath: 'apps/network-service/.env',
     }),
 

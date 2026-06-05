@@ -10,7 +10,8 @@ const REFRESH_MAX_AGE_MS = 15 * 24 * 60 * 60 * 1000;
 function cookieOptions(sameSite: 'strict' | 'lax') {
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    // HTTP deploy (no in-cluster TLS): keep COOKIE_SECURE unset or "false".
+    secure: process.env.COOKIE_SECURE === 'true',
     sameSite,
     maxAge: REFRESH_MAX_AGE_MS,
     path: COOKIE_PATH,
