@@ -66,7 +66,7 @@ In production (`NODE_ENV=production`), services use injected env only — not `a
 
 1. Set **CI** secrets (`VITE_*`, `DOCKERHUB_*`) and **CD** secrets (below).
 2. Push to `main` → CI tests, builds, and pushes images.
-3. Actions → **CD** → `image_tag`: `latest` or matching `sha-<commit>`.
+3. Actions → **CD** → Run workflow (always deploys `latest` images from CI).
 
 ## GitHub Secrets
 
