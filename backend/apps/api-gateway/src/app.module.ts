@@ -15,6 +15,7 @@ import { AdminModule } from './admin/admin.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      ignoreEnvFile: process.env.NODE_ENV === 'production',
       envFilePath: 'apps/api-gateway/.env',
     }),
     JwtModule.register({

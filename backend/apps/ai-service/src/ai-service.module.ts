@@ -10,6 +10,7 @@ import { openAiClientProvider } from './openai.provider';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      ignoreEnvFile: process.env.NODE_ENV === 'production',
       envFilePath: ['apps/ai-service/.env', '.env'],
     }),
     KafkaClientModule,

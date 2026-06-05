@@ -17,8 +17,8 @@ export function isGoogleOAuthConfigured(): boolean {
 
 export function isGithubOAuthConfigured(): boolean {
   return (
-    present(process.env.GITHUB_CLIENT_ID) &&
-    present(process.env.GITHUB_CLIENT_SECRET) &&
-    present(process.env.GITHUB_CALLBACK_URL)
+    present(process.env.GH_CLIENT_ID) &&
+    present(process.env.GH_CLIENT_SECRET) &&
+    present(process.env.GH_CALLBACK_URL)
   );
 }

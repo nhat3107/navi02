@@ -9,6 +9,7 @@ import { PrismaService } from './prisma.service';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      ignoreEnvFile: process.env.NODE_ENV === 'production',
       envFilePath: 'apps/user-service/.env',
     }),
     ClientsModule.register([

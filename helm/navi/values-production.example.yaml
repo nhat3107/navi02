@@ -1,0 +1,37 @@
+# Example production overrides (HTTP only — no TLS in cluster).
+# Merge with values.yaml:  helm upgrade -f values.yaml -f values-production.example.yaml
+# Replace hosts and secrets before deploy.
+
+namespace: navi
+
+image:
+  registry: your-dockerhub-user
+  tag: latest
+
+ingress:
+  enabled: true
+  className: nginx
+  apiHost: api.example.com
+  userAppHost: app.example.com
+  adminAppHost: admin.example.com
+
+secrets:
+  JWT_ACCESS_SECRET: change-me
+  JWT_RESET_SECRET: change-me
+  AUTH_DATABASE_URL: postgresql://user:pass@db-host:5432/auth_db
+  USER_DATABASE_URL: postgresql://user:pass@db-host:5432/user_db
+  CHAT_DATABASE_URL: mongodb://user:pass@mongo-host:27017/chat_db?authSource=admin
+  NETWORK_DATABASE_URL: mongodb://user:pass@mongo-host:27017/network_db?authSource=admin
+  NOTIFICATION_DATABASE_URL: mongodb://user:pass@mongo-host:27017/notification_db?authSource=admin
+  FRONTEND_ORIGIN: http://app.example.com,http://admin.example.com
+  FRONTEND_URL: http://app.example.com
+  OAUTH_FRONTEND_LOGIN_URL: http://app.example.com/login
+  OAUTH_FRONTEND_REDIRECT_URL: http://app.example.com
+  GOOGLE_CALLBACK_URL: http://api.example.com/auth/google/callback
+  GH_CALLBACK_URL: http://api.example.com/auth/github/callback
+  OPENAI_API_KEY: sk-...
+
+# GitHub CI secrets (build-time, not Helm):
+#   VITE_API_URL=http://api.example.com/api
+#   VITE_WS_ORIGIN=http://api.example.com
+#   VITE_ENABLE_OAUTH=false

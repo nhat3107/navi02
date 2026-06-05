@@ -11,7 +11,7 @@ export class GithubAuthGuard extends AuthGuard('github') {
   override canActivate(context: ExecutionContext) {
     if (!isGithubOAuthConfigured()) {
       throw new ServiceUnavailableException(
-        'GitHub OAuth is not configured. Set GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, GITHUB_CALLBACK_URL.',
+        'GitHub OAuth is not configured. Set GH_CLIENT_ID, GH_CLIENT_SECRET, GH_CALLBACK_URL.',
       );
     }
     return super.canActivate(context) as boolean | Promise<boolean>;

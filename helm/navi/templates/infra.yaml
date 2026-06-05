@@ -120,18 +120,21 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: navi-secrets
-                  key: MONGO_ROOT_USER
+                  key: MONGO_USER
             - name: MONGO_INITDB_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: navi-secrets
-                  key: MONGO_ROOT_PASSWORD
+                  key: MONGO_PASSWORD
           volumeMounts:
             - name: data
               mountPath: /data/db
           readinessProbe:
             exec:
-              command: [mongosh, --quiet, --eval, "db.adminCommand('ping').ok"]
+              command:
+                - /bin/sh
+                - -c
+                - mongosh --quiet -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "db.adminCommand({ ping: 1 }).ok"
             initialDelaySeconds: 10
             periodSeconds: 10
   volumeClaimTemplates:
