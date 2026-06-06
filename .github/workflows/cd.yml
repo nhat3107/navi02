@@ -91,14 +91,15 @@ jobs:
           K8S_NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
         run: |
           NS="${K8S_NAMESPACE:-navi}"
-          helm uninstall navi -n "${NS}" --kube-insecure-skip-tls-verify || true
           helm upgrade --install navi helm/navi \
-            --kube-insecure-skip-tls-verify
+            --kube-insecure-skip-tls-verify \
             --namespace "${NS}" \
             --create-namespace \
             -f helm/navi/values.yaml \
             -f /tmp/cd-values.yaml \
+            --cleanup-on-fail \
             --wait --timeout 3m
+            --atomic
 
       - name: Wait for db-init
         env:
