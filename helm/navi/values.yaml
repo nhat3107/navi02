@@ -14,10 +14,6 @@ ingress:
   userAppHost: app.example.com
   adminAppHost: admin.example.com
 
-# CD sets kafka.brokers to broker Service ClusterIP (e.g. 10.43.0.5:9092) after deploy.
-kafka:
-  brokers: ""
-
 config:
   NODE_ENV: production
   KAFKAJS_NO_PARTITIONER_WARNING: "1"
@@ -38,24 +34,31 @@ apps:
     image: navi-api-gateway
     port: 3000
     expose: true
+    usesKafka: true
   - name: auth-service
     image: navi-auth-service
     databaseUrlKey: AUTH_DATABASE_URL
+    usesKafka: true
   - name: user-service
     image: navi-user-service
     databaseUrlKey: USER_DATABASE_URL
+    usesKafka: true
   - name: chat-service
     image: navi-chat-service
     port: 4030
     databaseUrlKey: CHAT_DATABASE_URL
+    usesKafka: true
   - name: network-service
     image: navi-network-service
     databaseUrlKey: NETWORK_DATABASE_URL
+    usesKafka: true
   - name: notification-service
     image: navi-notification-service
     databaseUrlKey: NOTIFICATION_DATABASE_URL
+    usesKafka: true
   - name: ai-service
     image: navi-ai-service
+    usesKafka: true
   - name: user-app
     image: navi-user-app
     port: 80
@@ -78,8 +81,19 @@ infra:
   kafka:
     enabled: true
     image: apache/kafka:3.9.0
+    # Schedule app pods on the same node as the broker (avoids cross-node pod networking issues on k3s/AWS).
+    colocateApps: true
     # Single-node KRaft; keep stable after first deploy.
     clusterId: MkU3OEVBNTcwNTJENDM2Qk
+    # Small k3s nodes: cap JVM + disk churn to avoid kubelet evictions.
+    heapOpts: "-Xmx256m -Xms128m"
+    resources:
+      requests:
+        memory: 384Mi
+        cpu: 100m
+      limits:
+        memory: 512Mi
+        cpu: "1"
 
 # Prisma schema push against external Postgres (disable if you manage schemas separately).
 dbInit:

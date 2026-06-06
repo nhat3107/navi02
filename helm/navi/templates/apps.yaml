@@ -1,3 +1,4 @@
+{{- $root := . -}}
 {{- $ns := include "navi.namespace" . -}}
 {{- range .Values.apps }}
 {{- if .expose }}
@@ -30,9 +31,33 @@ spec:
       labels:
         app: {{ .name }}
     spec:
+      {{- if and $root.Values.infra.kafka.enabled $root.Values.infra.kafka.colocateApps }}
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: kafka
+              topologyKey: kubernetes.io/hostname
+      {{- end }}
+      {{- if and $root.Values.infra.kafka.enabled .usesKafka }}
+      initContainers:
+        - name: wait-broker
+          image: busybox:1.36
+          command:
+            - /bin/sh
+            - -c
+            - |
+              for i in $(seq 1 90); do
+                nc -z broker 9092 && exit 0
+                sleep 2
+              done
+              echo "broker:9092 not reachable after 180s"
+              exit 1
+      {{- end }}
       containers:
         - name: {{ .name }}
-          image: {{ include "navi.image" (dict "root" $ "name" .image) }}
+          image: {{ include "navi.image" (dict "root" $root "name" .image) }}
           imagePullPolicy: IfNotPresent
           {{- if .port }}
           ports:
