@@ -34,7 +34,7 @@ services:
 
   - name: broker
     externalImage: true
-    image: bitnami/kafka:3.7.0
+    image: bitnamicharts/kafka:sha256-12b98a1b358a6bc10c498817c801bd49e4a9d4c965af8acbe5a70764ec836997
     port: 9092
     strategy:
       type: Recreate
