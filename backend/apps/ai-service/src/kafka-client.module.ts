@@ -12,6 +12,12 @@ import { kafkaBrokersFromEnv } from './kafka-brokers';
           client: {
             clientId: 'ai-service-producer',
             brokers: kafkaBrokersFromEnv(),
+            connectionTimeout: 30_000,
+            retry: {
+              initialRetryTime: 300,
+              retries: 15,
+              maxRetryTime: 30_000,
+            },
           },
           consumer: {
             groupId: 'ai-service-config-reply',

@@ -29,7 +29,9 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayInit 
   ) {}
 
   afterInit(): void {
-    void this.relay.start(this);
+    void this.relay.start(this).catch((err) => {
+      console.error('Notification relay failed to start:', err);
+    });
   }
 
   async handleConnection(client: Socket) {

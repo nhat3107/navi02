@@ -25,6 +25,11 @@ async function bootstrap() {
     ],
     credentials: true,
   });
-  await app.listen(process.env.PORT ?? 3000);
+  const port = Number(process.env.PORT ?? 3000);
+  await app.listen(port, '0.0.0.0');
+  console.log(`API gateway listening on 0.0.0.0:${port}`);
 }
-bootstrap();
+bootstrap().catch((err) => {
+  console.error('api-gateway bootstrap failed:', err);
+  process.exit(1);
+});

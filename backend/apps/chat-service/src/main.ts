@@ -39,9 +39,18 @@ async function bootstrap() {
     },
   });
 
-  await app.startAllMicroservices();
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await app.startAllMicroservices();
+      break;
+    } catch (err) {
+      console.error(`chat-service Kafka start attempt ${attempt} failed:`, err);
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
+  }
   const httpPort = Number(process.env.CHAT_HTTP_PORT ?? 4030);
-  await app.listen(httpPort);
+  await app.listen(httpPort, '0.0.0.0');
+  console.log(`Chat service listening on 0.0.0.0:${httpPort}`);
 }
 bootstrap().catch((err) => {
   console.error('chat-service bootstrap failed:', err);
