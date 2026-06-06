@@ -9,7 +9,8 @@ metadata:
   namespace: {{ $ns }}
 spec:
   ports:
-    - port: {{ .port }}
+    - name: http
+      port: {{ .port }}
       targetPort: {{ .port }}
   selector:
     app: {{ .name }}
@@ -30,9 +31,11 @@ spec:
       labels:
         app: {{ .name }}
     spec:
+      dnsPolicy: ClusterFirst
       containers:
         - name: {{ .name }}
           image: {{ include "navi.image" (dict "root" $ "name" .image) }}
+          imagePullPolicy: IfNotPresent
           {{- if .port }}
           ports:
             - containerPort: {{ .port }}

@@ -42,6 +42,7 @@ apps:
     databaseUrlKey: USER_DATABASE_URL
   - name: chat-service
     image: navi-chat-service
+    port: 4030
     databaseUrlKey: CHAT_DATABASE_URL
   - name: network-service
     image: navi-network-service
