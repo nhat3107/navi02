@@ -39,7 +39,7 @@ Use plain `http://` in all URLs unless TLS terminates outside the cluster:
 | Runtime `process.env` | Set by | GitHub / Helm source |
 |----------------------|--------|----------------------|
 | `DATABASE_URL` | Helm per-app | `AUTH_DATABASE_URL`, `USER_DATABASE_URL`, `CHAT_DATABASE_URL`, `NETWORK_DATABASE_URL`, `NOTIFICATION_DATABASE_URL` |
-| `KAFKA_BROKERS` | Helm ConfigMap | `kafka.brokers` — CD sets broker Service ClusterIP (`10.x.x.x:9092`) via `sync-kafka-broker.sh` |
+| `KAFKA_BROKERS` | Helm ConfigMap | `broker:9092` (in-cluster DNS; broker advertised listener matches) |
 | `JWT_ACCESS_SECRET`, `JWT_RESET_SECRET` | Helm Secret | CD secrets |
 | `FRONTEND_ORIGIN`, `OAUTH_*`, `GOOGLE_*`, `GH_*` | Helm Secret | CD secrets (api-gateway) |
 | `EMAIL_*`, `CLOUDINARY_*`, `FRONTEND_URL` | Helm Secret | CD secrets (user-service) |
@@ -51,6 +51,13 @@ Use plain `http://` in all URLs unless TLS terminates outside the cluster:
 In production (`NODE_ENV=production`), services use injected env only — not `apps/*/.env` files.
 
 `COOKIE_SECURE` must stay `false` for HTTP ingress. Set `true` only if TLS terminates before the browser.
+
+## Kafka (in-cluster)
+
+- Broker Service: `broker:9092` (same namespace DNS — no ClusterIP sync step).
+- `KAFKA_BROKERS` and `KAFKA_ADVERTISED_LISTENERS` both use `broker:9092`.
+- Backend pods wait for broker TCP (`wait-broker` init) before starting.
+- `infra.kafka.colocateApps: true` (default) schedules all app pods on the broker node — avoids cross-node pod networking issues on multi-node k3s/AWS. Set `false` once node-to-node traffic (UDP 8472 / SG rules) is confirmed.
 
 ## Database env naming
 

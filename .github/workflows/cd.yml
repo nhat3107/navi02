@@ -87,18 +87,22 @@ jobs:
           test -f helm/navi/Chart.yaml
           helm lint helm/navi -f helm/navi/values.yaml -f /tmp/cd-values.yaml
 
-      - name: Deploy and sync Kafka broker
+      - name: Deploy
         env:
           K8S_NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
         run: |
           NS="${K8S_NAMESPACE:-navi}"
           [ -n "${NS}" ] || NS=navi
-          sed -i 's/\r$//' helm/navi/sync-kafka-broker.sh
-          # Apply chart, wait for broker Service ClusterIP, then set kafka.brokers for all apps.
-          # Do not use --atomic on first apply — a crashing app would roll back broker too.
-          sh helm/navi/sync-kafka-broker.sh "${NS}" \
+          kubectl --insecure-skip-tls-verify delete pods -n "${NS}" \
+            --field-selector status.phase=Failed \
+            --ignore-not-found --grace-period=0 2>/dev/null || true
+          helm upgrade --install navi helm/navi \
+            --kube-insecure-skip-tls-verify \
+            --namespace "${NS}" \
+            --create-namespace \
             -f helm/navi/values.yaml \
-            -f /tmp/cd-values.yaml
+            -f /tmp/cd-values.yaml \
+            --wait --timeout 15m
 
       - name: Wait for db-init
         env:
