@@ -1,13 +1,19 @@
 name: CD
 
-# Manual deploy: Actions → CD. Always deploys Docker images tagged `latest`.
-# Prerequisite: CI pushed app images to Docker Hub on main.
-# HTTP only (no TLS in cluster). Use http:// hosts in secrets; terminate TLS at an external LB if needed.
-# FRONTEND_ORIGIN: comma-separated user + admin app URLs (e.g. http://app.example.com,http://admin.example.com).
-# OAuth callbacks: http://<API_HOST>/auth/google/callback (no /api prefix).
+# Manual deploy: Actions → CD → Run workflow.
+# Prerequisite: CI has pushed app images to Docker Hub (tag `latest`).
+#
+# Required GitHub Secrets:
+#   DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
+#   K3S_HOST, K3S_USER, K3S_SSH_KEY, K3S_REPO_PATH
+#   JWT_ACCESS_SECRET, JWT_RESET_SECRET
 
 on:
   workflow_dispatch:
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -19,24 +25,17 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: azure/setup-kubectl@v4
-      - uses: azure/setup-helm@v4
-        with:
-          version: v3.16.4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Configure kubeconfig
-        env:
-          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
-        run: |
-          sed -i 's/\r$//' .github/scripts/setup-kubeconfig.sh
-          sh .github/scripts/setup-kubeconfig.sh
 
       - name: Build and push db-init
         uses: docker/build-push-action@v6
@@ -50,9 +49,6 @@ jobs:
         env:
           K8S_NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          API_HOST: ${{ secrets.API_HOST }}
-          USER_APP_HOST: ${{ secrets.USER_APP_HOST }}
-          ADMIN_APP_HOST: ${{ secrets.ADMIN_APP_HOST }}
           JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
           JWT_RESET_SECRET: ${{ secrets.JWT_RESET_SECRET }}
           AUTH_DATABASE_URL: ${{ secrets.AUTH_DATABASE_URL }}
@@ -79,38 +75,47 @@ jobs:
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          sed -i 's/\r$//' helm/navi/render-cd-values.sh
-          sh helm/navi/render-cd-values.sh > /tmp/cd-values.yaml
+          sed -i 's/\r$//' helm/navi/render-deploy-values.sh
+          sh helm/navi/render-deploy-values.sh > deploy-values.yaml
 
-      - name: Helm lint
-        run: |
-          test -f helm/navi/Chart.yaml
-          helm lint helm/navi -f helm/navi/values.yaml -f /tmp/cd-values.yaml
+      - name: Copy deploy values to K3s server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.K3S_HOST }}
+          username: ${{ secrets.K3S_USER }}
+          key: ${{ secrets.K3S_SSH_KEY }}
+          source: deploy-values.yaml
+          target: /tmp/
 
-      - name: Deploy
+      - name: Deploy to K3s with Helm
+        uses: appleboy/ssh-action@v1.2.0
         env:
           K8S_NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
-        run: |
-          NS="${K8S_NAMESPACE:-navi}"
-          [ -n "${NS}" ] || NS=navi
-          kubectl --insecure-skip-tls-verify delete pods -n "${NS}" \
-            --field-selector status.phase=Failed \
-            --ignore-not-found --grace-period=0 2>/dev/null || true
-          helm upgrade --install navi helm/navi \
-            --kube-insecure-skip-tls-verify \
-            --namespace "${NS}" \
-            --create-namespace \
-            -f helm/navi/values.yaml \
-            -f /tmp/cd-values.yaml \
-            --wait --timeout 15m
+        with:
+          host: ${{ secrets.K3S_HOST }}
+          username: ${{ secrets.K3S_USER }}
+          key: ${{ secrets.K3S_SSH_KEY }}
+          envs: K8S_NAMESPACE
+          script: |
+            set -euo pipefail
+            REPO="${{ secrets.K3S_REPO_PATH }}"
+            NS="${K8S_NAMESPACE:-navi}"
 
-      - name: Wait for db-init
-        env:
-          K8S_NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
-        run: |
-          NS="${K8S_NAMESPACE:-navi}"
-          KUBECTL="kubectl --insecure-skip-tls-verify"
-          if $KUBECTL get job navi-db-init -n "${NS}" >/dev/null 2>&1; then
-            $KUBECTL wait --for=condition=complete job/navi-db-init \
-              -n "${NS}" --timeout=300s
-          fi
+            cd "${REPO}"
+            git fetch origin main
+            git checkout main
+            git pull origin main
+
+            helm upgrade --install navi ./helm/navi \
+              --namespace "${NS}" \
+              --create-namespace \
+              -f helm/navi/values.yaml \
+              -f /tmp/deploy-values.yaml \
+              --wait --timeout 15m
+
+            if kubectl get job navi-db-init -n "${NS}" >/dev/null 2>&1; then
+              kubectl wait --for=condition=complete job/navi-db-init \
+                -n "${NS}" --timeout=300s || true
+            fi
+
+            kubectl get pods -n "${NS}"

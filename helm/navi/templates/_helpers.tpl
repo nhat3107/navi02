@@ -1,13 +1,27 @@
+{{/*
+Kubernetes namespace — defaults to Release namespace.
+*/}}
 {{- define "navi.namespace" -}}
 {{- .Values.namespace | default .Release.Namespace }}
 {{- end }}
 
+{{/*
+Full image reference for app images built by CI (registry/imageName:tag).
+Infra images use the `image` field directly when `externalImage` is true.
+*/}}
 {{- define "navi.image" -}}
 {{- $root := index . "root" -}}
-{{- $name := index . "name" -}}
-{{- printf "%s/%s:%s" $root.Values.image.registry $name $root.Values.image.tag }}
+{{- $svc := index . "svc" -}}
+{{- if $svc.externalImage -}}
+{{- printf "%s" $svc.image }}
+{{- else -}}
+{{- printf "%s/%s:%s" $root.Values.image.registry $svc.imageName $root.Values.image.tag }}
+{{- end -}}
 {{- end }}
 
-{{- define "navi.kafkaAddress" -}}
+{{/*
+Kafka bootstrap address used by all backend services.
+*/}}
+{{- define "navi.kafkaBrokers" -}}
 broker:9092
 {{- end }}

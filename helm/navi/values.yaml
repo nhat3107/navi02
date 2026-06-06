@@ -1,19 +1,13 @@
-# Base chart values — CD merges `/tmp/cd-values.yaml` (image, ingress, secrets) on deploy.
+# Base chart values — CD merges deploy overrides (image registry, secrets) at deploy time.
+# Override locally: helm upgrade --install navi ./helm/navi -f helm/navi/values.yaml -f deploy-values.yaml
 
 namespace: navi
 
 image:
-  registry: example
+  registry: dockerhub-user   # DOCKERHUB_USERNAME — set by CD
   tag: latest
 
-# HTTP only — no TLS in this chart. Point DNS at the ingress controller.
-ingress:
-  enabled: true
-  className: nginx
-  apiHost: api.example.com
-  userAppHost: app.example.com
-  adminAppHost: admin.example.com
-
+# Non-secret env shared by backend services (ConfigMap `navi-config`).
 config:
   NODE_ENV: production
   KAFKAJS_NO_PARTITIONER_WARNING: "1"
@@ -24,62 +18,55 @@ config:
   CLOUDINARY_NETWORK_FOLDER: navi/network
   CLOUDINARY_CHAT_FOLDER: navi/chat
 
-# Key/value env secrets (K8s secret `navi-secrets`). Filled at deploy time.
-# Database URLs: AUTH_DATABASE_URL, USER_DATABASE_URL, CHAT_DATABASE_URL,
-# NETWORK_DATABASE_URL, NOTIFICATION_DATABASE_URL → mapped to DATABASE_URL per app.
+# App secrets (Secret `navi-secrets`). Filled at deploy time via CD / deploy-values.yaml.
 secrets: {}
 
-apps:
-  - name: api-gateway
-    image: navi-api-gateway
-    port: 3000
-    expose: true
-  - name: auth-service
-    image: navi-auth-service
-    databaseUrlKey: AUTH_DATABASE_URL
-  - name: user-service
-    image: navi-user-service
-    databaseUrlKey: USER_DATABASE_URL
-  - name: chat-service
-    image: navi-chat-service
-    port: 4030
-    databaseUrlKey: CHAT_DATABASE_URL
-  - name: network-service
-    image: navi-network-service
-    databaseUrlKey: NETWORK_DATABASE_URL
-  - name: notification-service
-    image: navi-notification-service
-    databaseUrlKey: NOTIFICATION_DATABASE_URL
-  - name: ai-service
-    image: navi-ai-service
-  - name: user-app
-    image: navi-user-app
-    port: 80
-    expose: true
-  - name: admin-app
-    image: navi-admin-app
-    port: 80
-    expose: true
+dbInit:
+  enabled: true
+  imageName: navi-db-init
 
-# Postgres and Mongo run outside the cluster — set full URLs in `secrets` at deploy time.
-infra:
-  postgres:
-    enabled: false
-    image: postgres:16-alpine
-    storage: 5Gi
-  mongo:
-    enabled: false
-    image: mongo:7
-    storage: 5Gi
-  kafka:
-    enabled: true
+# All workloads — infra + microservices + frontends.
+# Reusable deployment.yaml / service.yaml iterate this list.
+services:
+  # --- Infrastructure (in-cluster for demo) ---
+
+  - name: broker
+    externalImage: true
     image: apache/kafka:3.9.0
-    # Schedule app pods on the same node as the broker (avoids cross-node pod networking issues on k3s/AWS).
-    colocateApps: true
-    # Single-node KRaft; keep stable after first deploy.
-    clusterId: MkU3OEVBNTcwNTJENDM2Qk
-    # Small k3s nodes: cap JVM + disk churn to avoid kubelet evictions.
-    heapOpts: "-Xmx256m -Xms128m"
+    port: 9092
+    strategy:
+      type: Recreate
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        if [ ! -f /data/meta.properties ]; then
+          /opt/kafka/bin/kafka-storage.sh format -t "${CLUSTER_ID}" -c /opt/kafka/config/kraft/server.properties
+        fi
+        exec /opt/kafka/bin/kafka-server-start.sh /opt/kafka/config/kraft/server.properties
+    env:
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_LOG_DIRS: /data
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
+      KAFKA_NUM_PARTITIONS: "3"
+      KAFKA_HEAP_OPTS: "-Xmx256m -Xms128m"
+    volumeMounts:
+      - name: data
+        mountPath: /data
+    volumes:
+      - name: data
+        emptyDir: {}
     resources:
       requests:
         memory: 384Mi
@@ -88,7 +75,83 @@ infra:
         memory: 512Mi
         cpu: "1"
 
-# Prisma schema push against external Postgres (disable if you manage schemas separately).
-dbInit:
-  enabled: true
-  image: navi-db-init
+  - name: postgres
+    externalImage: true
+    image: postgres:16-alpine
+    port: 5432
+    env:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumeMounts:
+      - name: data
+        mountPath: /var/lib/postgresql/data
+      - name: init
+        mountPath: /docker-entrypoint-initdb.d
+    volumes:
+      - name: data
+        emptyDir: {}
+      - name: init
+        configMap:
+          name: postgres-init
+
+  - name: mongo
+    externalImage: true
+    image: mongo:7
+    port: 27017
+    env:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    volumeMounts:
+      - name: data
+        mountPath: /data/db
+    volumes:
+      - name: data
+        emptyDir: {}
+
+  # --- Backend microservices ---
+
+  - name: api-gateway
+    imageName: navi-api-gateway
+    port: 3000
+    app: true
+
+  - name: auth-service
+    imageName: navi-auth-service
+    app: true
+    databaseUrlKey: AUTH_DATABASE_URL
+
+  - name: user-service
+    imageName: navi-user-service
+    app: true
+    databaseUrlKey: USER_DATABASE_URL
+
+  - name: chat-service
+    imageName: navi-chat-service
+    port: 4030
+    app: true
+    databaseUrlKey: CHAT_DATABASE_URL
+
+  - name: network-service
+    imageName: navi-network-service
+    app: true
+    databaseUrlKey: NETWORK_DATABASE_URL
+
+  - name: notification-service
+    imageName: navi-notification-service
+    app: true
+    databaseUrlKey: NOTIFICATION_DATABASE_URL
+
+  - name: ai-service
+    imageName: navi-ai-service
+    app: true
+
+  # --- Frontends ---
+
+  - name: user-app
+    imageName: navi-user-app
+    port: 80
+
+  - name: admin-app
+    imageName: navi-admin-app
+    port: 80

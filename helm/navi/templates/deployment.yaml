@@ -1,0 +1,86 @@
+{{/*
+Reusable Deployment — one manifest per entry in .Values.services.
+App services set `app: true` to receive shared ConfigMap + Secret env.
+*/}}
+{{- $root := . -}}
+{{- $ns := include "navi.namespace" . -}}
+{{- range .Values.services }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .name }}
+  namespace: {{ $ns }}
+  labels:
+    app.kubernetes.io/name: {{ .name }}
+    app.kubernetes.io/instance: {{ $root.Release.Name }}
+spec:
+  replicas: {{ .replicas | default 1 }}
+  {{- with .strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .name }}
+      app.kubernetes.io/instance: {{ $root.Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .name }}
+        app.kubernetes.io/instance: {{ $root.Release.Name }}
+    spec:
+      {{- with .initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .name }}
+          image: {{ include "navi.image" (dict "root" $root "svc" .) }}
+          imagePullPolicy: {{ .imagePullPolicy | default "IfNotPresent" }}
+          {{- with .command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .port }}
+          ports:
+            - containerPort: {{ .port }}
+          {{- end }}
+          {{- if or .env .databaseUrlKey }}
+          env:
+            {{- range $k, $v := (.env | default dict) }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+            {{- if .databaseUrlKey }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: navi-secrets
+                  key: {{ .databaseUrlKey }}
+            {{- end }}
+          {{- end }}
+          {{- if .app }}
+          envFrom:
+            - configMapRef:
+                name: navi-config
+            - secretRef:
+                name: navi-secrets
+          {{- end }}
+          {{- with .volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
