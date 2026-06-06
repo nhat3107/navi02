@@ -9,5 +9,5 @@
 {{- end }}
 
 {{- define "navi.kafkaBroker" -}}
-{{- printf "broker.%s.svc.cluster.local:9092" (include "navi.namespace" .) }}
+broker:9092
 {{- end }}
