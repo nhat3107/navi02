@@ -6,6 +6,7 @@ namespace: navi
 image:
   registry: dockerhub-user   # DOCKERHUB_USERNAME — set by CD
   tag: latest
+  pullPolicy: Always         # re-pull :latest on every deploy (CI pushes latest on main)
 
 # Non-secret env shared by backend services (ConfigMap `navi-config`).
 # ConfigMap is applied after Secret in envFrom so these override secret keys.

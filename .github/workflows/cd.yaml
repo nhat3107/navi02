@@ -1,7 +1,8 @@
 name: CD
+
+# Manual deploy — pulls app images tagged \`latest\` (pushed by CI on main).
 on:
   workflow_dispatch:
-
 concurrency:
   group: cd-${{ github.ref }}
   cancel-in-progress: true
@@ -43,6 +44,7 @@ jobs:
 
       - name: Write deploy values
         env:
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
           K8S_NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
@@ -93,6 +95,28 @@ jobs:
             -f helm/navi/values.yaml \
             -f deploy-values.yaml \
             --wait --timeout 15m
+
+      - name: Rollout restart app deployments
+        env:
+          K8S_NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
+        run: |
+          NS="${K8S_NAMESPACE:-navi}"
+          KUBECTL="kubectl --insecure-skip-tls-verify"
+          for dep in api-gateway auth-service user-service chat-service network-service notification-service ai-service user-app admin-app; do
+            $KUBECTL rollout restart "deployment/${dep}" -n "${NS}" || true
+          done
+          $KUBECTL rollout status "deployment/api-gateway" -n "${NS}" --timeout=5m || true
+
+      - name: Wait for db-init
+        env:
+          K8S_NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
+        run: |
+          NS="${K8S_NAMESPACE:-navi}"
+          KUBECTL="kubectl --insecure-skip-tls-verify"
+          if $KUBECTL get job navi-db-init -n "${NS}" >/dev/null 2>&1; then
+            $KUBECTL wait --for=condition=complete job/navi-db-init \
+              -n "${NS}" --timeout=300s || true
+          fi
 
       - name: Show pods
         env:

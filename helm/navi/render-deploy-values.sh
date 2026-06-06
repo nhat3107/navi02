@@ -7,6 +7,7 @@ set -eu
 
 NS="${K8S_NAMESPACE:-navi}"
 REG="${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME required}"
+TAG="${IMAGE_TAG:-latest}"
 
 yaml_quote() {
   printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
@@ -16,7 +17,8 @@ cat <<EOF
 namespace: ${NS}
 image:
   registry: ${REG}
-  tag: latest
+  tag: ${TAG}
+  pullPolicy: Always
 secrets:
   JWT_ACCESS_SECRET: "$(yaml_quote "${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET required}")"
   JWT_RESET_SECRET: "$(yaml_quote "${JWT_RESET_SECRET:?JWT_RESET_SECRET required}")"

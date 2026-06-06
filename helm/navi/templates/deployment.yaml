@@ -67,7 +67,11 @@ spec:
       containers:
         - name: {{ .name }}
           image: {{ include "navi.image" (dict "root" $root "svc" .) }}
+          {{- if .externalImage }}
           imagePullPolicy: {{ .imagePullPolicy | default "IfNotPresent" }}
+          {{- else }}
+          imagePullPolicy: {{ .imagePullPolicy | default $root.Values.image.pullPolicy | default "Always" }}
+          {{- end }}
           {{- with .command }}
           command:
             {{- toYaml . | nindent 12 }}
