@@ -17,13 +17,34 @@ export class NotificationRealtimeOutboundService
   private readonly log = new Logger(NotificationRealtimeOutboundService.name);
   private producer: Producer | null = null;
 
-  async onModuleInit(): Promise<void> {
+  onModuleInit(): void {
+    void this.connectInBackground();
+  }
+
+  private async connectInBackground(): Promise<void> {
     const kafka = new Kafka({
       clientId: 'notification-service-realtime',
       brokers: kafkaBrokersFromEnv(),
+      connectionTimeout: 30_000,
+      retry: {
+        initialRetryTime: 300,
+        retries: 15,
+        maxRetryTime: 30_000,
+      },
     });
     this.producer = kafka.producer();
-    await this.producer.connect();
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await this.producer.connect();
+        this.log.log('Kafka realtime producer connected');
+        return;
+      } catch (err) {
+        this.log.warn(
+          `Kafka producer connect attempt ${attempt} failed: ${String(err)}`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
+    }
   }
 
   async onModuleDestroy(): Promise<void> {

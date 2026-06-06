@@ -5,6 +5,13 @@ import { ConfigModule } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { PrismaService } from './prisma.service';
 
+function kafkaBrokers(): string[] {
+  return (process.env.KAFKA_BROKERS ?? 'localhost:9092')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -19,7 +26,13 @@ import { PrismaService } from './prisma.service';
         options: {
           client: {
             clientId: 'user-producer',
-            brokers: ['localhost:9092'],
+            brokers: kafkaBrokers(),
+            connectionTimeout: 30_000,
+            retry: {
+              initialRetryTime: 300,
+              retries: 15,
+              maxRetryTime: 30_000,
+            },
           },
         },
       },

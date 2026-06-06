@@ -7,3 +7,7 @@
 {{- $name := index . "name" -}}
 {{- printf "%s/%s:%s" $root.Values.image.registry $name $root.Values.image.tag }}
 {{- end }}
+
+{{- define "navi.kafkaBroker" -}}
+broker:9092
+{{- end }}

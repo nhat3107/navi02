@@ -28,9 +28,15 @@ function kafkaBrokers(): string[] {
       useFactory: () => {
         const uri = process.env.DATABASE_URL?.trim();
         if (!uri) {
-          throw new Error('DATABASE_URL must be set in apps/chat-service/.env');
+          throw new Error(
+            'DATABASE_URL is not set (map CHAT_DATABASE_URL in deploy secrets)',
+          );
         }
-        return { uri };
+        return {
+          uri,
+          serverSelectionTimeoutMS: 30_000,
+          connectTimeoutMS: 30_000,
+        };
       },
     }),
     MongooseModule.forFeature([
@@ -45,6 +51,12 @@ function kafkaBrokers(): string[] {
           client: {
             clientId: 'chat-service-kafka',
             brokers: kafkaBrokers(),
+            connectionTimeout: 30_000,
+            retry: {
+              initialRetryTime: 300,
+              retries: 15,
+              maxRetryTime: 30_000,
+            },
           },
         },
       },
@@ -55,6 +67,12 @@ function kafkaBrokers(): string[] {
           client: {
             clientId: 'chat-service-user',
             brokers: kafkaBrokers(),
+            connectionTimeout: 30_000,
+            retry: {
+              initialRetryTime: 300,
+              retries: 15,
+              maxRetryTime: 30_000,
+            },
           },
           consumer: {
             groupId: 'chat-service-user-reply',

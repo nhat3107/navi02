@@ -25,9 +25,17 @@ async function bootstrap() {
         client: {
           clientId: 'ai-service',
           brokers,
+          connectionTimeout: 30_000,
+          retry: {
+            initialRetryTime: 300,
+            retries: 15,
+            maxRetryTime: 30_000,
+          },
         },
         consumer: {
           groupId: 'ai-service-consumer',
+          sessionTimeout: 30_000,
+          rebalanceTimeout: 60_000,
         },
       },
     },
@@ -35,4 +43,7 @@ async function bootstrap() {
   await app.listen();
   logger.log('Listening (Kafka RPC: ai.moderate_content)');
 }
-bootstrap();
+bootstrap().catch((err) => {
+  console.error('ai-service bootstrap failed:', err);
+  process.exit(1);
+});

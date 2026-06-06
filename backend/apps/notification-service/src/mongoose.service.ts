@@ -8,6 +8,10 @@ export class MongooseConfigService implements MongooseOptionsFactory {
     if (!uri) {
       throw new Error('DATABASE_URL must be set (NOTIFICATION_DATABASE_URL in deploy config)');
     }
-    return { uri };
+    return {
+      uri,
+      serverSelectionTimeoutMS: 30_000,
+      connectTimeoutMS: 30_000,
+    };
   }
 }
