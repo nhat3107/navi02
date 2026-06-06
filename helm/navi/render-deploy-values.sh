@@ -1,7 +1,8 @@
 #!/bin/sh
 # Writes deploy override values to stdout for `helm upgrade -f`.
-# Required env: DOCKERHUB_USERNAME, JWT_ACCESS_SECRET, JWT_RESET_SECRET, database URLs.
-# Optional: all other secrets listed in cd.yaml; K8S_NAMESPACE (default navi).
+# Required env: DOCKERHUB_USERNAME, JWT_ACCESS_SECRET, JWT_RESET_SECRET,
+# AUTH_DATABASE_URL, USER_DATABASE_URL, CHAT_DATABASE_URL, NETWORK_DATABASE_URL,
+# NOTIFICATION_DATABASE_URL (external Postgres / Mongo connection strings).
 set -eu
 
 NS="${K8S_NAMESPACE:-navi}"
@@ -19,11 +20,11 @@ image:
 secrets:
   JWT_ACCESS_SECRET: "$(yaml_quote "${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET required}")"
   JWT_RESET_SECRET: "$(yaml_quote "${JWT_RESET_SECRET:?JWT_RESET_SECRET required}")"
-  AUTH_DATABASE_URL: "$(yaml_quote "${AUTH_DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/auth_db}")"
-  USER_DATABASE_URL: "$(yaml_quote "${USER_DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/user_db}")"
-  CHAT_DATABASE_URL: "$(yaml_quote "${CHAT_DATABASE_URL:-mongodb://root:example@mongo:27017/chat_db?authSource=admin}")"
-  NETWORK_DATABASE_URL: "$(yaml_quote "${NETWORK_DATABASE_URL:-mongodb://root:example@mongo:27017/network_db?authSource=admin}")"
-  NOTIFICATION_DATABASE_URL: "$(yaml_quote "${NOTIFICATION_DATABASE_URL:-mongodb://root:example@mongo:27017/notification_db?authSource=admin}")"
+  AUTH_DATABASE_URL: "$(yaml_quote "${AUTH_DATABASE_URL:?AUTH_DATABASE_URL required}")"
+  USER_DATABASE_URL: "$(yaml_quote "${USER_DATABASE_URL:?USER_DATABASE_URL required}")"
+  CHAT_DATABASE_URL: "$(yaml_quote "${CHAT_DATABASE_URL:?CHAT_DATABASE_URL required}")"
+  NETWORK_DATABASE_URL: "$(yaml_quote "${NETWORK_DATABASE_URL:?NETWORK_DATABASE_URL required}")"
+  NOTIFICATION_DATABASE_URL: "$(yaml_quote "${NOTIFICATION_DATABASE_URL:?NOTIFICATION_DATABASE_URL required}")"
   FRONTEND_ORIGIN: "$(yaml_quote "${FRONTEND_ORIGIN:-}")"
   OAUTH_FRONTEND_LOGIN_URL: "$(yaml_quote "${OAUTH_FRONTEND_LOGIN_URL:-}")"
   OAUTH_FRONTEND_REDIRECT_URL: "$(yaml_quote "${OAUTH_FRONTEND_REDIRECT_URL:-}")"

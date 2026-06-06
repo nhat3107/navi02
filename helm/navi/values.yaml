@@ -18,7 +18,7 @@ config:
   CLOUDINARY_NETWORK_FOLDER: navi/network
   CLOUDINARY_CHAT_FOLDER: navi/chat
 
-# App secrets (Secret `navi-secrets`). Filled at deploy time via CD / deploy-values.yaml.
+# Postgres and Mongo run outside the cluster — set full URLs in `secrets` at deploy time.
 secrets: {}
 
 dbInit:
@@ -28,7 +28,7 @@ dbInit:
 # All workloads — infra + microservices + frontends.
 # Reusable deployment.yaml / service.yaml iterate this list.
 services:
-  # --- Infrastructure (in-cluster for demo) ---
+  # --- Infrastructure (Kafka in-cluster) ---
 
   - name: broker
     externalImage: true
@@ -74,40 +74,6 @@ services:
       limits:
         memory: 512Mi
         cpu: "1"
-
-  - name: postgres
-    externalImage: true
-    image: postgres:16-alpine
-    port: 5432
-    env:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
-    volumeMounts:
-      - name: data
-        mountPath: /var/lib/postgresql/data
-      - name: init
-        mountPath: /docker-entrypoint-initdb.d
-    volumes:
-      - name: data
-        emptyDir: {}
-      - name: init
-        configMap:
-          name: postgres-init
-
-  - name: mongo
-    externalImage: true
-    image: mongo:7
-    port: 27017
-    env:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: example
-    volumeMounts:
-      - name: data
-        mountPath: /data/db
-    volumes:
-      - name: data
-        emptyDir: {}
 
   # --- Backend microservices ---
 
