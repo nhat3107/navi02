@@ -5,7 +5,7 @@ name: CD
 #
 # Required GitHub Secrets:
 #   DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
-#   K3S_HOST, K3S_USER, K3S_SSH_KEY, K3S_REPO_PATH
+#   KUBE_CONFIG (raw kubeconfig YAML or base64-encoded)
 #   JWT_ACCESS_SECRET, JWT_RESET_SECRET
 
 on:
@@ -28,6 +28,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: azure/setup-kubectl@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -36,6 +41,34 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Configure kubeconfig
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        run: |
+          set -eu
+          if [ -z "${KUBE_CONFIG:-}" ]; then
+            echo "::error::KUBE_CONFIG secret is empty"
+            exit 1
+          fi
+          mkdir -p "$HOME/.kube"
+          CONFIG="$HOME/.kube/config"
+          KUBE_CLEAN="$(printf '%s' "$KUBE_CONFIG" | tr -d '\r')"
+          if printf '%s' "$KUBE_CLEAN" | grep -q '^apiVersion:'; then
+            printf '%s' "$KUBE_CLEAN" > "$CONFIG"
+          else
+            printf '%s' "$KUBE_CLEAN" | base64 -d > "$CONFIG"
+          fi
+          chmod 600 "$CONFIG"
+          if ! grep -q '^apiVersion:' "$CONFIG"; then
+            echo "::error::KUBE_CONFIG is not valid kubeconfig YAML"
+            exit 1
+          fi
+          SERVER="$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)"
+          echo "API server: ${SERVER:-unknown}"
+          kubectl cluster-info
+          kubectl get ns >/dev/null
+          echo "Cluster connection OK"
 
       - name: Build and push db-init
         uses: docker/build-push-action@v6
@@ -78,44 +111,39 @@ jobs:
           sed -i 's/\r$//' helm/navi/render-deploy-values.sh
           sh helm/navi/render-deploy-values.sh > deploy-values.yaml
 
-      - name: Copy deploy values to K3s server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.K3S_HOST }}
-          username: ${{ secrets.K3S_USER }}
-          key: ${{ secrets.K3S_SSH_KEY }}
-          source: deploy-values.yaml
-          target: /tmp/
+      - name: Helm lint
+        run: |
+          helm lint helm/navi -f helm/navi/values.yaml -f deploy-values.yaml
 
-      - name: Deploy to K3s with Helm
-        uses: appleboy/ssh-action@v1.2.0
+      - name: Deploy
         env:
           K8S_NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
-        with:
-          host: ${{ secrets.K3S_HOST }}
-          username: ${{ secrets.K3S_USER }}
-          key: ${{ secrets.K3S_SSH_KEY }}
-          envs: K8S_NAMESPACE
-          script: |
-            set -euo pipefail
-            REPO="${{ secrets.K3S_REPO_PATH }}"
-            NS="${K8S_NAMESPACE:-navi}"
+        run: |
+          NS="${K8S_NAMESPACE:-navi}"
+          kubectl --insecure-skip-tls-verify delete pods -n "${NS}" \
+            --field-selector status.phase=Failed \
+            --ignore-not-found --grace-period=0 2>/dev/null || true
+          helm upgrade --install navi helm/navi \
+            --kube-insecure-skip-tls-verify \
+            --namespace "${NS}" \
+            --create-namespace \
+            -f helm/navi/values.yaml \
+            -f deploy-values.yaml \
+            --wait --timeout 15m
 
-            cd "${REPO}"
-            git fetch origin main
-            git checkout main
-            git pull origin main
+      - name: Wait for db-init
+        env:
+          K8S_NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
+        run: |
+          NS="${K8S_NAMESPACE:-navi}"
+          KUBECTL="kubectl --insecure-skip-tls-verify"
+          if $KUBECTL get job navi-db-init -n "${NS}" >/dev/null 2>&1; then
+            $KUBECTL wait --for=condition=complete job/navi-db-init \
+              -n "${NS}" --timeout=300s
+          fi
 
-            helm upgrade --install navi ./helm/navi \
-              --namespace "${NS}" \
-              --create-namespace \
-              -f helm/navi/values.yaml \
-              -f /tmp/deploy-values.yaml \
-              --wait --timeout 15m
-
-            if kubectl get job navi-db-init -n "${NS}" >/dev/null 2>&1; then
-              kubectl wait --for=condition=complete job/navi-db-init \
-                -n "${NS}" --timeout=300s || true
-            fi
-
-            kubectl get pods -n "${NS}"
+      - name: Show pods
+        env:
+          K8S_NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
+        run: |
+          kubectl --insecure-skip-tls-verify get pods -n "${K8S_NAMESPACE:-navi}"
