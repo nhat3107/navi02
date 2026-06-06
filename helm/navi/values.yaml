@@ -42,6 +42,7 @@ apps:
     databaseUrlKey: USER_DATABASE_URL
   - name: chat-service
     image: navi-chat-service
+    port: 4030
     databaseUrlKey: CHAT_DATABASE_URL
   - name: network-service
     image: navi-network-service
@@ -72,7 +73,9 @@ infra:
     storage: 5Gi
   kafka:
     enabled: true
-    image: apache/kafka:latest
+    image: apache/kafka:3.9.0
+    # Single-node KRaft; keep stable after first deploy.
+    clusterId: MkU3OEVBNTcwNTJENDM2Qk
 
 # Prisma schema push against external Postgres (disable if you manage schemas separately).
 dbInit:

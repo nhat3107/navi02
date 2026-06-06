@@ -6,7 +6,9 @@ import { Logger } from '@nestjs/common';
 import { AiServiceModule } from './ai-service.module';
 import { kafkaBrokersFromEnv } from './kafka-brokers';
 
-dns.setServers(['8.8.8.8', '1.1.1.1']);
+if (process.env.USE_PUBLIC_DNS === 'true') {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+}
 
 async function bootstrap() {
   const logger = new Logger('AiService');
