@@ -4,7 +4,6 @@ App services set `app: true` to receive shared ConfigMap + Secret env.
 */}}
 {{- $root := . -}}
 {{- $ns := include "navi.namespace" . -}}
-{{- $kafkaHost := printf "broker.%s.svc.cluster.local" $ns -}}
 {{- range .Values.services }}
 ---
 apiVersion: apps/v1
@@ -39,7 +38,7 @@ spec:
           command:
             - /bin/sh
             - -c
-            - until nc -z {{ $kafkaHost }} 9092; do echo "waiting for kafka..."; sleep 3; done
+            - until nc -z broker 9092; do echo "waiting for kafka..."; sleep 3; done
         {{- end }}
         {{- with .initContainers }}
         {{- toYaml . | nindent 8 }}
