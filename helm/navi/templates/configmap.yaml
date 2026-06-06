@@ -8,13 +8,3 @@ data:
 {{- range $k, $v := .Values.config }}
   {{ $k }}: {{ $v | quote }}
 {{- end }}
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: postgres-init
-  namespace: {{ include "navi.namespace" . }}
-data:
-  01-init-databases.sql: |
-    CREATE DATABASE auth_db;
-    CREATE DATABASE user_db;
