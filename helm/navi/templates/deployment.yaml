@@ -70,8 +70,16 @@ spec:
           {{- if .externalImage }}
           imagePullPolicy: {{ .imagePullPolicy | default "IfNotPresent" }}
           {{- else }}
-          imagePullPolicy: {{ .imagePullPolicy | default $root.Values.image.pullPolicy | default "Always" }}
+          imagePullPolicy: {{ .imagePullPolicy | default $root.Values.image.pullPolicy | default "IfNotPresent" }}
           {{- end }}
+          {{- if and .app (not .command) }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              export KAFKA_BROKERS="${BROKER_SERVICE_HOST}:9092"
+              export USE_PUBLIC_DNS=false
+              exec ./docker/service-entrypoint.sh
+          {{- else }}
           {{- with .command }}
           command:
             {{- toYaml . | nindent 12 }}
@@ -80,11 +88,12 @@ spec:
           args:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- end }}
           {{- if .port }}
           ports:
             - containerPort: {{ .port }}
           {{- end }}
-          {{- if or .env .databaseUrlKey .app }}
+          {{- if or .env .databaseUrlKey (and .app .command) }}
           env:
             {{- range $k, $v := (.env | default dict) }}
             - name: {{ $k }}
@@ -97,7 +106,7 @@ spec:
                   name: navi-secrets
                   key: {{ .databaseUrlKey }}
             {{- end }}
-            {{- if .app }}
+            {{- if and .app .command }}
             - name: KAFKA_BROKERS
               value: "$(BROKER_SERVICE_HOST):9092"
             - name: USE_PUBLIC_DNS

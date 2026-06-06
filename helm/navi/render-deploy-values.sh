@@ -18,7 +18,7 @@ namespace: ${NS}
 image:
   registry: ${REG}
   tag: ${TAG}
-  pullPolicy: Always
+  pullPolicy: IfNotPresent
 secrets:
   JWT_ACCESS_SECRET: "$(yaml_quote "${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET required}")"
   JWT_RESET_SECRET: "$(yaml_quote "${JWT_RESET_SECRET:?JWT_RESET_SECRET required}")"
