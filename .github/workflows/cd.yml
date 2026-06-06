@@ -98,7 +98,7 @@ jobs:
             -f helm/navi/values.yaml \
             -f /tmp/cd-values.yaml \
             --cleanup-on-fail \
-            --wait --timeout 3m
+            --wait --timeout 10m \
             --atomic
 
       - name: Wait for db-init
