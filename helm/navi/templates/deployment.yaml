@@ -30,6 +30,7 @@ spec:
         app.kubernetes.io/name: {{ .name }}
         app.kubernetes.io/instance: {{ $root.Release.Name }}
     spec:
+      enableServiceLinks: true
       {{- if or .waitForKafka .initContainers }}
       initContainers:
         {{- if .waitForKafka }}
@@ -38,7 +39,11 @@ spec:
           command:
             - /bin/sh
             - -c
-            - until nc -z broker 9092; do echo "waiting for kafka..."; sleep 3; done
+            - |
+              until nc -z "${BROKER_SERVICE_HOST}" 9092; do
+                echo "waiting for kafka at ${BROKER_SERVICE_HOST:-?}:9092..."
+                sleep 3
+              done
         {{- end }}
         {{- with .initContainers }}
         {{- toYaml . | nindent 8 }}
@@ -75,7 +80,7 @@ spec:
             {{- end }}
             {{- if .app }}
             - name: KAFKA_BROKERS
-              value: {{ include "navi.kafkaBrokers" $root | quote }}
+              value: "$(BROKER_SERVICE_HOST):9092"
             - name: USE_PUBLIC_DNS
               value: "false"
             {{- end }}

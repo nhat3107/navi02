@@ -20,8 +20,8 @@ Infra images use the `image` field directly when `externalImage` is true.
 {{- end }}
 
 {{/*
-Kafka bootstrap address — short service name (same namespace).
+Kafka bootstrap — apps use $(BROKER_SERVICE_HOST):9092 (injected by Kubernetes service links).
 */}}
 {{- define "navi.kafkaBrokers" -}}
-broker:9092
+$(BROKER_SERVICE_HOST):9092
 {{- end }}

@@ -4,7 +4,6 @@ metadata:
   name: navi-config
   namespace: {{ include "navi.namespace" . }}
 data:
-  KAFKA_BROKERS: {{ include "navi.kafkaBrokers" . | quote }}
 {{- range $k, $v := .Values.config }}
   {{ $k }}: {{ $v | quote }}
 {{- end }}
