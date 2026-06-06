@@ -31,6 +31,12 @@ import { kafkaBrokersFromEnv } from './kafka-env';
           client: {
             clientId: 'notification-service-user-rpc',
             brokers: kafkaBrokersFromEnv(),
+            connectionTimeout: 30_000,
+            retry: {
+              initialRetryTime: 300,
+              retries: 15,
+              maxRetryTime: 30_000,
+            },
           },
           consumer: {
             groupId: 'notification-service-user-reply',
