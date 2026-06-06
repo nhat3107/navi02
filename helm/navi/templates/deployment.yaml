@@ -87,6 +87,10 @@ spec:
             - configMapRef:
                 name: navi-config
           {{- end }}
+          {{- with .startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with .readinessProbe }}
           readinessProbe:
             {{- toYaml . | nindent 12 }}
