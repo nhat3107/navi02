@@ -41,14 +41,6 @@ jobs:
           printf '%s' "$KUBE_CONFIG" > ~/.kube/config
           chmod 600 ~/.kube/config
 
-      - name: Build and push db-init
-        uses: docker/build-push-action@v6
-        with:
-          context: ./backend
-          file: ./backend/docker/Dockerfile.db-init
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/navi-db-init:${{ env.IMAGE_TAG }}
-
       - name: Write deploy values
         env:
           K8S_NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
@@ -101,17 +93,6 @@ jobs:
             -f helm/navi/values.yaml \
             -f deploy-values.yaml \
             --wait --timeout 15m
-
-      - name: Wait for db-init
-        env:
-          K8S_NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
-        run: |
-          NS="${K8S_NAMESPACE:-navi}"
-          KUBECTL="kubectl --insecure-skip-tls-verify"
-          if $KUBECTL get job navi-db-init -n "${NS}" >/dev/null 2>&1; then
-            $KUBECTL wait --for=condition=complete job/navi-db-init \
-              -n "${NS}" --timeout=300s
-          fi
 
       - name: Show pods
         env:
