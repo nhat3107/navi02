@@ -1,6 +1,7 @@
 Navi deployed (release {{ .Release.Name }}, namespace {{ include "navi.namespace" . }}).
 
 Images: {{ .Values.image.registry }}/*:{{ .Values.image.tag }}
+Kafka:  {{ include "navi.kafkaBrokers" . }} (broker advertised listener matches this host)
 
 {{- if .Values.ingress.enabled }}
   API:   http://{{ .Values.ingress.apiHost }}/api

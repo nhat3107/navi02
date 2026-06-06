@@ -1,5 +1,4 @@
 {{- $ns := include "navi.namespace" . -}}
-{{- $kafkaBroker := include "navi.kafkaBootstrap" . -}}
 {{- range .Values.apps }}
 {{- if .expose }}
 ---
@@ -10,8 +9,7 @@ metadata:
   namespace: {{ $ns }}
 spec:
   ports:
-    - name: http
-      port: {{ .port }}
+    - port: {{ .port }}
       targetPort: {{ .port }}
   selector:
     app: {{ .name }}
@@ -32,17 +30,6 @@ spec:
       labels:
         app: {{ .name }}
     spec:
-      dnsPolicy: ClusterFirst
-      dnsConfig:
-        searches:
-          - {{ $ns }}.svc.cluster.local
-          - svc.cluster.local
-          - cluster.local
-        options:
-          - name: ndots
-            value: "2"
-          - name: single-request-reopen
-            value: ""
       containers:
         - name: {{ .name }}
           image: {{ include "navi.image" (dict "root" $ "name" .image) }}
@@ -56,51 +43,12 @@ spec:
                 name: navi-config
             - secretRef:
                 name: navi-secrets
-          {{- $needsEnv := or .databaseUrlKey (and (ne .name "user-app") (ne .name "admin-app")) }}
-          {{- if $needsEnv }}
+          {{- if .databaseUrlKey }}
           env:
-            {{- if and (ne .name "user-app") (ne .name "admin-app") }}
-            - name: KAFKA_BROKERS
-              value: {{ $kafkaBroker | quote }}
-            {{- end }}
-            {{- if .databaseUrlKey }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: navi-secrets
                   key: {{ .databaseUrlKey }}
-            {{- end }}
-          {{- end }}
-          {{- if eq .name "api-gateway" }}
-          startupProbe:
-            tcpSocket:
-              port: 3000
-            initialDelaySeconds: 10
-            periodSeconds: 5
-            failureThreshold: 30
-          readinessProbe:
-            tcpSocket:
-              port: 3000
-            periodSeconds: 10
-            timeoutSeconds: 3
-          {{- else if eq .name "chat-service" }}
-          startupProbe:
-            tcpSocket:
-              port: 4030
-            initialDelaySeconds: 10
-            periodSeconds: 5
-            failureThreshold: 30
-          readinessProbe:
-            tcpSocket:
-              port: 4030
-            periodSeconds: 10
-            timeoutSeconds: 3
-          {{- else if .expose }}
-          readinessProbe:
-            httpGet:
-              path: /
-              port: {{ .port }}
-            initialDelaySeconds: 5
-            periodSeconds: 10
           {{- end }}
 {{- end }}
