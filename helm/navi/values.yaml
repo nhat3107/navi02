@@ -8,9 +8,11 @@ image:
   tag: latest
 
 # Non-secret env shared by backend services (ConfigMap `navi-config`).
+# ConfigMap is applied after Secret in envFrom so these override secret keys.
 config:
   NODE_ENV: production
   KAFKAJS_NO_PARTITIONER_WARNING: "1"
+  USE_PUBLIC_DNS: "false"
   PORT: "3000"
   CHAT_HTTP_PORT: "4030"
   COOKIE_SECURE: "false"
@@ -61,6 +63,12 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
       KAFKA_NUM_PARTITIONS: "3"
       KAFKA_HEAP_OPTS: "-Xmx256m -Xms128m"
+    readinessProbe:
+      tcpSocket:
+        port: 9092
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
     volumeMounts:
       - name: data
         mountPath: /data
@@ -81,36 +89,43 @@ services:
     imageName: navi-api-gateway
     port: 3000
     app: true
+    waitForKafka: true
 
   - name: auth-service
     imageName: navi-auth-service
     app: true
+    waitForKafka: true
     databaseUrlKey: AUTH_DATABASE_URL
 
   - name: user-service
     imageName: navi-user-service
     app: true
+    waitForKafka: true
     databaseUrlKey: USER_DATABASE_URL
 
   - name: chat-service
     imageName: navi-chat-service
     port: 4030
     app: true
+    waitForKafka: true
     databaseUrlKey: CHAT_DATABASE_URL
 
   - name: network-service
     imageName: navi-network-service
     app: true
+    waitForKafka: true
     databaseUrlKey: NETWORK_DATABASE_URL
 
   - name: notification-service
     imageName: navi-notification-service
     app: true
+    waitForKafka: true
     databaseUrlKey: NOTIFICATION_DATABASE_URL
 
   - name: ai-service
     imageName: navi-ai-service
     app: true
+    waitForKafka: true
 
   # --- Frontends ---
 
