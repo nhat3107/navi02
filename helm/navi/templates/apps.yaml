@@ -1,4 +1,5 @@
 {{- $ns := include "navi.namespace" . -}}
+{{- $kafkaBroker := include "navi.kafkaBroker" . -}}
 {{- range .Values.apps }}
 {{- if .expose }}
 ---
@@ -32,6 +33,14 @@ spec:
         app: {{ .name }}
     spec:
       dnsPolicy: ClusterFirst
+      dnsConfig:
+        searches:
+          - {{ $ns }}.svc.cluster.local
+          - svc.cluster.local
+          - cluster.local
+        options:
+          - name: ndots
+            value: "2"
       containers:
         - name: {{ .name }}
           image: {{ include "navi.image" (dict "root" $ "name" .image) }}
@@ -45,13 +54,20 @@ spec:
                 name: navi-config
             - secretRef:
                 name: navi-secrets
-          {{- if .databaseUrlKey }}
+          {{- $needsEnv := or .databaseUrlKey (and (ne .name "user-app") (ne .name "admin-app")) }}
+          {{- if $needsEnv }}
           env:
+            {{- if and (ne .name "user-app") (ne .name "admin-app") }}
+            - name: KAFKA_BROKERS
+              value: {{ $kafkaBroker | quote }}
+            {{- end }}
+            {{- if .databaseUrlKey }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: navi-secrets
                   key: {{ .databaseUrlKey }}
+            {{- end }}
           {{- end }}
           {{- if eq .name "api-gateway" }}
           startupProbe:
