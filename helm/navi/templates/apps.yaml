@@ -30,25 +30,6 @@ spec:
       labels:
         app: {{ .name }}
     spec:
-      {{- $isFrontend := or (eq .name "user-app") (eq .name "admin-app") }}
-      {{- if not $isFrontend }}
-      initContainers:
-        {{- if $.Values.infra.postgres.enabled }}
-        - name: wait-postgres
-          image: busybox:1.36
-          command: [/bin/sh, -c, "until nc -z postgres 5432; do sleep 3; done"]
-        {{- end }}
-        {{- if $.Values.infra.mongo.enabled }}
-        - name: wait-mongo
-          image: busybox:1.36
-          command: [/bin/sh, -c, "until nc -z mongo 27017; do sleep 3; done"]
-        {{- end }}
-        {{- if $.Values.infra.kafka.enabled }}
-        - name: wait-kafka
-          image: busybox:1.36
-          command: [/bin/sh, -c, "until nc -z broker 9092; do sleep 3; done"]
-        {{- end }}
-      {{- end }}
       containers:
         - name: {{ .name }}
           image: {{ include "navi.image" (dict "root" $ "name" .image) }}
@@ -70,11 +51,29 @@ spec:
                   key: {{ .databaseUrlKey }}
           {{- end }}
           {{- if eq .name "api-gateway" }}
+          startupProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 30
           readinessProbe:
             tcpSocket:
               port: 3000
-            initialDelaySeconds: 15
             periodSeconds: 10
+            timeoutSeconds: 3
+          {{- else if eq .name "chat-service" }}
+          startupProbe:
+            tcpSocket:
+              port: 4030
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket:
+              port: 4030
+            periodSeconds: 10
+            timeoutSeconds: 3
           {{- else if .expose }}
           readinessProbe:
             httpGet:

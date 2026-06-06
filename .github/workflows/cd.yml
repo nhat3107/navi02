@@ -32,10 +32,13 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Configure kubeconfig
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         run: |
           mkdir -p "$HOME/.kube"
-          echo "${{ secrets.KUBE_CONFIG }}" > "$HOME/.kube/config"
+          printf '%s\n' "$KUBE_CONFIG" > "$HOME/.kube/config"
           chmod 600 "$HOME/.kube/config"
+          kubectl cluster-info
 
       - name: Build and push db-init
         uses: docker/build-push-action@v6
