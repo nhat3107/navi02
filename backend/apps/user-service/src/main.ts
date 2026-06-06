@@ -16,12 +16,23 @@ async function bootstrap() {
       client: {
         clientId: 'user-service',
         brokers: kafkaBrokers(),
+        connectionTimeout: 30_000,
+        retry: {
+          initialRetryTime: 300,
+          retries: 15,
+          maxRetryTime: 30_000,
+        },
       },
       consumer: {
         groupId: 'user-consumer',
+        sessionTimeout: 30_000,
+        rebalanceTimeout: 60_000,
       },
     },
   });
   await app.listen();
 }
-bootstrap();
+bootstrap().catch((err) => {
+  console.error('user-service bootstrap failed:', err);
+  process.exit(1);
+});

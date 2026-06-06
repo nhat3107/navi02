@@ -9,7 +9,13 @@ dotenv.config();
 @Injectable()
 export class PrismaService extends PrismaClient {
   constructor() {
-    const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL as string });
+    const url = process.env.DATABASE_URL?.trim();
+    if (!url) {
+      throw new Error(
+        'DATABASE_URL is not set (map AUTH_DATABASE_URL in deploy secrets)',
+      );
+    }
+    const adapter = new PrismaPg({ connectionString: url });
     super({ adapter });
   }
 }

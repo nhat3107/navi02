@@ -21,7 +21,15 @@ export class KafkaProducerLifecycle implements OnModuleInit, OnModuleDestroy {
     for (const pattern of NETWORK_KAFKA_RPC_REPLY) {
       this.kafka.subscribeToResponseOf(pattern);
     }
-    await this.kafka.connect();
+    for (let attempt = 1; attempt <= 30; attempt++) {
+      try {
+        await this.kafka.connect();
+        return;
+      } catch (err) {
+        if (attempt === 30) throw err;
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
+    }
   }
 
   async onModuleDestroy(): Promise<void> {

@@ -1,4 +1,5 @@
 {{- $ns := include "navi.namespace" . -}}
+{{- $kafkaBroker := include "navi.kafkaBroker" . -}}
 {{- range .Values.apps }}
 {{- if .expose }}
 ---
@@ -31,6 +32,19 @@ spec:
       labels:
         app: {{ .name }}
     spec:
+      {{- if and $.Values.infra.kafka.enabled (ne .name "user-app") (ne .name "admin-app") }}
+      initContainers:
+        - name: wait-kafka
+          image: {{ $.Values.infra.kafka.image }}
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              until /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server {{ $kafkaBroker }} >/dev/null 2>&1; do
+                echo "waiting for Kafka at {{ $kafkaBroker }}..."
+                sleep 3
+              done
+      {{- end }}
       dnsPolicy: ClusterFirst
       containers:
         - name: {{ .name }}

@@ -7,3 +7,7 @@
 {{- $name := index . "name" -}}
 {{- printf "%s/%s:%s" $root.Values.image.registry $name $root.Values.image.tag }}
 {{- end }}
+
+{{- define "navi.kafkaBroker" -}}
+{{- printf "broker.%s.svc.cluster.local:9092" (include "navi.namespace" .) }}
+{{- end }}

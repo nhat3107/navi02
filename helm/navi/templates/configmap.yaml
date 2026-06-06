@@ -4,7 +4,7 @@ metadata:
   name: navi-config
   namespace: {{ include "navi.namespace" . }}
 data:
-  KAFKA_BROKERS: {{ printf "broker.%s.svc.cluster.local:9092" (include "navi.namespace" .) | quote }}
+  KAFKA_BROKERS: {{ include "navi.kafkaBroker" . | quote }}
 {{- range $k, $v := .Values.config }}
 {{- if ne $k "KAFKA_BROKERS" }}
   {{ $k }}: {{ $v | quote }}

@@ -30,7 +30,11 @@ function kafkaBrokers(): string[] {
         if (!uri) {
           throw new Error('DATABASE_URL must be set in apps/chat-service/.env');
         }
-        return { uri };
+        return {
+          uri,
+          serverSelectionTimeoutMS: 30_000,
+          connectTimeoutMS: 30_000,
+        };
       },
     }),
     MongooseModule.forFeature([

@@ -21,9 +21,26 @@ export class NotificationRealtimeOutboundService
     const kafka = new Kafka({
       clientId: 'notification-service-realtime',
       brokers: kafkaBrokersFromEnv(),
+      connectionTimeout: 30_000,
+      retry: {
+        initialRetryTime: 300,
+        retries: 15,
+        maxRetryTime: 30_000,
+      },
     });
     this.producer = kafka.producer();
-    await this.producer.connect();
+    for (let attempt = 1; attempt <= 30; attempt++) {
+      try {
+        await this.producer.connect();
+        return;
+      } catch (err) {
+        this.log.warn(
+          `Kafka producer connect attempt ${attempt}/30 failed: ${String(err)}`,
+        );
+        if (attempt === 30) throw err;
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
+    }
   }
 
   async onModuleDestroy(): Promise<void> {

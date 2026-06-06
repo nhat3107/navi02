@@ -32,7 +32,15 @@ function kafkaBrokers(): string[] {
         name: 'KAFKA_SERVICE',
         transport: Transport.KAFKA,
         options: {
-          client: { brokers: kafkaBrokers() },
+          client: {
+            brokers: kafkaBrokers(),
+            connectionTimeout: 30_000,
+            retry: {
+              initialRetryTime: 300,
+              retries: 15,
+              maxRetryTime: 30_000,
+            },
+          },
         },
       },
     ]),
