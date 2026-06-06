@@ -91,7 +91,7 @@ jobs:
           K8S_NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
         run: |
           NS="${K8S_NAMESPACE:-navi}"
-          helm uninstall navi -n navi
+          helm uninstall navi -n "${NS}" --kube-insecure-skip-tls-verify
           helm upgrade --install navi helm/navi \
             --kube-insecure-skip-tls-verify
             --namespace "${NS}" \
