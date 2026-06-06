@@ -38,14 +38,7 @@ services:
     port: 9092
     strategy:
       type: Recreate
-    command:
-      - /bin/sh
-      - -ec
-      - |
-        if [ ! -f /data/meta.properties ]; then
-          /opt/kafka/bin/kafka-storage.sh format -t "${CLUSTER_ID}" -c /opt/kafka/config/kraft/server.properties
-        fi
-        exec /opt/kafka/bin/kafka-server-start.sh /opt/kafka/config/kraft/server.properties
+    # Use the official image entrypoint (/etc/kafka/docker/run) — same env as docker-compose.
     env:
       KAFKA_NODE_ID: "1"
       KAFKA_PROCESS_ROLES: broker,controller
@@ -55,24 +48,18 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:9093
-      KAFKA_LOG_DIRS: /data
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
       KAFKA_NUM_PARTITIONS: "3"
+      KAFKA_HEAP_OPTS: "-Xmx256m -Xms128m"
     readinessProbe:
       tcpSocket:
         port: 9092
       initialDelaySeconds: 30
       periodSeconds: 10
       timeoutSeconds: 5
-    volumeMounts:
-      - name: data
-        mountPath: /data
-    volumes:
-      - name: data
-        emptyDir: {}
     resources:
       requests:
         memory: 384Mi
