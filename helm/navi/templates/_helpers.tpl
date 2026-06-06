@@ -8,6 +8,11 @@
 {{- printf "%s/%s:%s" $root.Values.image.registry $name $root.Values.image.tag }}
 {{- end }}
 
-{{- define "navi.kafkaBroker" -}}
-broker:9092
+{{- define "navi.kafkaBrokers" -}}
+{{- .Values.kafka.brokers | default "broker:9092" }}
+{{- end }}
+
+{{- define "navi.kafkaAdvertised" -}}
+{{- $host := (split ":" (include "navi.kafkaBrokers" .))._0 -}}
+{{- printf "PLAINTEXT://%s:9092" $host }}
 {{- end }}

@@ -14,9 +14,13 @@ ingress:
   userAppHost: app.example.com
   adminAppHost: admin.example.com
 
+# CD sets kafka.brokers to broker Service ClusterIP (e.g. 10.43.0.5:9092) after deploy.
+kafka:
+  brokers: ""
+
 config:
   NODE_ENV: production
-  KAFKA_BROKERS: broker:9092
+  KAFKAJS_NO_PARTITIONER_WARNING: "1"
   PORT: "3000"
   CHAT_HTTP_PORT: "4030"
   COOKIE_SECURE: "false"

@@ -9,8 +9,7 @@ metadata:
   namespace: {{ $ns }}
 spec:
   ports:
-    - name: http
-      port: {{ .port }}
+    - port: {{ .port }}
       targetPort: {{ .port }}
   selector:
     app: {{ .name }}
@@ -31,7 +30,6 @@ spec:
       labels:
         app: {{ .name }}
     spec:
-      dnsPolicy: ClusterFirst
       containers:
         - name: {{ .name }}
           image: {{ include "navi.image" (dict "root" $ "name" .image) }}
@@ -52,37 +50,5 @@ spec:
                 secretKeyRef:
                   name: navi-secrets
                   key: {{ .databaseUrlKey }}
-          {{- end }}
-          {{- if eq .name "api-gateway" }}
-          startupProbe:
-            tcpSocket:
-              port: 3000
-            initialDelaySeconds: 10
-            periodSeconds: 5
-            failureThreshold: 30
-          readinessProbe:
-            tcpSocket:
-              port: 3000
-            periodSeconds: 10
-            timeoutSeconds: 3
-          {{- else if eq .name "chat-service" }}
-          startupProbe:
-            tcpSocket:
-              port: 4030
-            initialDelaySeconds: 10
-            periodSeconds: 5
-            failureThreshold: 30
-          readinessProbe:
-            tcpSocket:
-              port: 4030
-            periodSeconds: 10
-            timeoutSeconds: 3
-          {{- else if .expose }}
-          readinessProbe:
-            httpGet:
-              path: /
-              port: {{ .port }}
-            initialDelaySeconds: 5
-            periodSeconds: 10
           {{- end }}
 {{- end }}

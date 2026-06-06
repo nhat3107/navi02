@@ -101,6 +101,16 @@ jobs:
             --wait --timeout 10m \
             --atomic
 
+      - name: Sync Kafka broker address
+        env:
+          K8S_NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
+        run: |
+          NS="${K8S_NAMESPACE:-navi}"
+          sed -i 's/\r$//' helm/navi/sync-kafka-broker.sh
+          sh helm/navi/sync-kafka-broker.sh "${NS}" \
+            -f helm/navi/values.yaml \
+            -f /tmp/cd-values.yaml
+
       - name: Wait for db-init
         env:
           K8S_NAMESPACE: ${{ secrets.K8S_NAMESPACE }}

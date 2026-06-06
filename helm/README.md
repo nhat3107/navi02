@@ -39,7 +39,7 @@ Use plain `http://` in all URLs unless TLS terminates outside the cluster:
 | Runtime `process.env` | Set by | GitHub / Helm source |
 |----------------------|--------|----------------------|
 | `DATABASE_URL` | Helm per-app | `AUTH_DATABASE_URL`, `USER_DATABASE_URL`, `CHAT_DATABASE_URL`, `NETWORK_DATABASE_URL`, `NOTIFICATION_DATABASE_URL` |
-| `KAFKA_BROKERS` | Helm ConfigMap | `broker:9092` in `values.yaml` |
+| `KAFKA_BROKERS` | Helm ConfigMap | `kafka.brokers` — CD sets broker Service ClusterIP (`10.x.x.x:9092`) via `sync-kafka-broker.sh` |
 | `JWT_ACCESS_SECRET`, `JWT_RESET_SECRET` | Helm Secret | CD secrets |
 | `FRONTEND_ORIGIN`, `OAUTH_*`, `GOOGLE_*`, `GH_*` | Helm Secret | CD secrets (api-gateway) |
 | `EMAIL_*`, `CLOUDINARY_*`, `FRONTEND_URL` | Helm Secret | CD secrets (user-service) |
