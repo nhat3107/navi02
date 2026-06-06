@@ -20,8 +20,8 @@ Infra images use the `image` field directly when `externalImage` is true.
 {{- end }}
 
 {{/*
-Kafka bootstrap address used by all backend services.
+Kafka bootstrap address — cluster-internal FQDN (works with cluster DNS).
 */}}
 {{- define "navi.kafkaBrokers" -}}
-broker:9092
+broker.{{ include "navi.namespace" . }}.svc.cluster.local:9092
 {{- end }}
