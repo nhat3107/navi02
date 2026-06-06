@@ -56,8 +56,8 @@ In production (`NODE_ENV=production`), services use injected env only — not `a
 
 - Broker Service: `broker:9092` (same namespace DNS — no ClusterIP sync step).
 - `KAFKA_BROKERS` and `KAFKA_ADVERTISED_LISTENERS` both use `broker:9092`.
-- Backend pods wait for broker TCP (`wait-broker` init) before starting.
-- `infra.kafka.colocateApps: true` (default) schedules all app pods on the broker node — avoids cross-node pod networking issues on multi-node k3s/AWS. Set `false` once node-to-node traffic (UDP 8472 / SG rules) is confirmed.
+- `infra.kafka.colocateApps: true` (default) prefers scheduling app pods on the broker node — helps on multi-node k3s/AWS where cross-node pod traffic is blocked. Set `false` once node-to-node traffic (UDP 8472 / SG rules) is confirmed.
+- Backend services retry Kafka connect at startup (no init container).
 
 ## Database env naming
 

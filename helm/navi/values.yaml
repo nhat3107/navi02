@@ -34,31 +34,24 @@ apps:
     image: navi-api-gateway
     port: 3000
     expose: true
-    usesKafka: true
   - name: auth-service
     image: navi-auth-service
     databaseUrlKey: AUTH_DATABASE_URL
-    usesKafka: true
   - name: user-service
     image: navi-user-service
     databaseUrlKey: USER_DATABASE_URL
-    usesKafka: true
   - name: chat-service
     image: navi-chat-service
     port: 4030
     databaseUrlKey: CHAT_DATABASE_URL
-    usesKafka: true
   - name: network-service
     image: navi-network-service
     databaseUrlKey: NETWORK_DATABASE_URL
-    usesKafka: true
   - name: notification-service
     image: navi-notification-service
     databaseUrlKey: NOTIFICATION_DATABASE_URL
-    usesKafka: true
   - name: ai-service
     image: navi-ai-service
-    usesKafka: true
   - name: user-app
     image: navi-user-app
     port: 80

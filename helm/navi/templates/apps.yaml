@@ -34,26 +34,13 @@ spec:
       {{- if and $root.Values.infra.kafka.enabled $root.Values.infra.kafka.colocateApps }}
       affinity:
         podAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchLabels:
-                  app: kafka
-              topologyKey: kubernetes.io/hostname
-      {{- end }}
-      {{- if and $root.Values.infra.kafka.enabled .usesKafka }}
-      initContainers:
-        - name: wait-broker
-          image: busybox:1.36
-          command:
-            - /bin/sh
-            - -c
-            - |
-              for i in $(seq 1 90); do
-                nc -z broker 9092 && exit 0
-                sleep 2
-              done
-              echo "broker:9092 not reachable after 180s"
-              exit 1
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: kafka
+                topologyKey: kubernetes.io/hostname
       {{- end }}
       containers:
         - name: {{ .name }}
