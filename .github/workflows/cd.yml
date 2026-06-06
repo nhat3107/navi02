@@ -32,10 +32,11 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Configure kubeconfig
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         run: |
-          mkdir -p "$HOME/.kube"
-          echo "${{ secrets.KUBE_CONFIG }}" > "$HOME/.kube/config"
-          chmod 600 "$HOME/.kube/config"
+          sed -i 's/\r$//' .github/scripts/setup-kubeconfig.sh
+          sh .github/scripts/setup-kubeconfig.sh
 
       - name: Build and push db-init
         uses: docker/build-push-action@v6
@@ -104,7 +105,8 @@ jobs:
           K8S_NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
         run: |
           NS="${K8S_NAMESPACE:-navi}"
-          if kubectl get job navi-db-init -n "${NS}" >/dev/null 2>&1; then
-            kubectl wait --for=condition=complete job/navi-db-init \
+          KUBECTL="kubectl --insecure-skip-tls-verify"
+          if $KUBECTL get job navi-db-init -n "${NS}" >/dev/null 2>&1; then
+            $KUBECTL wait --for=condition=complete job/navi-db-init \
               -n "${NS}" --timeout=300s
           fi

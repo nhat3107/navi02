@@ -168,6 +168,7 @@ metadata:
   namespace: {{ $ns }}
 spec:
   replicas: 1
+  revisionHistoryLimit: 2
   strategy:
     type: Recreate
   selector:
@@ -222,6 +223,12 @@ spec:
               value: "0"
             - name: KAFKA_NUM_PARTITIONS
               value: "3"
+            - name: KAFKA_LOG_RETENTION_HOURS
+              value: "1"
+            - name: KAFKA_HEAP_OPTS
+              value: {{ .Values.infra.kafka.heapOpts | quote }}
+          resources:
+            {{- toYaml .Values.infra.kafka.resources | nindent 12 }}
           volumeMounts:
             - name: data
               mountPath: /data

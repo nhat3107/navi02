@@ -80,6 +80,15 @@ infra:
     image: apache/kafka:3.9.0
     # Single-node KRaft; keep stable after first deploy.
     clusterId: MkU3OEVBNTcwNTJENDM2Qk
+    # Small k3s nodes: cap JVM + disk churn to avoid kubelet evictions.
+    heapOpts: "-Xmx256m -Xms128m"
+    resources:
+      requests:
+        memory: 384Mi
+        cpu: 100m
+      limits:
+        memory: 512Mi
+        cpu: "1"
 
 # Prisma schema push against external Postgres (disable if you manage schemas separately).
 dbInit:
