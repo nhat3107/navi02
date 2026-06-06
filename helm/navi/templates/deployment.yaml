@@ -31,6 +31,21 @@ spec:
         app.kubernetes.io/instance: {{ $root.Release.Name }}
     spec:
       enableServiceLinks: true
+      {{- if or (and .waitForKafka $root.Values.kafka.colocateApps) .affinity }}
+      affinity:
+        {{- if and .waitForKafka $root.Values.kafka.colocateApps }}
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: broker
+                  app.kubernetes.io/instance: {{ $root.Release.Name }}
+              topologyKey: kubernetes.io/hostname
+        {{- end }}
+        {{- with .affinity }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
       {{- if or .waitForKafka .initContainers }}
       initContainers:
         {{- if .waitForKafka }}

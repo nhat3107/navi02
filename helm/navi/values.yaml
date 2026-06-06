@@ -27,6 +27,11 @@ dbInit:
   enabled: true
   imageName: navi-db-init
 
+# Schedule Kafka-consuming apps on the same node as the broker (works around
+# cross-node pod networking issues on multi-node K3s / AWS).
+kafka:
+  colocateApps: true
+
 # All workloads — infra + microservices + frontends.
 # Reusable deployment.yaml / service.yaml iterate this list.
 services:
