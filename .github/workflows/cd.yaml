@@ -1,13 +1,4 @@
 name: CD
-
-# Manual deploy: Actions → CD → Run workflow.
-# Prerequisite: CI has pushed app images to Docker Hub (tag `latest`).
-#
-# Required GitHub Secrets:
-#   DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
-#   KUBE_CONFIG (raw kubeconfig YAML or base64-encoded)
-#   JWT_ACCESS_SECRET, JWT_RESET_SECRET
-
 on:
   workflow_dispatch:
 
@@ -46,29 +37,9 @@ jobs:
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         run: |
-          set -eu
-          if [ -z "${KUBE_CONFIG:-}" ]; then
-            echo "::error::KUBE_CONFIG secret is empty"
-            exit 1
-          fi
-          mkdir -p "$HOME/.kube"
-          CONFIG="$HOME/.kube/config"
-          KUBE_CLEAN="$(printf '%s' "$KUBE_CONFIG" | tr -d '\r')"
-          if printf '%s' "$KUBE_CLEAN" | grep -q '^apiVersion:'; then
-            printf '%s' "$KUBE_CLEAN" > "$CONFIG"
-          else
-            printf '%s' "$KUBE_CLEAN" | base64 -d > "$CONFIG"
-          fi
-          chmod 600 "$CONFIG"
-          if ! grep -q '^apiVersion:' "$CONFIG"; then
-            echo "::error::KUBE_CONFIG is not valid kubeconfig YAML"
-            exit 1
-          fi
-          SERVER="$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)"
-          echo "API server: ${SERVER:-unknown}"
-          kubectl cluster-info
-          kubectl get ns >/dev/null
-          echo "Cluster connection OK"
+          mkdir -p ~/.kube
+          printf '%s' "$KUBE_CONFIG" > ~/.kube/config
+          chmod 600 ~/.kube/config
 
       - name: Build and push db-init
         uses: docker/build-push-action@v6
