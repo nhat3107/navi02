@@ -1,6 +1,6 @@
 apiVersion: v2
 name: navi
-description: Navi social platform — microservices, frontends, and in-cluster infrastructure
+description: Minimal Helm chart for the Navi microservices demo stack on K3s
 type: application
 version: 0.1.0
 appVersion: "1.0.0"

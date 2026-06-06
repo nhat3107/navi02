@@ -14,15 +14,13 @@ spec:
   template:
     spec:
       restartPolicy: Never
-      {{- if .Values.infra.postgres.enabled }}
       initContainers:
         - name: wait-postgres
           image: busybox:1.36
           command: [/bin/sh, -c, "until nc -z postgres 5432; do sleep 3; done"]
-      {{- end }}
       containers:
         - name: db-init
-          image: {{ include "navi.image" (dict "root" . "name" .Values.dbInit.image) }}
+          image: {{ include "navi.image" (dict "root" . "svc" (dict "imageName" .Values.dbInit.imageName)) }}
           envFrom:
             - secretRef:
                 name: navi-secrets

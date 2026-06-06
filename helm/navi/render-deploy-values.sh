@@ -1,7 +1,7 @@
 #!/bin/sh
-# Writes CD override values to stdout. Required env: DOCKERHUB_USERNAME, API_HOST,
-# USER_APP_HOST, ADMIN_APP_HOST, JWT_ACCESS_SECRET, JWT_RESET_SECRET, and DATABASE_URL secrets.
-# Optional: all other secrets in cd.yml; K8S_NAMESPACE (default navi).
+# Writes deploy override values to stdout for `helm upgrade -f`.
+# Required env: DOCKERHUB_USERNAME, JWT_ACCESS_SECRET, JWT_RESET_SECRET, database URLs.
+# Optional: all other secrets listed in cd.yaml; K8S_NAMESPACE (default navi).
 set -eu
 
 NS="${K8S_NAMESPACE:-navi}"
@@ -16,18 +16,14 @@ namespace: ${NS}
 image:
   registry: ${REG}
   tag: latest
-ingress:
-  apiHost: ${API_HOST:?API_HOST required}
-  userAppHost: ${USER_APP_HOST:?USER_APP_HOST required}
-  adminAppHost: ${ADMIN_APP_HOST:?ADMIN_APP_HOST required}
 secrets:
   JWT_ACCESS_SECRET: "$(yaml_quote "${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET required}")"
   JWT_RESET_SECRET: "$(yaml_quote "${JWT_RESET_SECRET:?JWT_RESET_SECRET required}")"
-  AUTH_DATABASE_URL: "$(yaml_quote "${AUTH_DATABASE_URL:?AUTH_DATABASE_URL required}")"
-  USER_DATABASE_URL: "$(yaml_quote "${USER_DATABASE_URL:?USER_DATABASE_URL required}")"
-  CHAT_DATABASE_URL: "$(yaml_quote "${CHAT_DATABASE_URL:?CHAT_DATABASE_URL required}")"
-  NETWORK_DATABASE_URL: "$(yaml_quote "${NETWORK_DATABASE_URL:?NETWORK_DATABASE_URL required}")"
-  NOTIFICATION_DATABASE_URL: "$(yaml_quote "${NOTIFICATION_DATABASE_URL:?NOTIFICATION_DATABASE_URL required}")"
+  AUTH_DATABASE_URL: "$(yaml_quote "${AUTH_DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/auth_db}")"
+  USER_DATABASE_URL: "$(yaml_quote "${USER_DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/user_db}")"
+  CHAT_DATABASE_URL: "$(yaml_quote "${CHAT_DATABASE_URL:-mongodb://root:example@mongo:27017/chat_db?authSource=admin}")"
+  NETWORK_DATABASE_URL: "$(yaml_quote "${NETWORK_DATABASE_URL:-mongodb://root:example@mongo:27017/network_db?authSource=admin}")"
+  NOTIFICATION_DATABASE_URL: "$(yaml_quote "${NOTIFICATION_DATABASE_URL:-mongodb://root:example@mongo:27017/notification_db?authSource=admin}")"
   FRONTEND_ORIGIN: "$(yaml_quote "${FRONTEND_ORIGIN:-}")"
   OAUTH_FRONTEND_LOGIN_URL: "$(yaml_quote "${OAUTH_FRONTEND_LOGIN_URL:-}")"
   OAUTH_FRONTEND_REDIRECT_URL: "$(yaml_quote "${OAUTH_FRONTEND_REDIRECT_URL:-}")"
@@ -39,8 +35,8 @@ secrets:
   GH_CALLBACK_URL: "$(yaml_quote "${GH_CALLBACK_URL:-}")"
   VIDEOSDK_API_KEY: "$(yaml_quote "${VIDEOSDK_API_KEY:-}")"
   VIDEOSDK_SECRET: "$(yaml_quote "${VIDEOSDK_SECRET:-}")"
-  EMAIL_USER: "$(yaml_quote "${EMAIL_USER:-}")"
-  EMAIL_PASS: "$(yaml_quote "${EMAIL_PASS:-}")"
+  EMAIL_USER: "$(yaml_quote "${EMAIL_USER:-admin@example.com}")"
+  EMAIL_PASS: "$(yaml_quote "${EMAIL_PASS:-admin123}")"
   FRONTEND_URL: "$(yaml_quote "${FRONTEND_URL:-}")"
   CLOUDINARY_CLOUD_NAME: "$(yaml_quote "${CLOUDINARY_CLOUD_NAME:-}")"
   CLOUDINARY_API_KEY: "$(yaml_quote "${CLOUDINARY_API_KEY:-}")"

@@ -1,0 +1,26 @@
+{{/*
+Reusable ClusterIP Service — one manifest per entry in .Values.services that exposes a port.
+*/}}
+{{- $root := . -}}
+{{- range .Values.services }}
+{{- if .port }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  namespace: {{ include "navi.namespace" $root }}
+  labels:
+    app.kubernetes.io/name: {{ .name }}
+    app.kubernetes.io/instance: {{ $root.Release.Name }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ .name }}
+    app.kubernetes.io/instance: {{ $root.Release.Name }}
+  ports:
+    - port: {{ .port }}
+      targetPort: {{ .port }}
+      protocol: TCP
+{{- end }}
+{{- end }}
