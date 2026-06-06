@@ -8,8 +8,22 @@ if (process.env.USE_PUBLIC_DNS === 'true') {
   dns.setServers(['8.8.8.8', '1.1.1.1']);
 }
 
-async function bootstrap() {
-  const app = await NestFactory.createMicroservice<MicroserviceOptions>(NotificationServiceModule, {
+function logStartupEnv(): void {
+  console.log(
+    `notification-service KAFKA_BROKERS=${process.env.KAFKA_BROKERS ?? '(unset)'}`,
+  );
+  console.log(
+    `notification-service DATABASE_URL set=${Boolean(process.env.DATABASE_URL?.trim())}`,
+  );
+  if (process.env.USE_PUBLIC_DNS === 'true') {
+    console.warn(
+      'notification-service USE_PUBLIC_DNS=true — broker hostname may not resolve',
+    );
+  }
+}
+
+function kafkaMicroserviceOptions(): MicroserviceOptions {
+  return {
     transport: Transport.KAFKA,
     options: {
       client: {
@@ -28,9 +42,39 @@ async function bootstrap() {
         rebalanceTimeout: 60_000,
       },
     },
-  });
-  await app.listen();
+  };
 }
+
+async function bootstrap(): Promise<void> {
+  logStartupEnv();
+
+  for (let attempt = 1; ; attempt++) {
+    let app;
+    try {
+      app = await NestFactory.createMicroservice<MicroserviceOptions>(
+        NotificationServiceModule,
+        kafkaMicroserviceOptions(),
+      );
+      await app.listen();
+      console.log('notification-service listening (Kafka)');
+      return;
+    } catch (err) {
+      console.error(
+        `notification-service bootstrap attempt ${attempt} failed:`,
+        err,
+      );
+      if (app) {
+        try {
+          await app.close();
+        } catch {
+          /* ignore close errors between retries */
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    }
+  }
+}
+
 bootstrap().catch((err) => {
   console.error('notification-service bootstrap failed:', err);
   process.exit(1);

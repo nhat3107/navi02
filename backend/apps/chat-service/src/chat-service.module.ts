@@ -34,8 +34,12 @@ function kafkaBrokers(): string[] {
         }
         return {
           uri,
-          serverSelectionTimeoutMS: 30_000,
+          serverSelectionTimeoutMS: 60_000,
           connectTimeoutMS: 30_000,
+          socketTimeoutMS: 45_000,
+          family: 4,
+          autoIndex: false,
+          maxPoolSize: 10,
         };
       },
     }),
