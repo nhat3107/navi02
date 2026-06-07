@@ -79,18 +79,34 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
-              {{- if $root.Values.kafka.useServiceLinkAdvertisedHost }}
-              export KAFKA_ADVERTISED_LISTENERS="PLAINTEXT://${BROKER_SERVICE_HOST}:9092"
-              {{- else }}
-              export KAFKA_ADVERTISED_LISTENERS="PLAINTEXT://{{ $root.Values.kafka.advertisedHost | default "broker" }}:9092"
-              {{- end }}
+              set -eu
+              ADVERTISED_HOST="${BROKER_SERVICE_HOST:-}"
+              if [ -z "$ADVERTISED_HOST" ] && command -v getent >/dev/null 2>&1; then
+                ADVERTISED_HOST="$(getent hosts broker | awk '{print $1; exit}')"
+              fi
+              if [ -z "$ADVERTISED_HOST" ]; then
+                echo "ERROR: BROKER_SERVICE_HOST is empty and broker DNS lookup failed" >&2
+                exit 1
+              fi
+              export KAFKA_ADVERTISED_LISTENERS="PLAINTEXT://${ADVERTISED_HOST}:9092"
+              echo "KAFKA_ADVERTISED_LISTENERS=${KAFKA_ADVERTISED_LISTENERS}"
               exec /etc/kafka/docker/run
           {{- else if and .app (not .command) }}
           command: ["/bin/sh", "-c"]
           args:
             - |
-              export KAFKA_BROKERS="${BROKER_SERVICE_HOST}:9092"
+              set -eu
+              BROKER_HOST="${BROKER_SERVICE_HOST:-}"
+              if [ -z "$BROKER_HOST" ] && command -v getent >/dev/null 2>&1; then
+                BROKER_HOST="$(getent hosts broker | awk '{print $1; exit}')"
+              fi
+              if [ -z "$BROKER_HOST" ]; then
+                echo "ERROR: BROKER_SERVICE_HOST is empty and broker DNS lookup failed" >&2
+                exit 1
+              fi
+              export KAFKA_BROKERS="${BROKER_HOST}:9092"
               export USE_PUBLIC_DNS=false
+              echo "KAFKA_BROKERS=${KAFKA_BROKERS}"
               exec ./docker/service-entrypoint.sh
           {{- else }}
           {{- with .command }}
