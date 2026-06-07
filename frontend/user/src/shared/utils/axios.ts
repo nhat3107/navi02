@@ -17,7 +17,7 @@ export const api = axios.create({
 
 /** Không gắn interceptor — dùng cho POST /auth/refresh (chỉ cookie, tránh vòng lặp). */
 const refreshClient = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: getApiBaseUrl(),
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true,
 });
@@ -42,7 +42,7 @@ async function refreshAccessToken(): Promise<string | null> {
 }
 
 function isAuthPublicPath(url: string): boolean {
-  const u = url.replace(API_BASE_URL, '');
+  const u = url.replace(getApiBaseUrl(), '');
   return (
     u.includes('auth/signin') ||
     u.includes('auth/signup') ||
