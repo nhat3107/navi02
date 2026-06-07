@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMeeting } from '@videosdk.live/react-sdk';
 import { useCallStore } from '../../features/call/store/call.store';
 import { useCallSocket } from '../../features/call/hooks/useCallSocket';
+import { CALL_NO_ANSWER_TIMEOUT_MS } from '../../features/call/constants';
 import { postCallBroadcast } from '../../features/call/lib/callBroadcast';
 import { ROUTES } from '../../shared/constants/routes';
 import { ParticipantMediaTile } from './ParticipantMediaTile';
@@ -82,7 +83,6 @@ export function MeetingRoomShell() {
   const activeSession = useCallStore((s) => s.activeSession);
   const { emitEndCall } = useCallSocket();
 
-  const joinedRef = useRef(false);
   const autoLeftRef = useRef(false);
   const leaveRef = useRef<() => void>(() => {});
   const endedBroadcastRef = useRef(false);
@@ -156,7 +156,6 @@ export function MeetingRoomShell() {
   }, []);
 
   const {
-    join,
     leave,
     toggleMic,
     toggleWebcam,
@@ -271,28 +270,39 @@ export function MeetingRoomShell() {
 
   leaveRef.current = leave;
 
-  // Join once per mount. Cleanup notifies peers + leaves so an HMR remount
-  // doesn't leave a ghost peer connected, and so callee banners don't linger.
+  // Join is handled by CallMeetingJoiner (persists across /call ↔ /chat navigation).
   useEffect(() => {
-    if (joinedRef.current) return;
-    joinedRef.current = true;
-    try {
-      join();
-    } catch {
-      /* SDK rejects duplicate joins internally */
+    if (isMeetingJoined) {
+      sdkJoinedRef.current = true;
+      setConnState('CONNECTED');
     }
-    return () => {
-      // Unmount can mean: HMR (don't end the call), tab close (do end it),
-      // or explicit hangUp (already handled). To stay safe, only end the call
-      // here if the session is gone (i.e. we already decided to end).
-      const sess = useCallStore.getState().activeSession;
-      if (!sess) {
-        notifyPeersEndCall(false);
-      }
+  }, [isMeetingJoined]);
+
+  // Caller gave up waiting — end the ring on callee side after 2 minutes.
+  useEffect(() => {
+    if (!isMeetingJoined || !meetingId) return;
+
+    const timeoutId = window.setTimeout(() => {
+      if (everyoneLeftTriggeredRef.current || autoLeftRef.current) return;
+      if (sawPeerRef.current) return;
+
+      everyoneLeftTriggeredRef.current = true;
+      notifyPeersEndCall(false);
+      setLastEnded({
+        meetingId,
+        reason: 'rejected',
+      });
       safeLeave();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    }, CALL_NO_ANSWER_TIMEOUT_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    isMeetingJoined,
+    meetingId,
+    notifyPeersEndCall,
+    safeLeave,
+    setLastEnded,
+  ]);
 
   // Cross-tab + tab-close hardening.
   useEffect(() => {

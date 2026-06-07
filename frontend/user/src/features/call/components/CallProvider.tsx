@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { MeetingProvider } from '@videosdk.live/react-sdk';
 import { useCallStore } from '../store/call.store';
+import { CallMeetingJoiner } from './CallMeetingJoiner';
 
 /**
  * Lifts `MeetingProvider` to the app root so a live call survives navigation
@@ -51,6 +52,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       config={meetingConfig}
       reinitialiseMeetingOnConfigChange={false}
     >
+      <CallMeetingJoiner />
       {children}
     </MeetingProvider>
   );

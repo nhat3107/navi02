@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../auth/store/auth.store';
 import { getProfileApi } from '../../auth/api/auth.api';
 import { ROUTES } from '../../../shared/constants/routes';
+import { CALL_RING_TIMEOUT_MS } from '../constants';
 import { useCallStore } from '../store/call.store';
 import { fetchVideoCallToken } from '../api/call.api';
 import { useCallSocket } from '../hooks/useCallSocket';
@@ -130,6 +131,36 @@ export function CallIncomingBanner() {
     };
   }, [incoming?.meetingId]);
 
+  const declineRef = useRef<() => void>(() => {});
+
+  const decline = async () => {
+    if (!user || busy || !incoming) return;
+    setBusy(true);
+    const meetingId = incoming.meetingId;
+    try {
+      emitRejectCall({ to: incoming.from, meetingId });
+    } finally {
+      setIncoming(null);
+      postCallBroadcast({ type: 'incoming_cleared', meetingId });
+      setBusy(false);
+    }
+  };
+
+  declineRef.current = () => {
+    void decline();
+  };
+
+  useEffect(() => {
+    if (!incoming) return;
+    const meetingId = incoming.meetingId;
+    const timeoutId = window.setTimeout(() => {
+      const current = useCallStore.getState().incoming;
+      if (!current || current.meetingId !== meetingId) return;
+      declineRef.current();
+    }, CALL_RING_TIMEOUT_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [incoming?.meetingId]);
+
   // Another tab already handled / is handling this exact call — stay hidden.
   if (
     incoming &&
@@ -143,19 +174,6 @@ export function CallIncomingBanner() {
 
   const isVideo = incoming.callType === 'video';
   const callKindLabel = isVideo ? 'Video call' : 'Audio call';
-
-  const decline = async () => {
-    if (!user || busy) return;
-    setBusy(true);
-    const meetingId = incoming.meetingId;
-    try {
-      emitRejectCall({ to: incoming.from, meetingId });
-    } finally {
-      setIncoming(null);
-      postCallBroadcast({ type: 'incoming_cleared', meetingId });
-      setBusy(false);
-    }
-  };
 
   const accept = async () => {
     if (!user || busy) return;
