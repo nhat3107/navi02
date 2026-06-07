@@ -5,7 +5,7 @@ metadata:
   name: navi-db-init
   namespace: {{ include "navi.namespace" . }}
   annotations:
-    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook: post-install{{- if .Values.dbInit.runOnUpgrade }},post-upgrade{{- end }}
     helm.sh/hook-weight: "10"
     helm.sh/hook-delete-policy: before-hook-creation
 spec:

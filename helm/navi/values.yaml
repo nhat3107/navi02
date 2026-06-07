@@ -33,6 +33,8 @@ dbInit:
   enabled: true
   imageName: navi-db-init
   seedAdmin: true
+  # false = schema push + admin seed only on first `helm install`, not every upgrade/CD.
+  runOnUpgrade: false
 
 # Schedule Kafka-consuming apps on the same node as the broker (works around
 # cross-node pod networking issues on multi-node K3s / AWS).
