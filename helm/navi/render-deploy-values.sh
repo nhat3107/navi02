@@ -13,6 +13,16 @@ yaml_quote() {
   printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
 
+# HTTPS origins for CORS + secure cookies (upgrade http:// if secrets still use it).
+if [ -n "${FRONTEND_ORIGIN:-}" ]; then
+  FRONTEND_ORIGIN="$(printf '%s' "$FRONTEND_ORIGIN" | sed 's|http://|https://|g')"
+elif [ -n "${USER_APP_HOST:-}" ] && [ -n "${ADMIN_APP_HOST:-}" ]; then
+  FRONTEND_ORIGIN="https://${USER_APP_HOST},https://${ADMIN_APP_HOST}"
+else
+  FRONTEND_ORIGIN=""
+fi
+COOKIE_SECURE="${COOKIE_SECURE:-true}"
+
 cat <<EOF
 namespace: ${NS}
 deploy:
@@ -21,6 +31,8 @@ image:
   registry: ${REG}
   tag: ${TAG}
   pullPolicy: Always
+config:
+  COOKIE_SECURE: "${COOKIE_SECURE}"
 ingress:
   enabled: true
   apiHost: ${API_HOST:?API_HOST required}

@@ -104,24 +104,54 @@ jobs:
     name: Validate frontend build secrets
     needs: [backend-test, frontend-user-test]
     runs-on: ubuntu-latest
+    outputs:
+      vite_api_url: ${{ steps.vite.outputs.api_url }}
+      vite_ws_origin: ${{ steps.vite.outputs.ws_origin }}
     steps:
-      - name: Check VITE_* secrets for production
+      - name: Resolve and validate VITE URLs
+        id: vite
         env:
+          API_HOST: ${{ secrets.API_HOST }}
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
           VITE_WS_ORIGIN: ${{ secrets.VITE_WS_ORIGIN }}
         run: |
+          api_url="${VITE_API_URL:-}"
+          ws_origin="${VITE_WS_ORIGIN:-}"
+          if [ -z "$api_url" ] && [ -n "${API_HOST:-}" ]; then
+            api_url="https://${API_HOST}/api"
+          fi
+          if [ -z "$ws_origin" ] && [ -n "${API_HOST:-}" ]; then
+            ws_origin="https://${API_HOST}"
+          fi
+          # Production frontends are served over HTTPS — never bake http:// API URLs.
+          case "$api_url" in
+            http://*) api_url="https://${api_url#http://}" ;;
+          esac
+          case "$ws_origin" in
+            http://*) ws_origin="https://${ws_origin#http://}" ;;
+          esac
+
           missing=0
-          for key in VITE_API_URL VITE_WS_ORIGIN; do
+          for key in api_url ws_origin; do
             eval "val=\$$key"
             if [ -z "$val" ]; then
-              echo "::error::GitHub secret $key is required for production frontend builds"
+              echo "::error::Set GitHub secrets VITE_API_URL + VITE_WS_ORIGIN, or API_HOST (e.g. api.example.com)"
               missing=1
             elif echo "$val" | grep -qi localhost; then
-              echo "::error::$key must not use localhost on main — use http://<API_HOST>/api and http://<API_HOST>"
+              echo "::error::$key must not use localhost on main — use https://<API_HOST>/api and https://<API_HOST>"
+              missing=1
+            elif echo "$val" | grep -qE '^http://'; then
+              echo "::error::$key must use https:// in production (got $val)"
               missing=1
             fi
           done
-          exit "$missing"
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+          echo "Resolved VITE_API_URL=$api_url"
+          echo "Resolved VITE_WS_ORIGIN=$ws_origin"
+          echo "api_url=$api_url" >> "$GITHUB_OUTPUT"
+          echo "ws_origin=$ws_origin" >> "$GITHUB_OUTPUT"
 
   build-frontend:
     name: Frontend / ${{ matrix.name }}
@@ -138,8 +168,8 @@ jobs:
             dockerfile: admin/Dockerfile
             image: navi-admin-app
     env:
-      VITE_API_URL: ${{ secrets.VITE_API_URL }}
-      VITE_WS_ORIGIN: ${{ secrets.VITE_WS_ORIGIN }}
+      VITE_API_URL: ${{ needs.validate-frontend-config.outputs.vite_api_url }}
+      VITE_WS_ORIGIN: ${{ needs.validate-frontend-config.outputs.vite_ws_origin }}
       VITE_ENABLE_OAUTH: ${{ secrets.VITE_ENABLE_OAUTH || 'false' }}
     steps:
       - name: Checkout
