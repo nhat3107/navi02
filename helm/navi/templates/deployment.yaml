@@ -135,16 +135,31 @@ spec:
           livenessProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .volumeMounts }}
+          {{- if or .volumeMounts .runtimeConfig }}
           volumeMounts:
+            {{- if .runtimeConfig }}
+            - name: runtime-config
+              mountPath: /usr/share/nginx/html/runtime-config.js
+              subPath: runtime-config.js
+              readOnly: true
+            {{- end }}
+            {{- with .volumeMounts }}
             {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- end }}
           {{- with .resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-      {{- with .volumes }}
+      {{- if or .volumes .runtimeConfig }}
       volumes:
+        {{- if .runtimeConfig }}
+        - name: runtime-config
+          configMap:
+            name: navi-frontend-runtime
+        {{- end }}
+        {{- with .volumes }}
         {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- end }}
 {{- end }}

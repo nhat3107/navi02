@@ -1,0 +1,14 @@
+{{- $apiHost := .Values.ingress.apiHost -}}
+{{- $apiUrl := .Values.frontend.apiUrl | default (printf "https://%s/api" $apiHost) -}}
+{{- $wsOrigin := .Values.frontend.wsOrigin | default (printf "https://%s" $apiHost) -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: navi-frontend-runtime
+  namespace: {{ include "navi.namespace" . }}
+data:
+  runtime-config.js: |
+    window.__NAVI_CONFIG__ = {
+      apiUrl: {{ $apiUrl | quote }},
+      wsOrigin: {{ $wsOrigin | quote }}
+    };

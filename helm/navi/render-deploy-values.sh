@@ -33,6 +33,9 @@ image:
   pullPolicy: Always
 config:
   COOKIE_SECURE: "${COOKIE_SECURE}"
+frontend:
+  apiUrl: "https://${API_HOST:?API_HOST required}/api"
+  wsOrigin: "https://${API_HOST:?API_HOST required}"
 ingress:
   enabled: true
   apiHost: ${API_HOST:?API_HOST required}

@@ -49,6 +49,11 @@ ingress:
   adminAppHost: admin.example.com
   annotations: {}
 
+# Runtime API URLs injected into user/admin SPA (overrides empty VITE_* build args).
+frontend:
+  apiUrl: ""
+  wsOrigin: ""
+
 # All workloads — infra + microservices + frontends.
 # Reusable deployment.yaml / service.yaml iterate this list.
 services:
@@ -144,7 +149,9 @@ services:
   - name: user-app
     imageName: navi-user-app
     port: 80
+    runtimeConfig: true
 
   - name: admin-app
     imageName: navi-admin-app
     port: 80
+    runtimeConfig: true
