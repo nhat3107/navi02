@@ -17,6 +17,10 @@ spec:
       containers:
         - name: db-init
           image: {{ include "navi.image" (dict "root" . "svc" (dict "imageName" .Values.dbInit.imageName)) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "Always" }}
+          env:
+            - name: SEED_ADMIN
+              value: {{ .Values.dbInit.seedAdmin | ternary "true" "false" | quote }}
           envFrom:
             - secretRef:
                 name: navi-secrets

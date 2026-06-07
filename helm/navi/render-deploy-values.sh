@@ -7,6 +7,7 @@ set -eu
 NS="${K8S_NAMESPACE:-navi}"
 REG="${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME required}"
 TAG="${IMAGE_TAG:-latest}"
+STAMP="${DEPLOY_STAMP:-0}"
 
 yaml_quote() {
   printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
@@ -14,10 +15,12 @@ yaml_quote() {
 
 cat <<EOF
 namespace: ${NS}
+deploy:
+  stamp: "${STAMP}"
 image:
   registry: ${REG}
   tag: ${TAG}
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 ingress:
   enabled: true
   apiHost: ${API_HOST:?API_HOST required}
@@ -49,4 +52,6 @@ secrets:
   CLOUDINARY_API_KEY: "$(yaml_quote "${CLOUDINARY_API_KEY:-}")"
   CLOUDINARY_API_SECRET: "$(yaml_quote "${CLOUDINARY_API_SECRET:-}")"
   OPENAI_API_KEY: "$(yaml_quote "${OPENAI_API_KEY:-}")"
+  ADMIN_SEED_EMAIL: "$(yaml_quote "${ADMIN_SEED_EMAIL:-admin@navi.test}")"
+  ADMIN_SEED_PASSWORD: "$(yaml_quote "${ADMIN_SEED_PASSWORD:-Admin123!}")"
 EOF

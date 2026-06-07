@@ -14,6 +14,7 @@ COPY apps/auth-service/prisma ./apps/auth-service/prisma
 COPY apps/auth-service/prisma.config.ts ./apps/auth-service/prisma.config.ts
 COPY apps/user-service/prisma ./apps/user-service/prisma
 COPY apps/user-service/prisma.config.ts ./apps/user-service/prisma.config.ts
+COPY apps/auth-service/scripts/seed-admin.ts ./apps/auth-service/scripts/seed-admin.ts
 COPY docker/db-push-all.sh ./docker/db-push-all.sh
 RUN sed -i 's/\r$//' ./docker/db-push-all.sh
 RUN chmod +x ./docker/db-push-all.sh

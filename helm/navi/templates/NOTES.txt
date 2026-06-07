@@ -13,5 +13,9 @@ OAuth callbacks (no /api prefix):
 Ensure DNS points to your K3s node or load balancer IP.
 {{- end }}
 
+Admin login (seeded by db-init job on each deploy):
+  Email:    see ADMIN_SEED_EMAIL secret (default admin@navi.test)
+  Password: see ADMIN_SEED_PASSWORD secret (default Admin123!)
+
 Check pods:
   kubectl get pods -n {{ include "navi.namespace" . }}

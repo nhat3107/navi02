@@ -42,9 +42,18 @@ jobs:
           printf '%s' "$KUBE_CONFIG" > ~/.kube/config
           chmod 600 ~/.kube/config
 
+      - name: Build and push db-init
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/docker/Dockerfile.db-init
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/navi-db-init:${{ env.IMAGE_TAG }}
+
       - name: Write deploy values
         env:
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          DEPLOY_STAMP: ${{ github.run_id }}
           K8S_NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           API_HOST: ${{ secrets.API_HOST }}
@@ -75,6 +84,8 @@ jobs:
           CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ADMIN_SEED_EMAIL: ${{ secrets.ADMIN_SEED_EMAIL }}
+          ADMIN_SEED_PASSWORD: ${{ secrets.ADMIN_SEED_PASSWORD }}
         run: |
           sed -i 's/\r$//' helm/navi/render-deploy-values.sh
           sh helm/navi/render-deploy-values.sh > deploy-values.yaml
@@ -105,11 +116,12 @@ jobs:
         run: |
           NS="${K8S_NAMESPACE:-navi}"
           KUBECTL="kubectl --insecure-skip-tls-verify"
-          # Prune unused images on each node before pull (needs disk space for :latest layers).
           for dep in api-gateway auth-service user-service chat-service network-service notification-service ai-service user-app admin-app; do
             $KUBECTL rollout restart "deployment/${dep}" -n "${NS}" || true
           done
-          $KUBECTL rollout status "deployment/api-gateway" -n "${NS}" --timeout=5m || true
+          for dep in api-gateway auth-service user-service chat-service network-service notification-service ai-service user-app admin-app; do
+            $KUBECTL rollout status "deployment/${dep}" -n "${NS}" --timeout=10m || true
+          done
 
       - name: Wait for db-init
         env:

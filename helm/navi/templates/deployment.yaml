@@ -26,6 +26,9 @@ spec:
       app.kubernetes.io/instance: {{ $root.Release.Name }}
   template:
     metadata:
+      annotations:
+        navi.io/deploy-stamp: {{ $root.Values.deploy.stamp | quote }}
+        navi.io/image-tag: {{ $root.Values.image.tag | quote }}
       labels:
         app.kubernetes.io/name: {{ .name }}
         app.kubernetes.io/instance: {{ $root.Release.Name }}
