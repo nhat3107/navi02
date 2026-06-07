@@ -47,6 +47,9 @@ jobs:
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
           K8S_NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          API_HOST: ${{ secrets.API_HOST }}
+          USER_APP_HOST: ${{ secrets.USER_APP_HOST }}
+          ADMIN_APP_HOST: ${{ secrets.ADMIN_APP_HOST }}
           JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
           JWT_RESET_SECRET: ${{ secrets.JWT_RESET_SECRET }}
           AUTH_DATABASE_URL: ${{ secrets.AUTH_DATABASE_URL }}

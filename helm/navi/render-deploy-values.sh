@@ -1,8 +1,7 @@
 #!/bin/sh
 # Writes deploy override values to stdout for `helm upgrade -f`.
 # Required env: DOCKERHUB_USERNAME, JWT_ACCESS_SECRET, JWT_RESET_SECRET,
-# AUTH_DATABASE_URL, USER_DATABASE_URL, CHAT_DATABASE_URL, NETWORK_DATABASE_URL,
-# NOTIFICATION_DATABASE_URL (external Postgres / Mongo connection strings).
+# API_HOST, USER_APP_HOST, ADMIN_APP_HOST, and database URLs.
 set -eu
 
 NS="${K8S_NAMESPACE:-navi}"
@@ -19,6 +18,11 @@ image:
   registry: ${REG}
   tag: ${TAG}
   pullPolicy: IfNotPresent
+ingress:
+  enabled: true
+  apiHost: ${API_HOST:?API_HOST required}
+  userAppHost: ${USER_APP_HOST:?USER_APP_HOST required}
+  adminAppHost: ${ADMIN_APP_HOST:?ADMIN_APP_HOST required}
 secrets:
   JWT_ACCESS_SECRET: "$(yaml_quote "${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET required}")"
   JWT_RESET_SECRET: "$(yaml_quote "${JWT_RESET_SECRET:?JWT_RESET_SECRET required}")"

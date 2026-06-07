@@ -33,6 +33,16 @@ dbInit:
 kafka:
   colocateApps: true
 
+# K3s ships Traefik as the default Ingress controller (ingressClassName: traefik).
+# Point DNS A records at your node/LB IP. HTTP only — terminate TLS at an external LB if needed.
+ingress:
+  enabled: true
+  className: traefik
+  apiHost: api.example.com
+  userAppHost: app.example.com
+  adminAppHost: admin.example.com
+  annotations: {}
+
 # All workloads — infra + microservices + frontends.
 # Reusable deployment.yaml / service.yaml iterate this list.
 services:

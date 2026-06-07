@@ -1,0 +1,17 @@
+Navi deployed to namespace {{ include "navi.namespace" . }}.
+
+{{- if .Values.ingress.enabled }}
+
+Ingress ({{ .Values.ingress.className }}):
+  API:        http://{{ .Values.ingress.apiHost }}/api
+  User app:   http://{{ .Values.ingress.userAppHost }}
+  Admin app:  http://{{ .Values.ingress.adminAppHost }}
+
+OAuth callbacks (no /api prefix):
+  http://{{ .Values.ingress.apiHost }}/auth/google/callback
+
+Ensure DNS points to your K3s node or load balancer IP.
+{{- end }}
+
+Check pods:
+  kubectl get pods -n {{ include "navi.namespace" . }}
