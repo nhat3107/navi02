@@ -116,10 +116,10 @@ jobs:
         run: |
           NS="${K8S_NAMESPACE:-navi}"
           KUBECTL="kubectl --insecure-skip-tls-verify"
-          for dep in api-gateway auth-service user-service chat-service network-service notification-service ai-service user-app admin-app; do
+          for dep in broker api-gateway auth-service user-service chat-service network-service notification-service ai-service user-app admin-app; do
             $KUBECTL rollout restart "deployment/${dep}" -n "${NS}" || true
           done
-          for dep in api-gateway auth-service user-service chat-service network-service notification-service ai-service user-app admin-app; do
+          for dep in broker api-gateway auth-service user-service chat-service network-service notification-service ai-service user-app admin-app; do
             $KUBECTL rollout status "deployment/${dep}" -n "${NS}" --timeout=10m || true
           done
 

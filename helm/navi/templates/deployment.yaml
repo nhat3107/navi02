@@ -75,7 +75,17 @@ spec:
           {{- else }}
           imagePullPolicy: {{ .imagePullPolicy | default $root.Values.image.pullPolicy | default "IfNotPresent" }}
           {{- end }}
-          {{- if and .app (not .command) }}
+          {{- if .brokerStartup }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              {{- if $root.Values.kafka.useServiceLinkAdvertisedHost }}
+              export KAFKA_ADVERTISED_LISTENERS="PLAINTEXT://${BROKER_SERVICE_HOST}:9092"
+              {{- else }}
+              export KAFKA_ADVERTISED_LISTENERS="PLAINTEXT://{{ $root.Values.kafka.advertisedHost | default "broker" }}:9092"
+              {{- end }}
+              exec /etc/kafka/docker/run
+          {{- else if and .app (not .command) }}
           command: ["/bin/sh", "-c"]
           args:
             - |

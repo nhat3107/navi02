@@ -19,3 +19,8 @@ Admin login (seeded by db-init job on each deploy):
 
 Check pods:
   kubectl get pods -n {{ include "navi.namespace" . }}
+
+Kafka: if apps log "This server does not host this topic-partition", redeploy after
+  the chart fix (advertised.listeners must use the broker ClusterIP, not literal
+  $(BROKER_SERVICE_HOST)). Then: kubectl rollout restart deployment/broker -n {{ include "navi.namespace" . }}
+  and restart api-gateway + microservices.

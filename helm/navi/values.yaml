@@ -38,6 +38,11 @@ dbInit:
 # cross-node pod networking issues on multi-node K3s / AWS).
 kafka:
   colocateApps: true
+  # Expanded at broker startup from the broker Service link env (ClusterIP).
+  # Must match app bootstrap (BROKER_SERVICE_HOST:9092).
+  useServiceLinkAdvertisedHost: true
+  # Used when useServiceLinkAdvertisedHost is false (requires working cluster DNS).
+  advertisedHost: broker
 
 # K3s ships Traefik as the default Ingress controller (ingressClassName: traefik).
 # Point DNS A records at your node/LB IP. HTTP only — terminate TLS at an external LB if needed.
@@ -70,7 +75,6 @@ services:
       KAFKA_NODE_ID: "1"
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://$(BROKER_SERVICE_HOST):9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
@@ -80,7 +84,9 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
       KAFKA_NUM_PARTITIONS: "3"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_HEAP_OPTS: "-Xmx256m -Xms128m"
+    brokerStartup: true
     startupProbe:
       tcpSocket:
         port: 9092
