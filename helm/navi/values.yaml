@@ -1,4 +1,4 @@
-# Base chart values — CD merges deploy overrides (image registry, secrets) at deploy time.
+# Base chart values — CD merges deploy overrides (image registry, secrets) at deploy time..
 # Override locally: helm upgrade --install navi ./helm/navi -f helm/navi/values.yaml -f deploy-values.yaml
 
 namespace: navi
