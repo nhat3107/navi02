@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
 function truncateRough(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
@@ -25,6 +25,7 @@ export function ExpandablePlainText({
   stopCardNavigation = false,
   lead,
   wrapperClassName = 'min-w-0',
+  defaultExpanded = false,
 }: {
   text: string;
   maxCollapsedChars: number;
@@ -33,10 +34,12 @@ export function ExpandablePlainText({
   /** Use in feed cards so “Show more” does not open the post overlay. */
   stopCardNavigation?: boolean;
   /** Optional prefix (e.g. @username) rendered inline before the body. */
-  lead?: React.ReactNode;
+  lead?: ReactNode;
   wrapperClassName?: string;
+  /** Start expanded (e.g. post detail for short captions). */
+  defaultExpanded?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const trimmed = text.trim();
   const needsToggle = trimmed.length > maxCollapsedChars;
   const displayText =

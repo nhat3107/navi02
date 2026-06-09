@@ -31,6 +31,7 @@ import { NetworkMediaStrip } from '../../features/network/components/NetworkMedi
 import { formatRelativeTime } from '../../features/network/lib/formatRelativeTime';
 import { ExpandablePlainText } from '../../features/network/components/ExpandablePlainText';
 import { SharePostModal } from '../../features/network/components/SharePostModal';
+import { SharedPostPreview } from '../../features/network/components/SharedPostPreview';
 import { isCloudinaryVideoUrl } from '../../shared/lib/cloudinary';
 
 const MAX_COMMENT_MEDIA = 4;
@@ -354,6 +355,15 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
   const canRepost = Boolean(
     viewerId && shareTarget && viewerId !== shareTarget.authorId,
   );
+  const originalAuthor = originalPost
+    ? authorById[originalPost.authorId]
+    : undefined;
+  const repostQuote = isRepost ? post.content.trim() : '';
+  const mediaCaption = !isRepost && hasMedia ? post.content.trim() : '';
+  const showCaptionInPane = repostQuote.length > 0 || mediaCaption.length > 0;
+  const textOnlyBody = (
+    isRepost ? displayPost?.content ?? '' : post?.content ?? ''
+  ).trim();
 
   const pageMain = (
     <main
@@ -437,12 +447,31 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
               >
                 <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto p-5 sm:p-8">
                   <div className="post-detail-text-only__highlight">
-                    <ExpandablePlainText
-                      text={(isRepost ? displayPost?.content ?? '' : post?.content ?? '').trim()}
-                      maxCollapsedChars={720}
-                      paragraphClassName="whitespace-pre-wrap text-base leading-relaxed text-slate-800 dark:text-slate-200 sm:text-lg"
-                      moreClassName="mt-3 text-sm font-medium text-accent hover:text-accent-hover"
-                    />
+                    {isRepost && repostQuote.length > 0 && (
+                      <p className="mb-6 border-b border-slate-200/80 pb-5 text-sm leading-relaxed text-slate-600 dark:border-slate-700/80 dark:text-slate-300">
+                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          Repost note
+                        </span>
+                        <ExpandablePlainText
+                          text={repostQuote}
+                          maxCollapsedChars={1200}
+                          defaultExpanded={repostQuote.length <= 400}
+                          paragraphClassName="whitespace-pre-wrap text-base leading-relaxed text-slate-800 dark:text-slate-200"
+                          moreClassName="mt-2 text-sm font-medium text-accent hover:text-accent-hover"
+                        />
+                      </p>
+                    )}
+                    {textOnlyBody.length > 0 ? (
+                      <ExpandablePlainText
+                        text={textOnlyBody}
+                        maxCollapsedChars={2000}
+                        defaultExpanded={textOnlyBody.length <= 600}
+                        paragraphClassName="whitespace-pre-wrap text-base leading-[1.75] text-slate-800 dark:text-slate-200 sm:text-lg sm:leading-[1.8]"
+                        moreClassName="mt-3 text-sm font-medium text-accent hover:text-accent-hover"
+                      />
+                    ) : isRepost && !originalPost ? (
+                      <SharedPostPreview unavailable />
+                    ) : null}
                   </div>
                 </div>
               </section>
@@ -455,10 +484,8 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
                   : ''
               }`}
             >
-              <header
-                className="flex items-start gap-3 border-b border-slate-200 px-5 py-4 dark:border-slate-800"
-              >
-                <Link to={profilePath} className="mt-0.5 shrink-0">
+              <header className="flex shrink-0 items-center gap-3 border-b border-slate-200 px-5 py-3 dark:border-slate-800">
+                <Link to={profilePath} className="shrink-0">
                   <span className="inline-flex rounded-full ring-2 ring-slate-100 dark:ring-slate-800">
                     <UserAvatar
                       label={displayName}
@@ -468,43 +495,19 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
                   </span>
                 </Link>
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                    <Link
-                      to={profilePath}
-                      className="truncate text-base font-semibold text-slate-900 hover:opacity-70 dark:text-slate-100"
-                    >
-                      {username}
-                    </Link>
-                    {when && (
-                      <span className="truncate text-xs text-slate-600 dark:text-slate-400">
-                        · {when}
-                        {post.visibility !== 'public' && (
-                          <span className="ml-1 text-slate-500 dark:text-slate-500">
-                            · {post.visibility}
-                          </span>
-                        )}
-                      </span>
-                    )}
-                  </div>
-                  {isRepost && post.content.trim().length > 0 && (
-                    <div className="mt-2">
-                      <ExpandablePlainText
-                        text={post.content.trim()}
-                        maxCollapsedChars={280}
-                        paragraphClassName="whitespace-pre-wrap break-words text-[1.0625rem] font-medium leading-[1.65] text-slate-900 antialiased dark:text-slate-100 sm:text-lg sm:leading-relaxed"
-                        moreClassName="mt-2 text-sm font-medium text-accent hover:text-accent-hover"
-                      />
-                    </div>
-                  )}
-                  {!isRepost && hasMedia && post.content.trim().length > 0 && (
-                    <div className="mt-2">
-                      <ExpandablePlainText
-                        text={post.content.trim()}
-                        maxCollapsedChars={280}
-                        paragraphClassName="whitespace-pre-wrap break-words text-[1.0625rem] font-medium leading-[1.65] text-slate-900 antialiased dark:text-slate-100 sm:text-lg sm:leading-relaxed"
-                        moreClassName="mt-2 text-sm font-medium text-accent hover:text-accent-hover"
-                      />
-                    </div>
+                  <Link
+                    to={profilePath}
+                    className="block truncate text-sm font-semibold text-slate-900 hover:opacity-70 dark:text-slate-100"
+                  >
+                    {username}
+                  </Link>
+                  {when && (
+                    <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                      {when}
+                      {post.visibility !== 'public' && (
+                        <span className="ml-1">· {post.visibility}</span>
+                      )}
+                    </p>
                   )}
                 </div>
                 <div className="relative shrink-0" ref={menuRef}>
@@ -546,59 +549,21 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
                 </div>
               </header>
 
-              <div className="flex-1 overflow-y-auto px-3 py-4 sm:px-4">
-                <ul className="space-y-1.5">
-                  {comments.map((c) => (
-                    <CommentThread
-                      key={c.id}
-                      root={c}
-                      authorById={authorById}
-                      viewerUserId={viewerId}
-                      postAuthorId={post.authorId}
-                      appendAuthors={appendAuthors}
-                      onCommentDeleted={handleCommentDeleted}
-                      onReplyAdded={(parentId) =>
-                        handleReplyCountChange(parentId, 1)
-                      }
-                      onMediaClick={openCommentLightbox}
-                    />
-                  ))}
-                </ul>
-
-                {comments.length === 0 && !composerOpen && (
-                  <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center dark:border-slate-700 dark:bg-slate-900/60">
-                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      No comments yet
-                    </p>
-                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-                      Be the first to start the conversation.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div className="border-t border-slate-200 px-5 py-3 dark:border-slate-800">
-                <div className="-ml-1.5 flex flex-wrap items-center gap-x-5 gap-y-2">
-                  <div className="flex min-h-[40px] items-center gap-1.5">
-                    <button
-                      type="button"
-                      disabled={likeBusy}
-                      onClick={() => void togglePostLike()}
-                      className={`rounded-full p-2 transition hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-slate-900 ${
-                        liked
-                          ? 'text-[#ff3040]'
-                          : 'text-slate-900 dark:text-slate-100'
-                      }`}
-                      aria-label={liked ? 'Unlike' : 'Like'}
-                    >
-                      <HeartIcon filled={liked} />
-                    </button>
-                    {likeCount > 0 ? (
-                      <span className="text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">
-                        {likeCount.toLocaleString()}
-                      </span>
-                    ) : null}
-                  </div>
+              <div className="shrink-0 border-b border-slate-200 px-5 py-2.5 dark:border-slate-800">
+                <div className="-ml-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <button
+                    type="button"
+                    disabled={likeBusy}
+                    onClick={() => void togglePostLike()}
+                    className={`rounded-full p-2 transition hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-slate-900 ${
+                      liked
+                        ? 'text-[#ff3040]'
+                        : 'text-slate-900 dark:text-slate-100'
+                    }`}
+                    aria-label={liked ? 'Unlike' : 'Like'}
+                  >
+                    <HeartIcon filled={liked} />
+                  </button>
                   <button
                     type="button"
                     onClick={toggleComposer}
@@ -638,6 +603,73 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
                     </>
                   ) : null}
                 </div>
+                {likeCount > 0 ? (
+                  <p className="mt-1 text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                    {likeCount.toLocaleString()}{' '}
+                    {likeCount === 1 ? 'like' : 'likes'}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-5">
+                {showCaptionInPane && (
+                  <div className="mb-4 border-b border-slate-100 pb-4 dark:border-slate-800/80">
+                    <PostDetailCaption
+                      username={username}
+                      profilePath={profilePath}
+                      text={repostQuote || mediaCaption}
+                      defaultExpanded={(repostQuote || mediaCaption).length <= 320}
+                    />
+                  </div>
+                )}
+
+                {isRepost && originalPost && !hasMedia && !textOnly && (
+                  <div className="mb-4">
+                    <SharedPostPreview
+                      post={originalPost}
+                      author={originalAuthor}
+                    />
+                  </div>
+                )}
+
+                {isRepost && !originalPost && !hasMedia && !textOnly && (
+                  <div className="mb-4">
+                    <SharedPostPreview unavailable />
+                  </div>
+                )}
+
+                {comments.length > 0 ? (
+                  <ul className="space-y-1.5">
+                    {comments.map((c) => (
+                      <CommentThread
+                        key={c.id}
+                        root={c}
+                        authorById={authorById}
+                        viewerUserId={viewerId}
+                        postAuthorId={post.authorId}
+                        appendAuthors={appendAuthors}
+                        onCommentDeleted={handleCommentDeleted}
+                        onReplyAdded={(parentId) =>
+                          handleReplyCountChange(parentId, 1)
+                        }
+                        onMediaClick={openCommentLightbox}
+                      />
+                    ))}
+                  </ul>
+                ) : (
+                  !showCaptionInPane &&
+                  !(isRepost && (originalPost || !hasMedia)) &&
+                  !composerOpen && (
+                    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center dark:border-slate-700 dark:bg-slate-900/60">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        No comments yet
+                      </p>
+                      <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                        Be the first to start the conversation.
+                      </p>
+                    </div>
+                  )
+                )}
               </div>
 
               {composerOpen && (
@@ -797,6 +829,40 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
 
       {pageMain}
     </AppPage>
+  );
+}
+
+/** Caption block in the scrollable pane (username + body, expandable when long). */
+function PostDetailCaption({
+  username,
+  profilePath,
+  text,
+  defaultExpanded = false,
+}: {
+  username: string;
+  profilePath: string;
+  text: string;
+  defaultExpanded?: boolean;
+}) {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+
+  return (
+    <ExpandablePlainText
+      text={trimmed}
+      maxCollapsedChars={480}
+      defaultExpanded={defaultExpanded}
+      lead={
+        <Link
+          to={profilePath}
+          className="mr-1.5 font-semibold text-slate-900 hover:opacity-70 dark:text-slate-100"
+        >
+          {username}
+        </Link>
+      }
+      paragraphClassName="text-sm leading-relaxed text-slate-800 dark:text-slate-200"
+      moreClassName="mt-1.5 text-sm font-medium text-accent hover:text-accent-hover"
+    />
   );
 }
 
