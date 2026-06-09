@@ -82,6 +82,57 @@ export function NetworkMediaStrip({
       return img;
     };
 
+    const renderFeedMedia = (url: string, index: number, nestedInLink: boolean) => {
+      if (isCloudinaryVideoUrl(url)) {
+        return (
+          <video
+            src={url}
+            controls={!nestedInLink}
+            muted={nestedInLink}
+            playsInline
+            preload="metadata"
+            className="block max-h-[80vh] w-auto max-w-full object-contain"
+          />
+        );
+      }
+
+      const img = (
+        <img
+          src={url}
+          alt=""
+          className="block max-h-[80vh] w-auto max-w-full object-contain transition-opacity duration-150 hover:opacity-95"
+          loading="lazy"
+        />
+      );
+
+      if (onImageClick) {
+        return (
+          <button
+            type="button"
+            onClick={() => onImageClick(index)}
+            aria-label="Open image"
+            className="block w-auto max-w-full cursor-zoom-in"
+          >
+            {img}
+          </button>
+        );
+      }
+      if (nestedInLink) return img;
+      if (linkTo) {
+        return (
+          <Link
+            to={linkTo}
+            state={linkState}
+            aria-label="Open post"
+            className="block w-auto max-w-full"
+          >
+            {img}
+          </Link>
+        );
+      }
+      return img;
+    };
+
     if (urls.length === 1) {
       return (
         <div
@@ -89,6 +140,34 @@ export function NetworkMediaStrip({
         >
           {renderItem(urls[0], 0)}
         </div>
+      );
+    }
+
+    if (linkTo && !onImageClick) {
+      const extra = urls.length - 1;
+      return (
+        <Link
+          to={linkTo}
+          state={linkState}
+          aria-label={`Open post — ${urls.length} media items`}
+          className={`relative block w-full bg-slate-50 dark:bg-slate-950 ${className}`.trim()}
+        >
+          <div className="flex w-full justify-center">
+            {renderFeedMedia(urls[0], 0, true)}
+          </div>
+          <div
+            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent"
+            aria-hidden
+          />
+          <div className="pointer-events-none absolute bottom-3 left-3 right-3 flex items-end justify-between gap-2">
+            <span className="rounded-full bg-black/60 px-3 py-1.5 text-sm font-semibold text-white backdrop-blur-sm">
+              Click to see more
+            </span>
+            <span className="rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold tabular-nums text-white backdrop-blur-sm">
+              +{extra}
+            </span>
+          </div>
+        </Link>
       );
     }
 

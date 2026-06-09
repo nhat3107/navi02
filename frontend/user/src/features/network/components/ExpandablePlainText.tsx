@@ -23,6 +23,8 @@ export function ExpandablePlainText({
   paragraphClassName,
   moreClassName = 'mt-2 text-sm font-semibold text-accent hover:text-accent-hover dark:text-accent',
   stopCardNavigation = false,
+  lead,
+  wrapperClassName = 'min-w-0',
 }: {
   text: string;
   maxCollapsedChars: number;
@@ -30,6 +32,9 @@ export function ExpandablePlainText({
   moreClassName?: string;
   /** Use in feed cards so “Show more” does not open the post overlay. */
   stopCardNavigation?: boolean;
+  /** Optional prefix (e.g. @username) rendered inline before the body. */
+  lead?: React.ReactNode;
+  wrapperClassName?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const trimmed = text.trim();
@@ -38,8 +43,11 @@ export function ExpandablePlainText({
     !needsToggle || expanded ? trimmed : truncateRough(trimmed, maxCollapsedChars);
 
   return (
-    <div className="min-w-0">
-      <p className={paragraphClassName}>{displayText}</p>
+    <div className={wrapperClassName}>
+      <p className={paragraphClassName}>
+        {lead}
+        {displayText}
+      </p>
       {needsToggle ? (
         <button
           type="button"

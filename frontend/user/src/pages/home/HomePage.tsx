@@ -10,6 +10,7 @@ import { AppPage } from '../../shared/layout/AppPage';
 import { ROUTES } from '../../shared/constants/routes';
 import { FeedComposer } from '../../features/network/components/FeedComposer';
 import { PostCard } from '../../features/network/components/PostCard';
+import { usePostEngagementFromNavigation } from '../../features/network/hooks/usePostEngagementFromNavigation';
 import { SuggestedPeoplePanel } from '../../features/user/components/SuggestedPeoplePanel';
 
 const PAGE = 15;
@@ -22,6 +23,7 @@ export function HomePage() {
   const myProfile = useProfileCache((s) => s.myProfile);
 
   const [posts, setPosts] = useState<NetworkPost[]>([]);
+  usePostEngagementFromNavigation(setPosts);
   const [skip, setSkip] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);

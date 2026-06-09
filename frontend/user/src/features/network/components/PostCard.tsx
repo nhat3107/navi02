@@ -78,6 +78,7 @@ function PostGridTile({
   const overlayState: PostOverlayNavigationState = {
     backgroundLocation: location,
   };
+  const extraMedia = post.mediaUrls.length - 1;
 
   return (
     <Link
@@ -115,6 +116,11 @@ function PostGridTile({
             {textPreview || '·'}
           </p>
         </div>
+      )}
+      {extraMedia > 0 && (
+        <span className="absolute bottom-2 right-2 z-10 rounded-md bg-black/65 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
+          +{extraMedia}
+        </span>
       )}
       <div className="pointer-events-none absolute inset-0 hidden items-center justify-center gap-6 bg-black/45 text-[0.8125rem] font-semibold text-white opacity-0 transition-opacity duration-200 md:flex md:group-hover:opacity-100">
         <span className="flex items-center gap-1.5" aria-hidden>
@@ -464,15 +470,22 @@ function PostFeedCard({
           </div>
 
           {!isRepost && !textOnly && bodyText.length > 0 && (
-            <p className="text-base leading-relaxed text-slate-900 dark:text-slate-100">
-              <Link
-                to={profilePath}
-                className="mr-1.5 font-semibold hover:opacity-70"
-              >
-                {username}
-              </Link>
-              <span className="whitespace-pre-wrap font-normal">{post.content}</span>
-            </p>
+            <ExpandablePlainText
+              text={bodyText}
+              maxCollapsedChars={180}
+              stopCardNavigation
+              lead={
+                <Link
+                  to={profilePath}
+                  className="mr-1.5 font-semibold text-slate-900 hover:opacity-70 dark:text-slate-100"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {username}
+                </Link>
+              }
+              paragraphClassName="text-base leading-relaxed text-slate-900 dark:text-slate-100"
+              moreClassName="mt-1 text-sm font-medium text-accent hover:text-accent-hover"
+            />
           )}
 
           {post.commentCount > 0 && (

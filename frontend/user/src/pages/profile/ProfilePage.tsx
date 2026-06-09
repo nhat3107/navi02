@@ -24,6 +24,7 @@ import { fetchPostsByAuthor } from '../../features/network/api/network.api';
 import type { NetworkPost } from '../../features/network/types/network.types';
 import { useAuthorProfiles } from '../../features/network/hooks/useAuthorProfiles';
 import { PostCard } from '../../features/network/components/PostCard';
+import { usePostEngagementFromNavigation } from '../../features/network/hooks/usePostEngagementFromNavigation';
 import { fetchAccountStatusApi } from '../../features/user/api/accountStatus.api';
 import type { AccountStatus } from '../../features/user/types/accountStatus.types';
 import { scrollAppMainToElement } from '../../shared/lib/scrollAppMainTo';
@@ -409,6 +410,7 @@ function ProfilePostsSection({
   isSelf: boolean;
 }) {
   const [posts, setPosts] = useState<NetworkPost[]>([]);
+  usePostEngagementFromNavigation(setPosts);
   const [skip, setSkip] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);

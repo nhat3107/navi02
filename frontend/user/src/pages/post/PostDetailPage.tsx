@@ -4,6 +4,10 @@ import type { AxiosError } from 'axios';
 import { AppPage } from '../../shared/layout/AppPage';
 import { UserAvatar } from '../../features/user/components/UserAvatar';
 import { ROUTES, buildProfilePath, type PostOverlayNavigationState } from '../../shared/constants/routes';
+import {
+  type AppNavigationState,
+  upsertEngagementPatch,
+} from '../../features/network/lib/postEngagementNavigation';
 import { useAuthStore } from '../../features/auth/store/auth.store';
 import type { UserProfile } from '../../features/user/types/user.types';
 import { useAuthorProfiles } from '../../features/network/hooks/useAuthorProfiles';
@@ -77,18 +81,26 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
     const bg = (location.state as PostOverlayNavigationState | null | undefined)
       ?.backgroundLocation;
     if (bg && typeof bg.pathname === 'string') {
+      const prevState = (bg.state ?? {}) as AppNavigationState;
+      const nextState: AppNavigationState = { ...prevState };
+      if (post) {
+        nextState.postEngagementPatches = upsertEngagementPatch(
+          prevState.postEngagementPatches,
+          { postId: post.id, liked, likeCount },
+        );
+      }
       navigate(
         {
           pathname: bg.pathname,
           search: bg.search,
           hash: bg.hash,
         },
-        { replace: true, state: bg.state },
+        { replace: true, state: nextState },
       );
     } else {
       navigate(-1);
     }
-  }, [navigate, location.state]);
+  }, [navigate, location.state, post, liked, likeCount]);
 
   useEffect(() => {
     setExtraAuthorIds([]);
@@ -475,14 +487,24 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
                     )}
                   </div>
                   {isRepost && post.content.trim().length > 0 && (
-                    <p className="mt-2 whitespace-pre-wrap break-words text-[1.0625rem] font-medium leading-[1.65] text-slate-900 antialiased dark:text-slate-100 sm:text-lg sm:leading-relaxed">
-                      {post.content}
-                    </p>
+                    <div className="mt-2">
+                      <ExpandablePlainText
+                        text={post.content.trim()}
+                        maxCollapsedChars={280}
+                        paragraphClassName="whitespace-pre-wrap break-words text-[1.0625rem] font-medium leading-[1.65] text-slate-900 antialiased dark:text-slate-100 sm:text-lg sm:leading-relaxed"
+                        moreClassName="mt-2 text-sm font-medium text-accent hover:text-accent-hover"
+                      />
+                    </div>
                   )}
                   {!isRepost && hasMedia && post.content.trim().length > 0 && (
-                    <p className="mt-2 whitespace-pre-wrap break-words text-[1.0625rem] font-medium leading-[1.65] text-slate-900 antialiased dark:text-slate-100 sm:text-lg sm:leading-relaxed">
-                      {post.content}
-                    </p>
+                    <div className="mt-2">
+                      <ExpandablePlainText
+                        text={post.content.trim()}
+                        maxCollapsedChars={280}
+                        paragraphClassName="whitespace-pre-wrap break-words text-[1.0625rem] font-medium leading-[1.65] text-slate-900 antialiased dark:text-slate-100 sm:text-lg sm:leading-relaxed"
+                        moreClassName="mt-2 text-sm font-medium text-accent hover:text-accent-hover"
+                      />
+                    </div>
                   )}
                 </div>
                 <div className="relative shrink-0" ref={menuRef}>
