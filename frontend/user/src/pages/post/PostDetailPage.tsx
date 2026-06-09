@@ -443,31 +443,29 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
             {textOnly && (
               <section
                 aria-label="Post text"
-                className="post-detail-text-only relative flex min-h-[280px] flex-col border-b border-slate-200 dark:border-slate-800 lg:h-[min(82vh,820px)] lg:max-h-[min(82vh,820px)] lg:min-h-[560px] lg:border-b-0 lg:border-r"
+                className="post-detail-text-only relative flex max-h-[min(72vh,680px)] min-h-[280px] flex-col border-b border-slate-200 dark:border-slate-800 lg:h-[min(82vh,820px)] lg:max-h-[min(82vh,820px)] lg:min-h-[560px] lg:border-b-0 lg:border-r"
               >
-                <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto p-5 sm:p-8">
+                <div className="flex min-h-0 flex-1 flex-col justify-start overflow-y-auto overscroll-y-contain p-5 sm:p-8">
                   <div className="post-detail-text-only__highlight">
                     {isRepost && repostQuote.length > 0 && (
-                      <p className="mb-6 border-b border-slate-200/80 pb-5 text-sm leading-relaxed text-slate-600 dark:border-slate-700/80 dark:text-slate-300">
-                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      <div className="mb-6 border-b border-slate-200/80 pb-5 dark:border-slate-700/80">
+                        <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                           Repost note
                         </span>
                         <ExpandablePlainText
                           text={repostQuote}
-                          maxCollapsedChars={1200}
-                          defaultExpanded={repostQuote.length <= 400}
-                          paragraphClassName="whitespace-pre-wrap text-base leading-relaxed text-slate-800 dark:text-slate-200"
-                          moreClassName="mt-2 text-sm font-medium text-accent hover:text-accent-hover"
+                          maxCollapsedChars={0}
+                          alwaysExpanded
+                          paragraphClassName="whitespace-pre-wrap break-words text-base leading-relaxed text-slate-800 dark:text-slate-200"
                         />
-                      </p>
+                      </div>
                     )}
                     {textOnlyBody.length > 0 ? (
                       <ExpandablePlainText
                         text={textOnlyBody}
-                        maxCollapsedChars={2000}
-                        defaultExpanded={textOnlyBody.length <= 600}
-                        paragraphClassName="whitespace-pre-wrap text-base leading-[1.75] text-slate-800 dark:text-slate-200 sm:text-lg sm:leading-[1.8]"
-                        moreClassName="mt-3 text-sm font-medium text-accent hover:text-accent-hover"
+                        maxCollapsedChars={0}
+                        alwaysExpanded
+                        paragraphClassName="whitespace-pre-wrap break-words text-base leading-[1.75] text-slate-800 dark:text-slate-200 sm:text-lg sm:leading-[1.8]"
                       />
                     ) : isRepost && !originalPost ? (
                       <SharedPostPreview unavailable />
@@ -478,9 +476,9 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
             )}
 
             <div
-              className={`flex flex-col bg-white dark:bg-slate-950 ${
+              className={`flex min-h-0 flex-col bg-white dark:bg-slate-950 ${
                 detailTwoColumn
-                  ? 'lg:h-[min(82vh,820px)] lg:max-h-[min(82vh,820px)] lg:min-h-[560px]'
+                  ? 'max-h-[min(72vh,680px)] lg:h-[min(82vh,820px)] lg:max-h-[min(82vh,820px)] lg:min-h-[560px]'
                   : ''
               }`}
             >
@@ -611,14 +609,13 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
                 ) : null}
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-5">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-3 sm:px-5">
                 {showCaptionInPane && (
                   <div className="mb-4 border-b border-slate-100 pb-4 dark:border-slate-800/80">
                     <PostDetailCaption
                       username={username}
                       profilePath={profilePath}
                       text={repostQuote || mediaCaption}
-                      defaultExpanded={(repostQuote || mediaCaption).length <= 320}
                     />
                   </div>
                 )}
@@ -832,17 +829,15 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
   );
 }
 
-/** Caption block in the scrollable pane (username + body, expandable when long). */
+/** Caption in the scrollable pane — full text, parent scrolls when long. */
 function PostDetailCaption({
   username,
   profilePath,
   text,
-  defaultExpanded = false,
 }: {
   username: string;
   profilePath: string;
   text: string;
-  defaultExpanded?: boolean;
 }) {
   const trimmed = text.trim();
   if (!trimmed) return null;
@@ -850,8 +845,8 @@ function PostDetailCaption({
   return (
     <ExpandablePlainText
       text={trimmed}
-      maxCollapsedChars={480}
-      defaultExpanded={defaultExpanded}
+      maxCollapsedChars={0}
+      alwaysExpanded
       lead={
         <Link
           to={profilePath}
@@ -860,8 +855,7 @@ function PostDetailCaption({
           {username}
         </Link>
       }
-      paragraphClassName="text-sm leading-relaxed text-slate-800 dark:text-slate-200"
-      moreClassName="mt-1.5 text-sm font-medium text-accent hover:text-accent-hover"
+      paragraphClassName="break-words text-sm leading-relaxed text-slate-800 dark:text-slate-200"
     />
   );
 }

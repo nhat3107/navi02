@@ -26,6 +26,7 @@ export function ExpandablePlainText({
   lead,
   wrapperClassName = 'min-w-0',
   defaultExpanded = false,
+  alwaysExpanded = false,
 }: {
   text: string;
   maxCollapsedChars: number;
@@ -38,10 +39,13 @@ export function ExpandablePlainText({
   wrapperClassName?: string;
   /** Start expanded (e.g. post detail for short captions). */
   defaultExpanded?: boolean;
+  /** Show full text — parent handles scroll (post detail). */
+  alwaysExpanded?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [expanded, setExpanded] = useState(defaultExpanded || alwaysExpanded);
   const trimmed = text.trim();
-  const needsToggle = trimmed.length > maxCollapsedChars;
+  const needsToggle =
+    !alwaysExpanded && trimmed.length > maxCollapsedChars;
   const displayText =
     !needsToggle || expanded ? trimmed : truncateRough(trimmed, maxCollapsedChars);
 
