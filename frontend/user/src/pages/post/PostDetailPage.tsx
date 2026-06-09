@@ -358,8 +358,9 @@ export function PostDetailPage({ overlay = false }: { overlay?: boolean }) {
   const originalAuthor = originalPost
     ? authorById[originalPost.authorId]
     : undefined;
-  const repostQuote = isRepost ? post.content.trim() : '';
-  const mediaCaption = !isRepost && hasMedia ? post.content.trim() : '';
+  const repostQuote = isRepost ? (post?.content.trim() ?? '') : '';
+  const mediaCaption =
+    !isRepost && hasMedia ? (post?.content.trim() ?? '') : '';
   const showCaptionInPane = repostQuote.length > 0 || mediaCaption.length > 0;
   const textOnlyBody = (
     isRepost ? displayPost?.content ?? '' : post?.content ?? ''
