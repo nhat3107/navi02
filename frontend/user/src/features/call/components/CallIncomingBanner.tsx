@@ -180,7 +180,7 @@ export function CallIncomingBanner() {
     setBusy(true);
     const meetingId = incoming.meetingId;
     try {
-      const token = await fetchVideoCallToken();
+      const token = await fetchVideoCallToken(meetingId);
       let displayName = user.email.split('@')[0] ?? 'Guest';
       try {
         const prof = await getProfileApi();
