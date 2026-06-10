@@ -8,8 +8,6 @@ export type IncomingCallPayload = {
   callType: CallType;
   isGroupCall: boolean;
   callerName?: string;
-  /** Group calls: other invited user ids (for `end_call` fan-out). */
-  peerUserIds?: string[];
 };
 
 export type CallEndedPayload = {

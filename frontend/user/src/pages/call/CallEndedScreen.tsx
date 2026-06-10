@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { CallEndedInfo } from '../../features/call/store/call.store';
 import { useCallStore } from '../../features/call/store/call.store';
 import { ROUTES } from '../../shared/constants/routes';
-import { releaseLocalMediaTracks } from '../../features/call/lib/releaseCallMedia';
 import { PhoneHangupIcon } from '../../features/call/components/CallIcons';
 
 function endedVisual(reason: CallEndedInfo['reason']) {
@@ -40,28 +40,25 @@ function endedVisual(reason: CallEndedInfo['reason']) {
  * Brief post-call confirmation, then bounce back to /chat.
  */
 export function CallEndedScreen({ info }: { info: CallEndedInfo }) {
+  const navigate = useNavigate();
   const setLastEnded = useCallStore((s) => s.setLastEnded);
   const [seconds, setSeconds] = useState(3);
   const visual = endedVisual(info.reason);
 
-  const returnToChat = useCallback(() => {
-    setLastEnded(null);
-    releaseLocalMediaTracks();
-    window.location.replace(ROUTES.CHAT);
-  }, [setLastEnded]);
-
   useEffect(() => {
-    releaseLocalMediaTracks();
     const tick = window.setInterval(
       () => setSeconds((s) => Math.max(0, s - 1)),
       1000,
     );
-    const done = window.setTimeout(returnToChat, 3000);
+    const done = window.setTimeout(() => {
+      setLastEnded(null);
+      navigate(ROUTES.CHAT, { replace: true });
+    }, 3000);
     return () => {
       window.clearInterval(tick);
       window.clearTimeout(done);
     };
-  }, [info.meetingId, returnToChat]);
+  }, [info.meetingId, navigate, setLastEnded]);
 
   const heading = (() => {
     switch (info.reason) {
@@ -102,7 +99,8 @@ export function CallEndedScreen({ info }: { info: CallEndedInfo }) {
   })();
 
   const handleReturn = () => {
-    returnToChat();
+    setLastEnded(null);
+    navigate(ROUTES.CHAT, { replace: true });
   };
 
   return (

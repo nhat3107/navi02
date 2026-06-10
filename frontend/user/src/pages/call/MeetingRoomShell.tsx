@@ -5,8 +5,6 @@ import { useCallStore } from '../../features/call/store/call.store';
 import { useCallSocket } from '../../features/call/hooks/useCallSocket';
 import { CALL_NO_ANSWER_TIMEOUT_MS } from '../../features/call/constants';
 import { postCallBroadcast } from '../../features/call/lib/callBroadcast';
-import { releaseLocalMediaTracks } from '../../features/call/lib/releaseCallMedia';
-import { teardownMeetingMedia } from '../../features/call/lib/meetingLeaveRegistry';
 import { ROUTES } from '../../shared/constants/routes';
 import { ParticipantMediaTile } from './ParticipantMediaTile';
 import { ScreenShareTile } from './ScreenShareTile';
@@ -188,7 +186,6 @@ export function MeetingRoomShell() {
           meetingId,
           reason: 'connection_failed',
         });
-        teardownMeetingMedia();
         setActiveSession(null);
       }
     },
@@ -268,7 +265,6 @@ export function MeetingRoomShell() {
           reason: 'left_by_me',
         });
       }
-      releaseLocalMediaTracks();
       setActiveSession(null);
     },
   });
@@ -407,7 +403,6 @@ export function MeetingRoomShell() {
     if (sdkJoinedRef.current) {
       safeLeave();
     } else {
-      teardownMeetingMedia();
       setActiveSession(null);
     }
   };
@@ -427,7 +422,6 @@ export function MeetingRoomShell() {
     if (sdkJoinedRef.current) {
       safeLeave();
     } else {
-      teardownMeetingMedia();
       setActiveSession(null);
     }
   };

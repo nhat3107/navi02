@@ -1,9 +1,7 @@
 import { useEffect } from 'react';
 import { useSocket } from '../../../shared/socket/SocketProvider';
-import { ROUTES } from '../../../shared/constants/routes';
 import { useCallStore } from '../store/call.store';
 import { subscribeCallBroadcast } from '../lib/callBroadcast';
-import { teardownMeetingMedia } from '../lib/meetingLeaveRegistry';
 import type {
   IncomingCallPayload,
   CallEndedPayload,
@@ -63,11 +61,7 @@ export function CallSignalBridge() {
           reason:
             p.forEveryone === true ? 'ended_for_everyone' : 'ended_by_remote',
         });
-        teardownMeetingMedia();
         setActiveSession(null);
-        if (!window.location.pathname.startsWith(ROUTES.CALL)) {
-          window.location.assign(ROUTES.CALL);
-        }
       }
     };
 
@@ -92,11 +86,7 @@ export function CallSignalBridge() {
           endedBy: p.from,
           reason: 'rejected',
         });
-        teardownMeetingMedia();
         setActiveSession(null);
-        if (!window.location.pathname.startsWith(ROUTES.CALL)) {
-          window.location.assign(ROUTES.CALL);
-        }
       }
     };
 
@@ -142,7 +132,6 @@ export function CallSignalBridge() {
           setRemoteActiveMeetingId(null);
         }
         if (activeSession?.meetingId === msg.meetingId) {
-          teardownMeetingMedia();
           setActiveSession(null);
         }
       }

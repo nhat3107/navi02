@@ -147,7 +147,6 @@ export class ChatGateway implements OnGatewayConnection {
         typeof body.callerName === 'string'
           ? body.callerName.trim().slice(0, 120)
           : undefined,
-      peerUserIds: isGroup ? [...targets] : undefined,
     };
 
     for (const uid of targets) {

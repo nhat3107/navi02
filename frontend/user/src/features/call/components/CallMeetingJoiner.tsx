@@ -1,11 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useMeeting } from '@videosdk.live/react-sdk';
 import { useCallStore } from '../store/call.store';
-import { releaseLocalMediaTracks } from '../lib/releaseCallMedia';
-import {
-  registerMeetingLeave,
-  unregisterMeetingLeave,
-} from '../lib/meetingLeaveRegistry';
 
 /**
  * Keeps a single VideoSDK join alive for the whole `activeSession`, regardless
@@ -20,35 +15,9 @@ export function CallMeetingJoiner() {
   const leaveRef = useRef(leave);
   leaveRef.current = leave;
 
-  const disconnectMeeting = () => {
-    if (!joinedMeetingIdRef.current) return;
-    try {
-      leaveRef.current();
-    } catch {
-      /* SDK may already be tearing down */
-    }
-    releaseLocalMediaTracks();
-    joinedMeetingIdRef.current = null;
-  };
-
-  useEffect(() => {
-    registerMeetingLeave(() => {
-      try {
-        leaveRef.current();
-      } catch {
-        /* SDK may already be tearing down */
-      }
-      releaseLocalMediaTracks();
-    });
-    return () => {
-      unregisterMeetingLeave();
-      disconnectMeeting();
-    };
-  }, []);
-
   useEffect(() => {
     if (!session) {
-      disconnectMeeting();
+      joinedMeetingIdRef.current = null;
       return;
     }
 
@@ -64,7 +33,6 @@ export function CallMeetingJoiner() {
       } catch {
         /* switching calls */
       }
-      releaseLocalMediaTracks();
     }
 
     try {
