@@ -8,6 +8,7 @@ import { useCallStore } from '../store/call.store';
 import { fetchVideoCallToken } from '../api/call.api';
 import { useCallSocket } from '../hooks/useCallSocket';
 import { postCallBroadcast } from '../lib/callBroadcast';
+import { buildIncomingSignalPeerIds } from '../lib/buildSignalPeerIds';
 import { useAuthorProfiles } from '../../network/hooks/useAuthorProfiles';
 import { UserAvatar } from '../../user/components/UserAvatar';
 
@@ -197,7 +198,7 @@ export function CallIncomingBanner() {
         token,
         callType: incoming.callType,
         displayName,
-        signalPeerIds: [incoming.from],
+        signalPeerIds: buildIncomingSignalPeerIds(incoming, user.id),
         isGroupCall: Boolean(incoming.isGroupCall),
       });
       setIncoming(null);
