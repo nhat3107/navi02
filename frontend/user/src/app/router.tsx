@@ -8,6 +8,7 @@ import type { Location as RouterLocation } from 'react-router-dom';
 import { ROUTES } from '../shared/constants/routes';
 import { ChatSocketProvider, NotificationSocketProvider } from '../shared/socket/SocketProvider';
 import { CallSignalBridge } from '../features/call/components/CallSignalBridge';
+import { CallSessionLifecycle } from '../features/call/components/CallSessionLifecycle';
 import { CallIncomingBanner } from '../features/call/components/CallIncomingBanner';
 import { CallInOtherTabIndicator } from '../features/call/components/CallInOtherTabIndicator';
 import { CallProvider } from '../features/call/components/CallProvider';
@@ -46,6 +47,7 @@ function AppShellRoutes() {
   return (
     <>
       <CallSignalBridge />
+      <CallSessionLifecycle />
       <CallIncomingBanner />
       <CallInOtherTabIndicator />
       <MiniCallBar />

@@ -5,6 +5,7 @@ import { useCallStore } from '../../features/call/store/call.store';
 import { useCallSocket } from '../../features/call/hooks/useCallSocket';
 import { CALL_NO_ANSWER_TIMEOUT_MS } from '../../features/call/constants';
 import { postCallBroadcast } from '../../features/call/lib/callBroadcast';
+import { releaseCallMedia } from '../../features/call/lib/callMediaCleanup';
 import { ROUTES } from '../../shared/constants/routes';
 import { ParticipantMediaTile } from './ParticipantMediaTile';
 import { ScreenShareTile } from './ScreenShareTile';
@@ -151,6 +152,7 @@ export function MeetingRoomShell() {
     if (leftRef.current) return;
     if (!sdkJoinedRef.current) return;
     leftRef.current = true;
+    releaseCallMedia();
     try {
       leaveRef.current();
     } catch {
@@ -186,7 +188,12 @@ export function MeetingRoomShell() {
           meetingId,
           reason: 'connection_failed',
         });
-        setActiveSession(null);
+        if (sdkJoinedRef.current) {
+          safeLeave();
+        } else {
+          releaseCallMedia();
+          setActiveSession(null);
+        }
       }
     },
     onError: ({ code, message }) => {
@@ -403,6 +410,7 @@ export function MeetingRoomShell() {
     if (sdkJoinedRef.current) {
       safeLeave();
     } else {
+      releaseCallMedia();
       setActiveSession(null);
     }
   };
@@ -422,6 +430,7 @@ export function MeetingRoomShell() {
     if (sdkJoinedRef.current) {
       safeLeave();
     } else {
+      releaseCallMedia();
       setActiveSession(null);
     }
   };
