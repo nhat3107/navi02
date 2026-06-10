@@ -258,7 +258,9 @@ export function MeetingRoomShell() {
     onMeetingLeft: () => {
       leftRef.current = true;
       const sess = useCallStore.getState().activeSession;
-      const mid = sess?.meetingId ?? meetingId ?? '';
+      // Remote/socket teardown may have cleared the session before `leave()` runs.
+      if (!sess) return;
+      const mid = sess.meetingId ?? meetingId ?? '';
       if (mid && !endedBroadcastRef.current) {
         endedBroadcastRef.current = true;
         postCallBroadcast({ type: 'active_session_ended', meetingId: mid });

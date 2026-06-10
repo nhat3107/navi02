@@ -5,19 +5,20 @@ import { releaseCallMedia } from '../lib/callMediaCleanup';
 
 /**
  * Keeps a single VideoSDK join alive for the whole `activeSession`, regardless
- * of whether `/call` is mounted. Without this, leaving the call page runs
- * MeetingRoomShell's cleanup → `leave()`, then "Return" runs `join()` again
- * and the same user appears twice in the room.
+ * of whether `/call` is mounted.
  *
- * On unmount (session cleared or provider torn down) we always call `leave()`
- * and stop local media tracks so remote hang-up / socket `call_ended` paths
- * release the camera even when `MeetingRoomShell` never runs `safeLeave()`.
+ * Important: never call `leave()` from this effect's re-run cleanup — VideoSDK
+ * may change the `join` function identity after connect, which would otherwise
+ * leave immediately and tear down the session via `onMeetingLeft`.
+ * Leave only runs when this component unmounts (session cleared / provider gone).
  */
 export function CallMeetingJoiner() {
   const session = useCallStore((s) => s.activeSession);
   const { join, leave } = useMeeting();
   const joinedMeetingIdRef = useRef<string | null>(null);
+  const joinRef = useRef(join);
   const leaveRef = useRef(leave);
+  joinRef.current = join;
   leaveRef.current = leave;
 
   useEffect(() => {
@@ -39,13 +40,15 @@ export function CallMeetingJoiner() {
     }
 
     try {
-      join();
+      joinRef.current();
     } catch {
       /* SDK rejects duplicate joins */
     }
+  }, [session?.meetingId]);
 
+  useEffect(() => {
     return () => {
-      if (joinedMeetingIdRef.current !== meetingId) return;
+      if (!joinedMeetingIdRef.current) return;
       try {
         leaveRef.current();
       } catch {
@@ -54,7 +57,7 @@ export function CallMeetingJoiner() {
       releaseCallMedia();
       joinedMeetingIdRef.current = null;
     };
-  }, [session?.meetingId, join]);
+  }, []);
 
   return null;
 }

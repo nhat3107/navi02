@@ -1125,6 +1125,7 @@ export function ChatPage() {
           });
         }
 
+        useCallStore.getState().setLastEnded(null);
         setCallSession({
           meetingId,
           token,

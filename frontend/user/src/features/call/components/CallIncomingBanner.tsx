@@ -192,6 +192,7 @@ export function CallIncomingBanner() {
         /* ignore */
       }
       emitAcceptCall({ to: incoming.from, meetingId });
+      useCallStore.getState().setLastEnded(null);
       setActiveSession({
         meetingId,
         token,
