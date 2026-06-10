@@ -94,6 +94,9 @@ export function MeetingRoomShell() {
   // "I'm now alone after others left" (group → auto end-for-all).
   const sawPeerRef = useRef(false);
   const everyoneLeftTriggeredRef = useRef(false);
+  const participantsRef = useRef(
+    new Map<string, { local?: boolean }>(),
+  );
 
   const isGroupCall = Boolean(activeSession?.isGroupCall);
   const meetingId = activeSession?.meetingId ?? '';
@@ -229,16 +232,14 @@ export function MeetingRoomShell() {
         return;
       }
 
-      // Group → if I'm the only non-local left and others were here, end too.
-      // We delay one tick so VideoSDK's participants map updates first.
+      // Group → end only when no remote participants remain (last one in the room).
       window.setTimeout(() => {
         if (everyoneLeftTriggeredRef.current) return;
-        const remaining = [...participants.values()].filter(
+        const remaining = [...participantsRef.current.values()].filter(
           (part) => !part.local,
         );
         if (remaining.length === 0 && sawPeerRef.current) {
           everyoneLeftTriggeredRef.current = true;
-          notifyPeersEndCall(false);
           setLastEnded({
             meetingId: sess.meetingId,
             reason: 'all_left',
@@ -269,6 +270,7 @@ export function MeetingRoomShell() {
   });
 
   leaveRef.current = leave;
+  participantsRef.current = participants;
 
   // Join is handled by CallMeetingJoiner (persists across /call ↔ /chat navigation).
   useEffect(() => {
@@ -309,7 +311,10 @@ export function MeetingRoomShell() {
     if (!meetingId) return;
     postCallBroadcast({ type: 'active_session_started', meetingId });
     const onUnload = () => {
-      notifyPeersEndCall(false);
+      const sess = useCallStore.getState().activeSession;
+      if (sess && !sess.isGroupCall) {
+        notifyPeersEndCall(false);
+      }
       if (endedBroadcastRef.current) return;
       endedBroadcastRef.current = true;
       postCallBroadcast({ type: 'active_session_ended', meetingId });
@@ -387,7 +392,10 @@ export function MeetingRoomShell() {
 
   const hangUp = () => {
     setShowLeaveMenu(false);
-    notifyPeersEndCall(false);
+    // 1:1 only — group leavers stay on VideoSDK; peers are not notified via socket.
+    if (!isGroupCall) {
+      notifyPeersEndCall(false);
+    }
     setLastEnded({
       meetingId,
       reason: 'left_by_me',

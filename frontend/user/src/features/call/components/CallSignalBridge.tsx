@@ -50,6 +50,10 @@ export function CallSignalBridge() {
         setRemoteActiveMeetingId(null);
       }
       if (activeSession && p.meetingId === activeSession.meetingId) {
+        const groupLeaveOnly = activeSession.isGroupCall && p.forEveryone !== true;
+        // Group: one person leaving must not tear down the meeting for others.
+        if (groupLeaveOnly) return;
+
         setLastEnded({
           meetingId: p.meetingId,
           endedBy: p.endedBy,
