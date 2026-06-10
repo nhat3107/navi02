@@ -5,7 +5,6 @@ import { useCallStore } from '../../features/call/store/call.store';
 import { useCallSocket } from '../../features/call/hooks/useCallSocket';
 import { CALL_NO_ANSWER_TIMEOUT_MS } from '../../features/call/constants';
 import { postCallBroadcast } from '../../features/call/lib/callBroadcast';
-import { releaseCallMedia } from '../../features/call/lib/callMediaCleanup';
 import { ROUTES } from '../../shared/constants/routes';
 import { ParticipantMediaTile } from './ParticipantMediaTile';
 import { ScreenShareTile } from './ScreenShareTile';
@@ -152,7 +151,6 @@ export function MeetingRoomShell() {
     if (leftRef.current) return;
     if (!sdkJoinedRef.current) return;
     leftRef.current = true;
-    releaseCallMedia();
     try {
       leaveRef.current();
     } catch {
@@ -188,12 +186,7 @@ export function MeetingRoomShell() {
           meetingId,
           reason: 'connection_failed',
         });
-        if (sdkJoinedRef.current) {
-          safeLeave();
-        } else {
-          releaseCallMedia();
-          setActiveSession(null);
-        }
+        setActiveSession(null);
       }
     },
     onError: ({ code, message }) => {
@@ -258,9 +251,7 @@ export function MeetingRoomShell() {
     onMeetingLeft: () => {
       leftRef.current = true;
       const sess = useCallStore.getState().activeSession;
-      // Remote/socket teardown may have cleared the session before `leave()` runs.
-      if (!sess) return;
-      const mid = sess.meetingId ?? meetingId ?? '';
+      const mid = sess?.meetingId ?? meetingId ?? '';
       if (mid && !endedBroadcastRef.current) {
         endedBroadcastRef.current = true;
         postCallBroadcast({ type: 'active_session_ended', meetingId: mid });
@@ -412,7 +403,6 @@ export function MeetingRoomShell() {
     if (sdkJoinedRef.current) {
       safeLeave();
     } else {
-      releaseCallMedia();
       setActiveSession(null);
     }
   };
@@ -432,7 +422,6 @@ export function MeetingRoomShell() {
     if (sdkJoinedRef.current) {
       safeLeave();
     } else {
-      releaseCallMedia();
       setActiveSession(null);
     }
   };

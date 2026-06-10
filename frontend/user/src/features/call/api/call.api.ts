@@ -1,11 +1,8 @@
 import { api } from '../../../shared/utils/axios';
 import { API_ROUTES } from '../../../shared/constants/routes';
 
-export async function fetchVideoCallToken(meetingId?: string): Promise<string> {
-  const res = await api.post<{ token: string }>(
-    API_ROUTES.CALL_TOKEN,
-    meetingId?.trim() ? { meetingId: meetingId.trim() } : {},
-  );
+export async function fetchVideoCallToken(): Promise<string> {
+  const res = await api.post<{ token: string }>(API_ROUTES.CALL_TOKEN, {});
   const token = res.data?.token?.trim();
   if (!token) throw new Error('No token in response');
   return token;

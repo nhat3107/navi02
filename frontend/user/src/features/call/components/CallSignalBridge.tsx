@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { useSocket } from '../../../shared/socket/SocketProvider';
 import { useCallStore } from '../store/call.store';
 import { subscribeCallBroadcast } from '../lib/callBroadcast';
-import { releaseCallMedia } from '../lib/callMediaCleanup';
 import type {
   IncomingCallPayload,
   CallEndedPayload,
@@ -62,8 +61,6 @@ export function CallSignalBridge() {
           reason:
             p.forEveryone === true ? 'ended_for_everyone' : 'ended_by_remote',
         });
-        // Session clear unmounts MeetingProvider; release tracks immediately too.
-        releaseCallMedia();
         setActiveSession(null);
       }
     };
@@ -89,7 +86,6 @@ export function CallSignalBridge() {
           endedBy: p.from,
           reason: 'rejected',
         });
-        releaseCallMedia();
         setActiveSession(null);
       }
     };
@@ -136,7 +132,6 @@ export function CallSignalBridge() {
           setRemoteActiveMeetingId(null);
         }
         if (activeSession?.meetingId === msg.meetingId) {
-          releaseCallMedia();
           setActiveSession(null);
         }
       }

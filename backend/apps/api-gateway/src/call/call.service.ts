@@ -1,76 +1,41 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
 
-type VideoSdkRole = 'rtc' | 'crawler';
-
 @Injectable()
 export class CallService {
-  private getCredentials(): { apiKey: string; secret: string } {
+  /**
+   * VideoSDK JWT — same shape as dashboard / server examples (apikey, permissions, version).
+   */
+  generateToken(): { token: string } {
     const apiKey = process.env.VIDEOSDK_API_KEY?.trim();
-    const secret =
-      process.env.VIDEOSDK_SECRET?.trim() ||
-      process.env.VIDEOSDK_SECRET_KEY?.trim();
+    const secret = process.env.VIDEOSDK_SECRET?.trim();
     if (!apiKey || !secret) {
       throw new BadRequestException(
         'Video calls are not configured. Set VIDEOSDK_API_KEY and VIDEOSDK_SECRET on the API gateway.',
       );
     }
-    return { apiKey, secret };
+    const token = jwt.sign(
+      {
+        apikey: apiKey,
+        permissions: ['allow_join'],
+        version: 2,
+      },
+      secret,
+      { expiresIn: '1h', algorithm: 'HS256' },
+    );
+    return { token };
   }
 
   /**
-   * VideoSDK JWT — see https://docs.videosdk.live/javascript/guide/video-and-audio-calling-api-sdk/server-setup
-   *
-   * With `version: 2`, tokens must declare a role:
-   * - `rtc`     → client SDK (MeetingProvider / init-config)
-   * - `crawler` → REST APIs (create room)
-   */
-  private signToken(
-    roles: VideoSdkRole[],
-    roomId?: string,
-  ): string {
-    const { apiKey, secret } = this.getCredentials();
-    const payload: Record<string, unknown> = {
-      apikey: apiKey,
-      permissions: ['allow_join'],
-      version: 2,
-      roles,
-    };
-    const trimmedRoom = roomId?.trim();
-    if (trimmedRoom) {
-      payload.roomId = trimmedRoom;
-    }
-    return jwt.sign(payload, secret, {
-      expiresIn: '1h',
-      algorithm: 'HS256',
-    });
-  }
-
-  /** Client SDK token — used by MeetingProvider to join a room. */
-  generateRtcToken(roomId?: string): string {
-    return this.signToken(['rtc'], roomId);
-  }
-
-  /** REST token — used server-side to create rooms via VideoSDK API. */
-  generateCrawlerToken(): string {
-    return this.signToken(['crawler']);
-  }
-
-  /** JWT for callee / participant joining an existing meeting. */
-  generateToken(roomId?: string): { token: string } {
-    return { token: this.generateRtcToken(roomId) };
-  }
-
-  /**
-   * Creates a VideoSDK room and returns an RTC JWT + `roomId` as `meetingId`.
-   * Joining with a random UUID without creating a room causes SDK errors.
+   * Creates a VideoSDK room and returns JWT + `roomId` to use as `meetingId`.
+   * Joining with a random UUID without creating a room causes SDK errors (null transport).
    */
   async createRoomAndToken(): Promise<{ token: string; meetingId: string }> {
-    const crawlerToken = this.generateCrawlerToken();
+    const { token } = this.generateToken();
     const res = await fetch('https://api.videosdk.live/v2/rooms', {
       method: 'POST',
       headers: {
-        Authorization: crawlerToken,
+        Authorization: token,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({}),
@@ -78,12 +43,8 @@ export class CallService {
 
     const raw = await res.text();
     if (!res.ok) {
-      const hint =
-        res.status === 401
-          ? ' Check VIDEOSDK_API_KEY and VIDEOSDK_SECRET match your VideoSDK dashboard.'
-          : '';
       throw new BadRequestException(
-        `VideoSDK room create failed (${res.status}): ${raw.slice(0, 500)}.${hint}`,
+        `VideoSDK room create failed (${res.status}): ${raw.slice(0, 500)}`,
       );
     }
 
@@ -105,9 +66,6 @@ export class CallService {
       );
     }
 
-    return {
-      token: this.generateRtcToken(meetingId),
-      meetingId,
-    };
+    return { token, meetingId };
   }
 }

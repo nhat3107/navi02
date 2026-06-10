@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { CallService } from './call.service';
 
 @Controller('call')
@@ -7,8 +7,8 @@ export class CallController {
 
   @HttpCode(HttpStatus.OK)
   @Post('token')
-  getToken(@Body() body: { meetingId?: string } = {}) {
-    return this.callService.generateToken(body.meetingId);
+  getToken() {
+    return this.callService.generateToken();
   }
 
   /** Create a server-side room and return `{ token, meetingId }` for the caller. */

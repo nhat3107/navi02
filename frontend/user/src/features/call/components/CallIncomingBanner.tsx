@@ -180,7 +180,7 @@ export function CallIncomingBanner() {
     setBusy(true);
     const meetingId = incoming.meetingId;
     try {
-      const token = await fetchVideoCallToken(meetingId);
+      const token = await fetchVideoCallToken();
       let displayName = user.email.split('@')[0] ?? 'Guest';
       try {
         const prof = await getProfileApi();
@@ -192,7 +192,6 @@ export function CallIncomingBanner() {
         /* ignore */
       }
       emitAcceptCall({ to: incoming.from, meetingId });
-      useCallStore.getState().setLastEnded(null);
       setActiveSession({
         meetingId,
         token,
